@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const applicationSchema = new mongoose.Schema(
   {
@@ -14,13 +14,8 @@ const applicationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "APPLIED",
-        "NOT_INTERESTED",
-        "SHORTLISTED",
-        "REJECTED"
-      ],
-      default: "APPLIED"
+      enum: ["PENDING", "SHORTLISTED", "REJECTED"],
+      default: "PENDING",
     },
 
     isEligible: Boolean,
@@ -41,4 +36,4 @@ const applicationSchema = new mongoose.Schema(
 // Prevent duplicate applications
 applicationSchema.index({ student: 1, company: 1 }, { unique: true });
 
-module.exports = mongoose.model("Application", applicationSchema);
+export default mongoose.model("Application", applicationSchema);

@@ -1,5 +1,6 @@
 {
   "watch": ["server.js", "config", "models", "routes", "controllers"],
-  "ignore": ["node_modules", ".git", "uploads", "*.log"],
-  "ext": "js,json"
+  "ext": "js,json",
+  "ignore": ["node_modules"],
+  "exec": "node server.js"
 }

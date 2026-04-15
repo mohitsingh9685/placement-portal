@@ -1,14 +1,14 @@
-const express = require("express");
-const dotenv = require("dotenv");
-const cors = require("cors");
-
-const connectDB = require("./config/db");
-const authRoutes = require("./routes/authRoutes");
-const { protect } = require("./middleware/authMiddleware");
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import connectDB from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
+import { protect } from "./middleware/authMiddleware.js";
+import companyRoutes from "./routes/companyRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
 
 // Load env variables
 dotenv.config();
-
 // Connect to database
 connectDB();
 
@@ -20,6 +20,8 @@ app.use(express.json());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/company", companyRoutes);
+app.use("/api/application", applicationRoutes);
 
 // Test route
 app.get("/", (req, res) => {
@@ -30,7 +32,7 @@ app.get("/", (req, res) => {
 app.get("/api/protected", protect, (req, res) => {
   res.json({
     message: "Protected route accessed",
-    user: req.user
+    user: req.user,
   });
 });
 

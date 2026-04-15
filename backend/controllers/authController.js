@@ -1,10 +1,17 @@
-const Student = require("../models/Student");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+import Student from "../models/Student.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { registerSchema, loginSchema } from "../validators/authValidator.js";
 
 // REGISTER
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   try {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues.map((err) => err.message),
+      });
+    }
     const { name, email, password } = req.body;
 
     // check user exists
@@ -19,7 +26,7 @@ exports.register = async (req, res) => {
     const user = await Student.create({
       name,
       email,
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     res.status(201).json({ message: "User registered successfully" });
@@ -28,9 +35,24 @@ exports.register = async (req, res) => {
   }
 };
 
-// LOGIN
-exports.login = async (req, res) => {
+// GET PROFILE
+export const getProfile = async (req, res) => {
   try {
+    res.status(200).json(req.user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// LOGIN
+export const login = async (req, res) => {
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues.map((err) => err.message),
+      });
+    }
     const { email, password } = req.body;
 
     const user = await Student.findOne({ email });
@@ -47,7 +69,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.json({ token, user });
