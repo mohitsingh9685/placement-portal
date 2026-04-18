@@ -4,6 +4,7 @@ import Company from "../models/Company.js";
 // APPLY TO COMPANY
 export const applyToCompany = async (req, res) => {
   try {
+    console.log("USER:", req.user);
     const studentId = req.user._id;
     const { companyId } = req.body;
 
@@ -70,10 +71,9 @@ export const applyToCompany = async (req, res) => {
       application,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
-
 };
 
 // GET MY APPLICATIONS (Student Dashboard)
@@ -81,15 +81,14 @@ export const getMyApplications = async (req, res) => {
   try {
     const studentId = req.user._id;
 
-    const applications = await Application.find({ student: studentId })
-      .populate("company");
+    const applications = await Application.find({
+      student: studentId,
+    }).populate("company");
 
-    res.status(200).json({
-      count: applications.length,
-      applications,
-    });
+    res.status(200).json(applications);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -102,7 +101,8 @@ export const getAllApplications = async (req, res) => {
 
     res.status(200).json(applications);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -126,6 +126,7 @@ export const updateApplicationStatus = async (req, res) => {
       application,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
