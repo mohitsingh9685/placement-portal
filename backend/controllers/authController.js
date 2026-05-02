@@ -77,3 +77,24 @@ export const login = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// UPDATE PROFILE
+export const updateProfile = async (req, res) => {
+  try {
+    const user = await Student.findByIdAndUpdate(
+      req.user._id,
+      {
+        cgpa: req.body.cgpa,
+        branch: req.body.branch,
+        activebacklogs: req.body.activebacklogs,
+        hasActiveBacklog: req.body.hasActiveBacklog,
+      },
+      { new: true },
+    );
+
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};

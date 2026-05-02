@@ -1,5 +1,6 @@
 import Application from "../models/Application.js";
 import Company from "../models/Company.js";
+import Student from "../models/Student.js"; 
 
 // APPLY TO COMPANY
 export const applyToCompany = async (req, res) => {
@@ -64,12 +65,37 @@ export const applyToCompany = async (req, res) => {
     const application = await Application.create({
       student: studentId,
       company: companyId,
+
+      snapshot: {
+        name: student.name,
+        email: student.email,
+        cgpa: student.cgpa,
+        branch: student.branch,
+        backlogs: student.activeBacklogs || 0
+      }
     });
 
     res.status(201).json({
       message: "Applied successfully",
       application,
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+
+};
+
+// GET APPLICATIONS BY COMPANY (Admin)
+export const getApplicationsByCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    const applications = await Application.find({ company: companyId })
+      .populate("student")
+      .populate("company");
+
+    res.status(200).json(applications);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error" });
@@ -112,13 +138,27 @@ export const updateApplicationStatus = async (req, res) => {
     const { applicationId } = req.params;
     const { status } = req.body;
 
-    const application = await Application.findById(applicationId);
+    // fetch application with student populated
+    const application = await Application.findById(applicationId).populate("student");
 
     if (!application) {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    application.status = status;
+    // FIX 1: ensure valid enum format
+    const updatedStatus = status.toUpperCase();
+
+    // FIX 2: ensure snapshot exists (required fields)
+    if (!application.snapshot || !application.snapshot.name || !application.snapshot.email) {
+      application.snapshot = {
+        name: application.student?.name || "N/A",
+        email: application.student?.email || "N/A"
+      };
+    }
+
+    // update status
+    application.status = updatedStatus;
+
     await application.save();
 
     res.status(200).json({

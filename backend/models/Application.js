@@ -3,32 +3,37 @@ import mongoose from "mongoose";
 const applicationSchema = new mongoose.Schema(
   {
     student: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student"
-    },
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Student",
+  required: true
+},
 
-    company: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Company"
-    },
+company: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Company",
+  required: true
+},
 
     status: {
       type: String,
-      enum: ["PENDING", "SHORTLISTED", "REJECTED"],
-      default: "PENDING",
+      enum: ["APPLIED", "SELECTED", "REJECTED"],
+      default: "APPLIED",
     },
 
-    isEligible: Boolean,
+  isEligible: {
+  type: Boolean,
+  default: false
+},
 
     snapshot: {
-      name: String,
-      email: String,
-      cgpa: Number,
-      branch: String,
-      resumeUrl: String
-    },
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  cgpa: Number,
+  branch: String,
+  resumeUrl: String
+},
 
-    appliedAt: Date
+    appliedAt: { type: Date, default: Date.now }
   },
   { timestamps: true }
 );

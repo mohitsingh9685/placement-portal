@@ -41,3 +41,52 @@ export const getCompanies = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Get single company
+export const getCompanyById = async (req, res) => {
+  try {
+    const company = await Company.findById(req.params.id);
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    res.json(company);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update company
+export const updateCompany = async (req, res) => {
+  try {
+    const updatedCompany = await Company.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+
+    if (!updatedCompany) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    res.json(updatedCompany);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Delete company
+export const deleteCompany = async (req, res) => {
+  try {
+    const company = await Company.findByIdAndDelete(req.params.id);
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    res.json({ message: "Company deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
