@@ -14,86 +14,70 @@ function Navbar() {
     navigate("/");
   };
 
+  const navButtonClass = (path) =>
+    `rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
+      isActive(path)
+        ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+        : "text-slate-700 hover:bg-white/75 hover:text-blue-600"
+    }`;
+
   return (
-    <div className="bg-white shadow px-6 py-4 flex justify-between items-center">
-      <h1
-        onClick={() => navigate(user?.role === "admin" ? "/admin" : "/dashboard")}
-        className="text-2xl font-bold text-blue-600 cursor-pointer"
-      >
-        Placement Portal
-      </h1>
-
-      <div className="flex items-center gap-4">
-        {/* ADMIN NAV */}
-        {user?.role === "admin" ? (
-          <>
-            <button
-              onClick={() => navigate("/admin")}
-              className={`${
-                isActive("/admin") ? "text-gray-900 font-semibold" : "text-gray-700"
-              } hover:text-blue-600`}
-            >
-              Dashboard
-            </button>
-
-            <button
-              onClick={() => navigate("/create-company")}
-              className={`${
-                isActive("/create-company") ? "text-gray-900 font-semibold" : "text-gray-700"
-              } hover:text-blue-600`}
-            >
-              + Company
-            </button>
-
-            <button
-              onClick={() => navigate("/admin-profile")}
-              className={`${
-                isActive("/admin-profile") ? "text-gray-900 font-semibold" : "text-gray-700"
-              } hover:text-blue-600`}
-            >
-              Profile
-            </button>
-          </>
-        ) : (
-          /* STUDENT NAV */
-          <>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className={`${
-                isActive("/dashboard") ? "text-gray-900 font-semibold" : "text-gray-700"
-              } hover:text-blue-600`}
-            >
-              Dashboard
-            </button>
-
-            <button
-              onClick={() => navigate("/profile")}
-              className={`${
-                isActive("/profile") ? "text-gray-900 font-semibold" : "text-gray-700"
-              } hover:text-blue-600`}
-            >
-              Profile
-            </button>
-
-            <button
-              onClick={() => navigate("/applications")}
-              className={`${
-                isActive("/applications") ? "text-gray-900 font-semibold" : "text-gray-700"
-              } hover:text-blue-600`}
-            >
-              Applications
-            </button>
-          </>
-        )}
-
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+    <nav className="sticky top-0 z-50 border-b border-white/50 bg-white/65 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/45 px-4 py-3 shadow-lg shadow-slate-900/5">
+        <h1
+          onClick={() => navigate(user?.role === "admin" ? "/admin" : "/dashboard")}
+          className="cursor-pointer text-xl font-bold tracking-tight text-blue-600 transition-all duration-300 hover:text-blue-700 sm:text-2xl"
         >
-          Logout
-        </button>
+          Placement Portal
+        </h1>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* ADMIN NAV */}
+          {user?.role === "admin" ? (
+            <>
+              <button onClick={() => navigate("/admin")} className={navButtonClass("/admin")}>
+                Dashboard
+              </button>
+              <button
+                onClick={() => navigate("/create-company")}
+                className={navButtonClass("/create-company")}
+              >
+                + Company
+              </button>
+              <button
+                onClick={() => navigate("/admin-profile")}
+                className={navButtonClass("/admin-profile")}
+              >
+                Profile
+              </button>
+            </>
+          ) : (
+            /* STUDENT NAV */
+            <>
+              <button onClick={() => navigate("/dashboard")} className={navButtonClass("/dashboard")}>
+                Dashboard
+              </button>
+              <button onClick={() => navigate("/profile")} className={navButtonClass("/profile")}>
+                Profile
+              </button>
+              <button
+                onClick={() => navigate("/applications")}
+                className={navButtonClass("/applications")}
+              >
+                Applications
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={handleLogout}
+            className="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-600"
+          >
+            Logout
+          </button>
+        </div>
       </div>
-    </div>
+    </nav>
   );
 }
 

@@ -35,38 +35,58 @@ function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-12 bg-slate-50">
-      {/* subtle background */}
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-12">
+      {/* layered premium background */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(99,102,241,0.15),transparent)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.28),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(56,189,248,0.2),transparent_45%)]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-40"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:3.75rem_3.75rem] [mask-image:radial-gradient(ellipse_75%_60%_at_50%_50%,#000_55%,transparent_100%)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute left-1/2 top-10 h-48 w-48 -translate-x-1/2 rounded-full bg-indigo-400/20 blur-3xl"
         aria-hidden
       />
 
-      <div className="relative w-full max-w-[400px]">
-        <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-8 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_20px_50px_-12px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-shadow duration-300 hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.06),0_24px_60px_-12px_rgba(15,23,42,0.14)]">
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+      <div className="relative w-full max-w-[430px]">
+        <div className="animate-[fadeInUp_500ms_ease-out] rounded-3xl border border-white/30 bg-white/12 p-8 shadow-[0_12px_45px_-15px_rgba(15,23,42,0.7)] backdrop-blur-2xl sm:p-10">
+          <div className="mb-8 text-center sm:mb-9">
+            <div className="mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/30 bg-white/20 shadow-inner shadow-white/20">
+              <svg
+                className="h-6 w-6 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.7}
+                stroke="currentColor"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75l2.25 2.25L15 9.75m6 2.25a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-white">
               Login to your account
             </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Enter your credentials to continue
+            <p className="mt-2 text-sm text-slate-200/85">
+              Welcome back. Enter your credentials to continue.
             </p>
           </div>
 
-          <form onSubmit={handleFormSubmit} className="space-y-5">
+          <form onSubmit={handleFormSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="login-email"
-                className="mb-1.5 block text-sm font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-100"
               >
                 Email
               </label>
               <div className="group relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 group-focus-within:text-indigo-500">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300/80 transition-all duration-300 group-focus-within:scale-110 group-focus-within:text-cyan-200">
                   <svg
                     className="h-5 w-5"
                     fill="none"
@@ -89,28 +109,28 @@ function Login() {
                   placeholder="you@university.edu"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all duration-200 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                  className="w-full rounded-xl border border-white/25 bg-white/10 py-3 pl-10 pr-3 text-sm text-white placeholder:text-slate-300/70 outline-none transition-all duration-300 hover:border-white/35 focus:border-cyan-200/90 focus:bg-white/15 focus:ring-4 focus:ring-cyan-300/20"
                 />
               </div>
             </div>
 
             <div>
-              <div className="mb-1.5 flex items-center justify-between gap-2">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <label
                   htmlFor="login-password"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-slate-100"
                 >
                   Password
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-sm font-medium text-indigo-600 transition-colors duration-200 hover:text-indigo-500 active:text-indigo-700"
+                  className="text-sm font-medium text-cyan-200 transition-colors duration-200 hover:text-cyan-100 active:text-cyan-300"
                 >
                   Forgot password?
                 </Link>
               </div>
               <div className="group relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 group-focus-within:text-indigo-500">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-300/80 transition-all duration-300 group-focus-within:scale-110 group-focus-within:text-cyan-200">
                   <svg
                     className="h-5 w-5"
                     fill="none"
@@ -133,7 +153,7 @@ function Login() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all duration-200 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                  className="w-full rounded-xl border border-white/25 bg-white/10 py-3 pl-10 pr-3 text-sm text-white placeholder:text-slate-300/70 outline-none transition-all duration-300 hover:border-white/35 focus:border-cyan-200/90 focus:bg-white/15 focus:ring-4 focus:ring-cyan-300/20"
                 />
               </div>
             </div>
@@ -141,8 +161,9 @@ function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative mt-2 w-full overflow-hidden rounded-lg bg-gradient-to-b from-indigo-500 to-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all duration-200 hover:from-indigo-600 hover:to-indigo-700 hover:shadow-lg hover:shadow-indigo-500/30 active:scale-[0.98] active:from-indigo-700 active:to-indigo-800 disabled:pointer-events-none disabled:opacity-60"
+              className="group relative mt-1 w-full overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-900/40 active:translate-y-0 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-70"
             >
+              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               <span className="relative z-10 flex items-center justify-center gap-2">
                 {loading && (
                   <svg
@@ -153,7 +174,7 @@ function Login() {
                     aria-hidden
                   >
                     <circle
-                      className="opacity-25"
+                      className="opacity-30"
                       cx="12"
                       cy="12"
                       r="10"
@@ -172,17 +193,30 @@ function Login() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-slate-600">
+          <p className="mt-8 text-center text-sm text-slate-200/85">
             Don&apos;t have an account?{" "}
             <Link
               to="/register"
-              className="font-semibold text-indigo-600 transition-colors duration-200 hover:text-indigo-500 active:text-indigo-700"
+              className="font-semibold text-cyan-200 transition-colors duration-200 hover:text-cyan-100 active:text-cyan-300"
             >
               Register
             </Link>
           </p>
         </div>
       </div>
+
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

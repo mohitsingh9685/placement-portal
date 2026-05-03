@@ -32,11 +32,46 @@ function normalizedSkills(user) {
   return s.map((x) => String(x).trim()).filter(Boolean);
 }
 
+function FloatingField({
+  id,
+  label,
+  value,
+  onChange,
+  type = "text",
+  inputMode,
+  min,
+  disabled,
+}) {
+  return (
+    <div className="group relative">
+      <input
+        id={id}
+        type={type}
+        inputMode={inputMode}
+        min={min}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder=" "
+        className="peer w-full rounded-xl border border-slate-200 bg-white/90 px-3.5 pb-2.5 pt-5 text-sm text-slate-900 shadow-sm outline-none transition-all duration-200 focus:border-[#0a66c2] focus:ring-4 focus:ring-[#0a66c2]/15 disabled:cursor-not-allowed disabled:bg-slate-100"
+      />
+      <label
+        htmlFor={id}
+        className="pointer-events-none absolute left-3.5 top-2 z-10 origin-left bg-white px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 transition-all duration-200 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-placeholder-shown:normal-case peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:text-[#0a66c2] peer-disabled:bg-slate-100"
+      >
+        {label}
+      </label>
+    </div>
+  );
+}
+
 function Profile() {
   const navigate = useNavigate();
   const [profileUser, setProfileUser] = useState(parseStoredUser);
   const [saving, setSaving] = useState(false);
   const [skillInput, setSkillInput] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [activeSection, setActiveSection] = useState("academic");
   const [form, setForm] = useState(() => {
     const u = parseStoredUser() || {};
     return {
@@ -164,39 +199,38 @@ function Profile() {
   const userInitial = initialsFromName(profileUser.name);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/90">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-100/80">
       <Navbar />
 
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Profile
-          </h1>
-        </header>
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <article className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-xl shadow-slate-200/60">
+          <div className="relative h-40 bg-gradient-to-r from-[#0a66c2] via-sky-500 to-indigo-700 sm:h-48">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_40%)]" />
+          </div>
 
-        <article className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="relative h-28 bg-gradient-to-r from-[#0a66c2] via-sky-600 to-indigo-700 sm:h-32" />
-
-          <div className="relative px-6 pb-6 pt-12 sm:px-8 sm:pb-8 sm:pt-14">
-            <div className="absolute -top-[3rem] left-6 flex h-[5.75rem] w-[5.75rem] items-center justify-center rounded-full border-[4px] border-white bg-gradient-to-br from-slate-800 to-slate-600 text-xl font-semibold tracking-tight text-white shadow-lg sm:left-8 sm:h-24 sm:w-24">
+          <div className="relative px-6 pb-8 pt-14 sm:px-8">
+            <div className="absolute -top-16 left-6 flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-slate-800 to-slate-600 text-3xl font-semibold text-white shadow-2xl sm:left-8 sm:h-32 sm:w-32">
               <span aria-hidden>{userInitial}</span>
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-              <div className="min-w-0 flex-1 sm:mt-2">
-                <h2 className="text-xl font-bold leading-snug tracking-tight text-slate-900 sm:text-2xl">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 pt-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Student profile
+                </p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                   {profileUser.name}
-                </h2>
+                </h1>
                 {headlineParts && (
                   <p className="mt-1 text-sm font-medium text-slate-700">{headlineParts}</p>
                 )}
-                <p className="mt-2 truncate text-sm text-slate-500">{profileUser.email}</p>
+                <p className="mt-1 truncate text-sm text-slate-500">{profileUser.email}</p>
                 {form.skills.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {form.skills.map((skill) => (
+                    {form.skills.slice(0, 6).map((skill) => (
                       <span
                         key={skill}
-                        className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                        className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
                       >
                         {skill}
                       </span>
@@ -205,74 +239,88 @@ function Profile() {
                 )}
               </div>
 
-              <div className="flex shrink-0 gap-3 sm:flex-col sm:items-end">
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                 <span className="inline-flex rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-900">
                   {profileUser.placementStatus === "PLACED" ? "Placed" : "Open to roles"}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setEditMode((prev) => !prev)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition-all hover:border-[#0a66c2]/40 hover:text-[#0a66c2]"
+                >
+                  {editMode ? "Viewing" : "Edit mode"}
+                </button>
               </div>
             </div>
           </div>
         </article>
 
-        <div className="mt-8 space-y-8">
-          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-sm ring-1 ring-slate-100 sm:px-8 sm:py-7">
+        <div className="mt-8 rounded-2xl border border-slate-200/70 bg-white p-2 shadow-sm">
+          <div className="grid gap-2 sm:grid-cols-3">
+            {[
+              ["academic", "Academic info"],
+              ["contact", "Contact"],
+              ["skills", "Skills"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveSection(key)}
+                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+                  activeSection === key
+                    ? "bg-gradient-to-r from-[#0a66c2] to-indigo-600 text-white shadow-lg shadow-[#0a66c2]/25"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 pb-10">
+          <section
+            className={`rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7 ${
+              activeSection === "academic"
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none absolute -z-10 translate-y-2 opacity-0"
+            }`}
+          >
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Academics
+              Academic info
             </h3>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <FloatingField
+                id="profile-cgpa"
+                label="CGPA"
+                value={form.cgpa}
+                inputMode="decimal"
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, cgpa: e.target.value })}
+              />
+              <FloatingField
+                id="profile-branch"
+                label="Branch"
+                value={form.branch}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, branch: e.target.value })}
+              />
+              <FloatingField
+                id="profile-backlogs"
+                label="Backlogs"
+                type="number"
+                min={0}
+                value={form.activeBacklogs}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, activeBacklogs: e.target.value })}
+              />
 
-            <div className="mt-6 grid gap-6 sm:grid-cols-2">
-              <div className="sm:col-span-1">
-                <label htmlFor="profile-cgpa" className="block text-xs font-semibold text-slate-500">
-                  CGPA
-                </label>
-                <input
-                  id="profile-cgpa"
-                  inputMode="decimal"
-                  value={form.cgpa}
-                  onChange={(e) => setForm({ ...form, cgpa: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#0a66c2] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0a66c2]/20"
-                />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label
-                  htmlFor="profile-branch"
-                  className="block text-xs font-semibold text-slate-500"
-                >
-                  Branch
-                </label>
-                <input
-                  id="profile-branch"
-                  value={form.branch}
-                  onChange={(e) => setForm({ ...form, branch: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#0a66c2] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0a66c2]/20"
-                />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label
-                  htmlFor="profile-backlogs"
-                  className="block text-xs font-semibold text-slate-500"
-                >
-                  Backlogs
-                </label>
-                <input
-                  id="profile-backlogs"
-                  type="number"
-                  min={0}
-                  value={form.activeBacklogs}
-                  onChange={(e) =>
-                    setForm({ ...form, activeBacklogs: e.target.value })
-                  }
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-sm tabular-nums text-slate-900 focus:border-[#0a66c2] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0a66c2]/20"
-                />
-              </div>
-
-              <div className="flex items-end sm:col-span-1">
-                <label className="flex cursor-pointer select-none items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+              <div className="flex items-center">
+                <label className="flex w-full cursor-pointer select-none items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
                   <input
                     type="checkbox"
                     checked={form.hasActiveBacklog}
+                    disabled={!editMode}
                     onChange={(e) =>
                       setForm({ ...form, hasActiveBacklog: e.target.checked })
                     }
@@ -282,68 +330,96 @@ function Profile() {
                 </label>
               </div>
 
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">Enrollment No</label>
-                <input value={form.enrollmentNo} onChange={(e)=>setForm({...form,enrollmentNo:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">College</label>
-                <input value={form.collegeName} onChange={(e)=>setForm({...form,collegeName:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">Course</label>
-                <input value={form.course} onChange={(e)=>setForm({...form,course:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">Semester</label>
-                <input value={form.semester} onChange={(e)=>setForm({...form,semester:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">Passing Year</label>
-                <input value={form.passingYear} onChange={(e)=>setForm({...form,passingYear:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">Contact No</label>
-                <input value={form.contactNo} onChange={(e)=>setForm({...form,contactNo:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-slate-500">Whatsapp No</label>
-                <input value={form.whatsappNo} onChange={(e)=>setForm({...form,whatsappNo:e.target.value})}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
-              </div>
+              <FloatingField
+                id="profile-enrollment"
+                label="Enrollment No"
+                value={form.enrollmentNo}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, enrollmentNo: e.target.value })}
+              />
+              <FloatingField
+                id="profile-college"
+                label="College"
+                value={form.collegeName}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, collegeName: e.target.value })}
+              />
+              <FloatingField
+                id="profile-course"
+                label="Course"
+                value={form.course}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, course: e.target.value })}
+              />
+              <FloatingField
+                id="profile-semester"
+                label="Semester"
+                value={form.semester}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, semester: e.target.value })}
+              />
+              <FloatingField
+                id="profile-passing-year"
+                label="Passing Year"
+                value={form.passingYear}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, passingYear: e.target.value })}
+              />
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-sm ring-1 ring-slate-100 sm:px-8 sm:py-7">
+          <section
+            className={`rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7 ${
+              activeSection === "contact"
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none absolute -z-10 translate-y-2 opacity-0"
+            }`}
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Contact
+            </h3>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <FloatingField
+                id="profile-contact-no"
+                label="Contact No"
+                value={form.contactNo}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, contactNo: e.target.value })}
+              />
+              <FloatingField
+                id="profile-whatsapp-no"
+                label="Whatsapp No"
+                value={form.whatsappNo}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, whatsappNo: e.target.value })}
+              />
+            </div>
+          </section>
+
+          <section
+            className={`rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7 ${
+              activeSection === "skills"
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none absolute -z-10 translate-y-2 opacity-0"
+            }`}
+          >
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               Skills
             </h3>
-
             <div className="mt-6">
               {form.skills.length > 0 && (
                 <ul className="mb-4 flex flex-wrap gap-2" aria-label="Your skills">
                   {form.skills.map((skill) => (
                     <li
                       key={skill}
-                      className="group inline-flex items-center gap-1.5 rounded-full border border-[#0a66c2]/25 bg-[#0a66c2]/5 py-1 pl-3 pr-1 text-xs font-semibold text-[#084d96]"
+                      className="group inline-flex items-center gap-1.5 rounded-full border border-[#0a66c2]/20 bg-[#0a66c2]/5 py-1 pl-3 pr-1 text-xs font-semibold text-[#084d96]"
                     >
                       {skill}
                       <button
                         type="button"
+                        disabled={!editMode}
                         onClick={() => removeSkill(skill)}
-                        className="rounded-full p-1 text-[#084d96]/70 transition-colors hover:bg-[#0a66c2]/15 hover:text-[#084d96]"
+                        className="rounded-full p-1 text-[#084d96]/70 transition-colors hover:bg-[#0a66c2]/15 hover:text-[#084d96] disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label={`Remove ${skill}`}
                       >
                         ×
@@ -357,6 +433,7 @@ function Profile() {
                 <input
                   type="text"
                   value={skillInput}
+                  disabled={!editMode}
                   placeholder="Add skill…"
                   onChange={(e) => setSkillInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -365,36 +442,37 @@ function Profile() {
                       addSkillsFromInput();
                     }
                   }}
-                  className="min-h-[2.75rem] flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#0a66c2] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0a66c2]/20"
+                  className="min-h-[2.75rem] flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition-all focus:border-[#0a66c2] focus:outline-none focus:ring-4 focus:ring-[#0a66c2]/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                 />
                 <button
                   type="button"
+                  disabled={!editMode}
                   onClick={addSkillsFromInput}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Add
                 </button>
               </div>
             </div>
           </section>
+        </div>
 
-          <div className="flex flex-col-reverse gap-3 pb-10 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleUpdate}
-              className="rounded-xl bg-gradient-to-r from-[#0a66c2] to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0a66c2]/25 transition-all hover:shadow-xl hover:shadow-[#0a66c2]/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a66c2] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? "Saving…" : "Save profile"}
-            </button>
-          </div>
+        <div className="flex flex-col-reverse gap-3 pb-10 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleUpdate}
+            className="rounded-xl bg-gradient-to-r from-[#0a66c2] to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0a66c2]/25 transition-all hover:shadow-xl hover:shadow-[#0a66c2]/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a66c2] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save profile"}
+          </button>
         </div>
       </main>
     </div>

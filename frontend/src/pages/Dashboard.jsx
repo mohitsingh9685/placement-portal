@@ -89,42 +89,71 @@ function Dashboard() {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase())
       .join("") || "?";
+  const eligibleCount = companies.filter((company) => checkEligibility(company).eligible).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/90">
+    <div className="min-h-screen bg-[radial-gradient(1100px_580px_at_8%_-12%,rgba(6,182,212,0.18),transparent_55%),radial-gradient(900px_520px_at_94%_-8%,rgba(99,102,241,0.18),transparent_56%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
+      <style>{`
+        @keyframes dashboard-card-fade {
+          0% {
+            opacity: 0;
+            transform: translateY(20px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes dashboard-shimmer {
+          0% {
+            transform: translateX(-120%);
+          }
+          100% {
+            transform: translateX(120%);
+          }
+        }
+      `}</style>
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         {user && (
-          <section className="mb-10 rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-sm ring-1 ring-slate-100 sm:px-8 sm:py-7">
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12">
+          <section className="relative mb-12 overflow-hidden rounded-3xl border border-white/70 bg-white/70 px-6 py-6 shadow-[0_24px_70px_-38px_rgba(15,23,42,0.42)] backdrop-blur-2xl ring-1 ring-slate-200/80 sm:px-8 sm:py-8">
+            <div className="pointer-events-none absolute -top-24 left-0 h-56 w-56 rounded-full bg-sky-300/25 blur-3xl" />
+            <div className="pointer-events-none absolute -right-16 bottom-0 h-44 w-44 rounded-full bg-indigo-300/25 blur-3xl" />
+            <div className="pointer-events-none absolute inset-0 opacity-50">
+              <div
+                className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+                style={{ animation: "dashboard-shimmer 7s linear infinite" }}
+              />
+            </div>
+            <div className="relative grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12">
               <div className="flex min-w-0 items-center gap-4 sm:gap-5">
                 <div
-                  className="flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-600 text-lg font-semibold tracking-tight text-white shadow-md"
+                  className="flex h-[4rem] w-[4rem] shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 text-lg font-semibold tracking-tight text-white shadow-xl shadow-slate-400/40"
                   aria-hidden
                 >
                   {userInitial}
                 </div>
                 <div className="min-w-0 flex-1 py-0.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Your profile
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Student profile
                   </p>
-                  <h3 className="mt-2 text-xl font-bold leading-tight tracking-tight text-slate-900 sm:text-2xl">
+                  <h3 className="mt-2 text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
                     {user.name}
                   </h3>
-                  <p className="mt-2 truncate text-sm leading-normal text-slate-500">{user.email}</p>
+                  <p className="mt-1.5 truncate text-sm leading-normal text-slate-600">{user.email}</p>
                 </div>
               </div>
 
-              <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 lg:w-auto lg:flex-nowrap lg:justify-self-end">
-                <span className="inline-flex h-10 min-w-[5.5rem] flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 text-xs font-semibold text-slate-600 sm:flex-initial">
+              <div className="flex w-full flex-wrap items-center gap-2.5 sm:gap-3.5 lg:w-auto lg:flex-nowrap lg:justify-self-end">
+                <span className="inline-flex h-11 min-w-[5.5rem] flex-1 items-center justify-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-4 text-xs font-semibold text-slate-600 shadow-sm sm:flex-initial">
                   CGPA{" "}
                   <span className="tabular-nums text-sm font-bold text-slate-900">{user.cgpa}</span>
                 </span>
-                <span className="inline-flex h-10 min-w-[5.5rem] flex-1 items-center justify-center rounded-full border border-emerald-200/70 bg-emerald-50 px-4 text-center text-xs font-semibold text-emerald-800 sm:flex-initial sm:min-w-0">
+                <span className="inline-flex h-11 min-w-[5.5rem] flex-1 items-center justify-center rounded-full border border-emerald-200/80 bg-emerald-50/95 px-4 text-center text-xs font-semibold text-emerald-800 shadow-sm sm:flex-initial sm:min-w-0">
                   {user.branch}
                 </span>
-                <span className="inline-flex h-10 min-w-[5.5rem] flex-1 items-center justify-center gap-2 rounded-full border border-amber-200/80 bg-amber-50 px-4 text-xs font-semibold text-amber-800 sm:flex-initial">
+                <span className="inline-flex h-11 min-w-[5.5rem] flex-1 items-center justify-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/95 px-4 text-xs font-semibold text-amber-800 shadow-sm sm:flex-initial">
                   Backlogs{" "}
                   <span className="tabular-nums text-sm font-bold text-amber-900">
                     {user.activeBacklogs ?? user.activebacklogs ?? 0}
@@ -135,72 +164,111 @@ function Dashboard() {
           </section>
         )}
 
-        <header className="mb-10 max-w-3xl">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-            Placements
-          </p>
-          <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Available opportunities
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Browse roles that match your profile. Eligibility updates from your academics and branch.
-          </p>
+        <header className="mb-10 grid gap-6 rounded-3xl border border-slate-200/70 bg-white/75 p-5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:mb-12 sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700/85">
+              Placement dashboard
+            </p>
+            <h2 className="mt-2.5 bg-gradient-to-r from-slate-950 via-slate-800 to-indigo-700 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
+              Discover premium opportunities
+            </h2>
+            <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-[15px]">
+              Browse roles that match your profile, with real-time eligibility aligned to your academic criteria.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Open roles</p>
+              <p className="mt-1 text-xl font-bold tracking-tight text-slate-900">{companies.length}</p>
+            </div>
+            <div className="rounded-2xl border border-sky-200/80 bg-sky-50/90 px-4 py-3 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-700/80">Eligible</p>
+              <p className="mt-1 text-xl font-bold tracking-tight text-sky-900">{eligibleCount}</p>
+            </div>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 [grid-auto-rows:minmax(0,1fr)] sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {companies.map((company) => {
+        <div className="grid grid-cols-1 gap-6 [grid-auto-rows:minmax(0,1fr)] sm:grid-cols-2 lg:gap-7 xl:grid-cols-3 2xl:grid-cols-4">
+          {companies.map((company, index) => {
             const eligibility = checkEligibility(company);
 
             return (
               <article
                 key={company._id}
-                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-slate-300/90 hover:shadow-xl hover:shadow-slate-200/60"
+                className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/72 p-6 shadow-[0_12px_34px_-20px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-sky-200/80 hover:bg-white/85 hover:shadow-[0_28px_56px_-30px_rgba(37,99,235,0.42)]"
+                style={{
+                  animation: "dashboard-card-fade 620ms cubic-bezier(0.22,1,0.36,1) both",
+                  animationDelay: `${Math.min(index * 85, 700)}ms`,
+                }}
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-200 via-blue-400 to-indigo-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-cyan-300 via-sky-400 to-indigo-500 opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
+                <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-sky-300/25 blur-2xl transition-transform duration-500 group-hover:scale-110" />
+                <div className="pointer-events-none absolute -bottom-20 -left-10 h-36 w-36 rounded-full bg-indigo-200/25 blur-3xl transition-all duration-500 group-hover:scale-110 group-hover:opacity-90" />
 
-                <div className="flex min-h-0 flex-1 flex-col gap-5">
+                <div className="relative flex min-h-0 flex-1 flex-col gap-5">
                   <div className="min-w-0">
-                    <h3 className="text-lg font-bold leading-snug tracking-tight text-slate-900 transition-colors duration-300 group-hover:text-slate-800">
+                    <h3 className="text-xl font-bold leading-snug tracking-tight text-slate-900 transition-colors duration-300 group-hover:text-slate-950">
                       {company.companyName}
                     </h3>
-                    <p className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Open role
                     </p>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{company.role}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">{company.role}</p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-8 items-center rounded-lg bg-slate-100 px-3 text-xs font-medium text-slate-700">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
                       CTC <span className="ml-1.5 tabular-nums font-semibold text-slate-900">₹{company.ctc}</span>
                     </span>
-                    <span className="inline-flex h-8 items-center rounded-lg bg-blue-50 px-3 text-xs font-medium text-blue-800">
+                    <span className="inline-flex h-8 items-center rounded-xl border border-blue-200/80 bg-blue-50/90 px-3 text-xs font-medium text-blue-800 shadow-sm">
                       Min CGPA{" "}
                       <span className="ml-1.5 tabular-nums font-semibold">{company.minCgpa}</span>
                     </span>
-                    <span className="inline-flex h-8 items-center rounded-lg bg-amber-50 px-3 text-xs font-medium text-amber-900">
+                    <span className="inline-flex h-8 items-center rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 text-xs font-medium text-amber-900 shadow-sm">
                       Max backlogs{" "}
                       <span className="ml-1.5 tabular-nums font-semibold">{company.maxBacklogsAllowed}</span>
                     </span>
                   </div>
 
-                  <div className="mt-auto flex min-h-[3.25rem] flex-col justify-end gap-5 border-t border-slate-100 pt-5">
+                  <div className="mt-auto flex min-h-[3.25rem] flex-col justify-end gap-5 border-t border-slate-100/80 pt-5">
                     <div className="min-h-[1.75rem]">
                       {applied.includes(company._id) ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200/80">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200/90 bg-gradient-to-r from-emerald-50 to-green-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm shadow-emerald-100/80">
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                            <path
+                              fillRule="evenodd"
+                              d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.071 7.132a1 1 0 0 1-1.42.006L3.29 8.914a1 1 0 0 1 1.414-1.414l4.217 4.217 6.364-6.423a1 1 0 0 1 1.42-.006Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
                           Applied
                         </span>
                       ) : eligibility.eligible === null ? (
-                        <span className="flex h-8 items-center text-xs font-medium text-slate-400">
+                        <span className="flex h-8 items-center text-xs font-medium text-slate-500">
                           Checking eligibility…
                         </span>
                       ) : eligibility.eligible ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 ring-1 ring-sky-200/80">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-sky-200/90 bg-gradient-to-r from-sky-50 to-blue-50 px-3 py-1.5 text-xs font-semibold text-sky-900 shadow-sm shadow-sky-100/80">
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.707-9.707a1 1 0 0 0-1.414-1.414L9 10.172 7.707 8.879a1 1 0 1 0-1.414 1.414l2 2a1 1 0 0 0 1.414 0l4-4Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" aria-hidden />
                           Eligible
                         </span>
                       ) : (
-                        <span className="inline-flex items-start gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold leading-snug text-red-800 ring-1 ring-red-200/70">
+                        <span className="inline-flex items-start gap-2 rounded-xl border border-red-200/90 bg-gradient-to-r from-red-50 to-rose-50 px-3 py-2 text-xs font-semibold leading-snug text-red-800 shadow-sm shadow-red-100/70">
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="mt-[1px] h-3.5 w-3.5 shrink-0">
+                            <path
+                              fillRule="evenodd"
+                              d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-8.75-3a.75.75 0 0 0 1.5 0 .75.75 0 0 0-1.5 0ZM10 8.75a.75.75 0 0 0-.75.75v3a.75.75 0 0 0 1.5 0v-3a.75.75 0 0 0-.75-.75Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
                           <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden />
                           Not eligible — {eligibility.reason}
                         </span>
@@ -211,7 +279,7 @@ function Dashboard() {
                       <button
                         type="button"
                         disabled
-                        className="mt-0 w-full shrink-0 cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 py-3 text-center text-sm font-semibold leading-none text-slate-500 shadow-inner"
+                        className="mt-0 w-full shrink-0 cursor-not-allowed rounded-xl border border-slate-200/90 bg-slate-100/90 py-3 text-center text-sm font-semibold leading-none text-slate-500 shadow-inner"
                       >
                         Applied
                       </button>
@@ -219,7 +287,7 @@ function Dashboard() {
                       <button
                         type="button"
                         disabled
-                        className="mt-0 w-full shrink-0 cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 py-3 text-center text-sm font-semibold leading-none text-slate-400"
+                        className="mt-0 w-full shrink-0 cursor-not-allowed rounded-xl border border-slate-200/90 bg-slate-50/90 py-3 text-center text-sm font-semibold leading-none text-slate-400"
                       >
                         Cannot apply
                       </button>
@@ -227,9 +295,18 @@ function Dashboard() {
                       <button
                         type="button"
                         onClick={() => handleApply(company._id)}
-                        className="mt-0 w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-center text-sm font-semibold leading-none text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:from-blue-500 hover:to-indigo-500 hover:shadow-xl hover:shadow-blue-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98]"
+                        className="mt-0 w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 py-3 text-center text-sm font-semibold leading-none text-white shadow-[0_12px_28px_-12px_rgba(79,70,229,0.7)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:from-blue-500 hover:via-indigo-500 hover:to-violet-500 hover:shadow-[0_18px_32px_-12px_rgba(99,102,241,0.78)] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 active:translate-y-0 active:scale-[0.985]"
                       >
-                        Apply now
+                        <span className="inline-flex items-center gap-2">
+                          Apply now
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 transition-transform duration-300 hover:translate-x-0.5">
+                            <path
+                              fillRule="evenodd"
+                              d="M3.5 10a.75.75 0 0 1 .75-.75h9.69L10.72 6.03a.75.75 0 0 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H4.25A.75.75 0 0 1 3.5 10Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </span>
                       </button>
                     )}
                   </div>

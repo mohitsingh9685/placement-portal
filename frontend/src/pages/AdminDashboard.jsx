@@ -51,10 +51,11 @@ function IconX(props) {
   );
 }
 
-function IconPlus(props) {
+function IconBriefcase(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden {...props}>
-      <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 7h18v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M3 12h18" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -72,6 +73,7 @@ function AdminDashboard() {
   const [applications, setApplications] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
+  const [totalApplicationsCount, setTotalApplicationsCount] = useState(0);
 
   const navigate = useNavigate();
 
@@ -94,8 +96,33 @@ function AdminDashboard() {
     try {
       const res = await API.get("/company");
       setCompanies(res.data);
+      fetchTotalApplicationsCount(res.data || []);
     } catch (err) {
       console.log(err);
+    }
+  };
+
+  const fetchTotalApplicationsCount = async (companyList) => {
+    try {
+      if (!Array.isArray(companyList) || companyList.length === 0) {
+        setTotalApplicationsCount(0);
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        companyList.map((company) => API.get(`/application/admin/company/${company._id}`))
+      );
+
+      const total = results.reduce((sum, result) => {
+        if (result.status !== "fulfilled") return sum;
+        const list = Array.isArray(result.value?.data) ? result.value.data : [];
+        return sum + list.length;
+      }, 0);
+
+      setTotalApplicationsCount(total);
+    } catch (err) {
+      console.log("ERROR FETCHING TOTAL APPLICATION COUNT:", err);
+      setTotalApplicationsCount(0);
     }
   };
 
@@ -156,13 +183,13 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-sky-100/60">
+    <div className="relative min-h-screen overflow-hidden bg-slate-100">
       <div
-        className="pointer-events-none absolute -top-48 left-1/2 h-[28rem] w-[56rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-indigo-200/50 via-sky-200/35 to-transparent blur-3xl"
+        className="pointer-events-none absolute -top-56 left-1/3 h-[34rem] w-[34rem] rounded-full bg-indigo-200/40 blur-3xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -bottom-32 right-0 h-96 w-[32rem] rounded-full bg-gradient-to-tl from-emerald-200/35 via-transparent to-transparent blur-3xl"
+        className="pointer-events-none absolute bottom-0 right-0 h-[30rem] w-[30rem] rounded-full bg-cyan-200/35 blur-3xl"
         aria-hidden
       />
 
@@ -170,88 +197,68 @@ function AdminDashboard() {
         <Navbar />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
-        {!selectedCompany && (
-          <>
-            <header className="relative mb-10 rounded-2xl border border-white/70 bg-white/65 px-6 py-5 sm:px-8 sm:py-6 shadow-xl shadow-indigo-200/40 ring-1 ring-slate-900/[0.04] backdrop-blur-md">
-              <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-indigo-200/70 to-transparent pointer-events-none rounded-2xl" />
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                  Recruiter panel
-                </h1>
-                <div className="flex shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/create-company")}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-slate-900 to-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/25 ring-1 ring-white/10 transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                  >
-                    <IconPlus className="h-4 w-4" />
-                    Post opening
-                  </button>
-                </div>
-              </div>
-            </header>
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <main className="space-y-6">
+            {!selectedCompany && (
+              <>
+                <header className="rounded-3xl border border-slate-300 bg-white/85 px-6 py-6 shadow-xl shadow-slate-300/30 ring-1 ring-slate-200 backdrop-blur sm:px-8">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Dashboard overview</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Recruitment management</h1>
+                    <p className="text-sm text-slate-600">Select a company to view and manage its applicants.</p>
+                  </div>
+                </header>
 
-            <section className="rounded-2xl border border-white/75 bg-white/55 shadow-2xl shadow-slate-300/35 ring-1 ring-slate-900/[0.05] backdrop-blur-md overflow-hidden">
-              <div className="border-b border-slate-200/70 bg-gradient-to-r from-indigo-50/90 via-white to-sky-50/80 px-4 py-5 sm:px-7">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 text-white shadow-lg shadow-indigo-700/35 ring-1 ring-white/20">
-                      <IconUsers className="h-6 w-6 opacity-95" />
-                    </span>
-                    <div>
-                      <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                        Companies & roles
-                      </h2>
-                      <p className="mt-0.5 text-sm tabular-nums text-slate-500">
-                        {companies.length}
-                      </p>
+                <section className="grid gap-4 md:grid-cols-2">
+                  <article className="group rounded-2xl border border-slate-300 bg-white p-5 shadow-lg shadow-slate-200/60 transition duration-200 hover:-translate-y-0.5 hover:shadow-xl">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Total companies</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{companies.length}</p>
+                      </div>
+                      <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700">
+                        <IconBriefcase className="h-5 w-5" />
+                      </span>
                     </div>
-                  </div>
-                </div>
-              </div>
+                  </article>
+                  <article className="group rounded-2xl border border-slate-300 bg-white p-5 shadow-lg shadow-slate-200/60 transition duration-200 hover:-translate-y-0.5 hover:shadow-xl">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Total applications</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{totalApplicationsCount}</p>
+                      </div>
+                      <span className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700">
+                        <IconUsers className="h-5 w-5" />
+                      </span>
+                    </div>
+                  </article>
+                </section>
 
-              {companies.length === 0 ? (
-                <div className="px-8 py-20 text-center">
-                  <div className="mx-auto max-w-sm rounded-2xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50 px-8 py-10 shadow-inner shadow-white ring-1 ring-slate-900/[0.04]">
-                    <p className="text-slate-600 text-sm">No companies</p>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/create-company")}
-                      className="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-slate-900/20 hover:bg-slate-800 transition-colors"
-                    >
-                      Post opening
-                    </button>
+                <section className="overflow-hidden rounded-3xl border border-slate-300 bg-white/90 shadow-2xl shadow-slate-300/30 ring-1 ring-slate-200 backdrop-blur">
+                  <div className="border-b border-slate-300 px-5 py-4 sm:px-7">
+                    <h2 className="text-lg font-semibold tracking-tight text-slate-900">Companies & roles</h2>
                   </div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto bg-gradient-to-b from-white via-white to-slate-50/50">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="bg-slate-100/90 border-y border-slate-200/70">
-                        <th className="px-4 sm:px-7 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider whitespace-nowrap">
-                          Company
-                        </th>
-                        <th className="px-4 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">
-                          Role
-                        </th>
-                        <th className="px-4 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider whitespace-nowrap hidden md:table-cell">
-                          CTC
-                        </th>
-                        <th className="px-4 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">
-                          Min CGPA
-                        </th>
-                        <th className="px-4 sm:px-7 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider text-right whitespace-nowrap w-[1%]">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200/60">
+
+                  {companies.length === 0 ? (
+                    <div className="px-8 py-20 text-center">
+                      <div className="mx-auto max-w-sm rounded-2xl border border-slate-300 bg-slate-50 px-8 py-10">
+                        <p className="text-sm text-slate-600">No companies</p>
+                        <button
+                          type="button"
+                          onClick={() => navigate("/create-company")}
+                          className="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Create company
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
                       {companies.map((c) => (
-                        <tr
+                        <article
                           key={c._id}
                           onClick={() => handleCompanyClick(c)}
-                          className="cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-indigo-50/80 hover:to-sky-50/30 hover:shadow-[inset_3px_0_0_0_rgb(79_70_229_/_0.35)] group"
+                          className="group cursor-pointer rounded-2xl border border-slate-300 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg"
                           role="button"
                           tabIndex={0}
                           onKeyDown={(e) => {
@@ -261,197 +268,195 @@ function AdminDashboard() {
                             }
                           }}
                         >
-                          <td className="px-4 sm:px-7 py-4 align-middle">
-                            <div className="font-semibold text-slate-900 group-hover:text-indigo-950">
-                              {c.companyName}
+                          <h3 className="text-xl font-bold tracking-tight text-slate-900 transition-colors group-hover:text-indigo-700">
+                            {c.companyName}
+                          </h3>
+                          <p className="mt-1 text-sm font-medium text-slate-600">{c.role || "Role not specified"}</p>
+
+                          <div className="mt-4 space-y-2 text-sm">
+                            <p className="text-slate-700">
+                              <span className="font-semibold text-slate-900">Compensation:</span>{" "}
+                              {c.ctc ? `${c.ctc} ${String(c.role || "").toLowerCase().includes("intern") ? "/month stipend" : "/annum CTC"}` : "—"}
+                            </p>
+                            <p className="text-slate-700">
+                              <span className="font-semibold text-slate-900">Min CGPA:</span> {c.minCgpa ?? "—"}
+                            </p>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Allowed branches</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {Array.isArray(c.allowedBranches) && c.allowedBranches.length > 0 ? (
+                                c.allowedBranches.map((branch, idx) => (
+                                  <span
+                                    key={`${c._id}-${branch}-${idx}`}
+                                    className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                                  >
+                                    {branch}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Not specified</span>
+                              )}
                             </div>
-                            <div className="sm:hidden mt-0.5 text-slate-500 text-xs">{c.role}</div>
-                          </td>
-                          <td className="px-4 py-4 align-middle text-slate-700 hidden sm:table-cell">
-                            {c.role}
-                          </td>
-                          <td className="px-4 py-4 align-middle text-slate-600 tabular-nums hidden md:table-cell">
-                            {c.ctc ?? "—"}
-                          </td>
-                          <td className="px-4 py-4 align-middle text-slate-600 tabular-nums hidden lg:table-cell">
-                            {c.minCgpa ?? "—"}
-                          </td>
-                          <td className="px-4 sm:px-7 py-4 align-middle text-right whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                title="Edit company"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/admin/edit-company/${c._id}`);
-                                }}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/90 transition hover:scale-[1.02] hover:bg-amber-50/90 hover:text-amber-900 hover:ring-amber-200 active:scale-[0.98]"
-                              >
-                                <IconPencil className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                title="Delete company"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    await API.delete(`/company/${c._id}`);
-                                    alert("Company deleted ✅");
-                                    setSelectedCompany(null);
-                                    fetchCompanies();
-                                  } catch (err) {
-                                    console.log(err);
-                                    alert("Delete failed");
-                                  }
-                                }}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-md shadow-slate-300/25 ring-1 ring-slate-200/90 transition hover:scale-[1.02] hover:bg-red-50/90 hover:text-red-700 hover:ring-red-200 active:scale-[0.98]"
-                              >
-                                <IconTrash className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </article>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </>
-        )}
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
 
-        {selectedCompany && (
-          <div>
-            <button
-              type="button"
-              onClick={() => setSelectedCompany(null)}
-              className="mb-8 inline-flex items-center gap-2 rounded-xl border border-white/75 bg-white/55 px-3 py-2 text-sm font-medium text-slate-700 shadow-md shadow-slate-300/20 ring-1 ring-slate-900/[0.04] backdrop-blur-md transition hover:bg-white hover:shadow-lg"
-            >
-              <IconChevronLeft className="h-5 w-5" aria-hidden />
-              Back to companies
-            </button>
+            {selectedCompany && (
+              <div className="space-y-6">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCompany(null)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <IconChevronLeft className="h-5 w-5" aria-hidden />
+                  Back to companies
+                </button>
 
-            <div className="mb-8 rounded-2xl border border-white/75 bg-white/65 p-6 sm:p-8 shadow-xl shadow-indigo-200/30 ring-1 ring-slate-900/[0.04] backdrop-blur-md">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                    {selectedCompany.companyName}
-                  </h1>
-                  <p className="mt-2 inline-flex rounded-lg border border-slate-200/80 bg-gradient-to-r from-indigo-50/80 to-sky-50/60 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm">
-                    {selectedCompany.role}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2.5 lg:justify-end shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/admin/edit-company/${selectedCompany._id}`)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-300/25 ring-1 ring-white/80 hover:bg-slate-50 transition"
-                  >
-                    <IconPencil className="h-4 w-4" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await API.delete(`/company/${selectedCompany._id}`);
-                        alert("Company deleted ✅");
-                        setSelectedCompany(null);
-                        fetchCompanies();
-                      } catch (err) {
-                        console.log(err);
-                        alert("Delete failed");
-                      }
-                    }}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-red-600 to-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-600/35 ring-1 ring-white/10 hover:brightness-105 transition"
-                  >
-                    <IconTrash className="h-4 w-4" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <section className="rounded-2xl border border-white/75 bg-white/55 shadow-2xl shadow-slate-300/35 ring-1 ring-slate-900/[0.05] backdrop-blur-md overflow-hidden">
-              <div className="border-b border-slate-200/70 bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/60 px-4 py-4 sm:px-7 sm:py-5">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-lg font-semibold tracking-tight text-slate-900">Applicants</h2>
-                  <span className="text-sm tabular-nums text-slate-500">{applications.length}</span>
-                </div>
-              </div>
-
-              {applications.length === 0 ? (
-                <div className="bg-gradient-to-b from-white to-slate-50/70 px-6 py-16 text-center">
-                  <div className="mx-auto max-w-xs rounded-xl border border-slate-200/75 bg-white/85 px-6 py-8 shadow-inner shadow-white">
-                    <p className="text-slate-500 text-sm">No applicants</p>
+                <div className="rounded-3xl border border-slate-300 bg-white/90 p-6 shadow-xl shadow-slate-300/30 ring-1 ring-slate-200 sm:p-8">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Selected company</p>
+                      <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{selectedCompany.companyName}</h1>
+                      <p className="mt-2 inline-flex rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700">{selectedCompany.role}</p>
+                    </div>
+                    <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2.5 self-start lg:mt-6">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/edit-company/${selectedCompany._id}`)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-slate-50"
+                      >
+                        <IconPencil className="h-4 w-4" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await API.delete(`/company/${selectedCompany._id}`);
+                            alert("Company deleted ✅");
+                            setSelectedCompany(null);
+                            fetchCompanies();
+                          } catch (err) {
+                            console.log(err);
+                            alert("Delete failed");
+                          }
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-600/25 transition duration-200 hover:-translate-y-0.5 hover:bg-red-700"
+                      >
+                        <IconTrash className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="overflow-x-auto bg-gradient-to-b from-white via-white to-slate-50/40">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="bg-emerald-50/65 border-y border-emerald-100/80">
-                        <th className="px-4 sm:px-7 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">
-                          Candidate
-                        </th>
-                        <th className="px-4 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">
-                          Email
-                        </th>
-                        <th className="px-4 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider whitespace-nowrap">
-                          Status
-                        </th>
-                        <th className="px-4 sm:px-7 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider text-right whitespace-nowrap w-[1%]">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200/60">
-                      {applications.map((app) => (
-                        <tr
-                          key={app._id}
-                          className="transition-colors hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-teal-50/25"
-                        >
-                          <td className="px-4 sm:px-7 py-4 align-middle">
-                            <div className="font-medium text-slate-900">{app.student.name}</div>
-                            <div className="sm:hidden text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">
-                              {app.student.email}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 align-middle text-slate-600 hidden sm:table-cell">
-                            {app.student.email}
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <span className={statusBadge(app.status)}>{statusLabel(app.status)}</span>
-                          </td>
-                          <td className="px-4 sm:px-7 py-4 align-middle text-right">
-                            <div className="inline-flex flex-wrap justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => updateStatus(app._id, "SELECTED")}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-emerald-600 to-emerald-700 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-700/30 ring-1 ring-white/10 hover:brightness-105 transition"
-                              >
-                                <IconCheck className="h-3.5 w-3.5" />
-                                Shortlist
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateStatus(app._id, "REJECTED")}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-md shadow-slate-300/20 ring-1 ring-white/70 hover:bg-slate-50 transition"
-                              >
-                                <IconX className="h-3.5 w-3.5" />
-                                Reject
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </div>
-        )}
+
+                <section className="overflow-hidden rounded-3xl border border-slate-300 bg-white/90 shadow-2xl shadow-slate-300/30 ring-1 ring-slate-200 backdrop-blur">
+                  <div className="border-b border-slate-300 px-5 py-4 sm:px-7">
+                    <h2 className="text-lg font-semibold tracking-tight text-slate-900">Applicants</h2>
+                  </div>
+
+                  {applications.length === 0 ? (
+                    <div className="px-6 py-16 text-center">
+                      <div className="mx-auto max-w-xs rounded-xl border border-slate-300 bg-slate-50 px-6 py-8">
+                        <p className="text-sm text-slate-500">No applicants</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto p-3 sm:p-4">
+                      <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
+                        <thead className="bg-slate-50">
+                          <tr className="border-y border-slate-300">
+                            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 sm:px-7">
+                              Candidate
+                            </th>
+                            <th className="hidden px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 md:table-cell">
+                              Email
+                            </th>
+                            <th className="hidden whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 lg:table-cell">
+                              Enrollment No.
+                            </th>
+                            <th className="hidden whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 lg:table-cell">
+                              CGPA
+                            </th>
+                            <th className="hidden whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 lg:table-cell">
+                              Backlogs
+                            </th>
+                            <th className="hidden whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600 xl:table-cell">
+                              Contact
+                            </th>
+                            <th className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                              Status
+                            </th>
+                            <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 sm:px-7">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {applications.map((app) => (
+                            <tr
+                              key={app._id}
+                              className="rounded-xl bg-white shadow-sm ring-1 ring-slate-300 transition duration-200 hover:shadow-md hover:ring-emerald-300"
+                            >
+                              <td className="rounded-l-xl px-4 py-4 align-middle sm:px-7">
+                                <div className="font-medium text-slate-900">{app.student.name}</div>
+                                <div className="mt-0.5 max-w-[260px] truncate text-xs text-slate-500 md:hidden">
+                                  {app.student.email}
+                                </div>
+                                <div className="mt-1 space-y-0.5 text-xs text-slate-500 lg:hidden">
+                                  <p>Enrollment: {app.student.enrollmentNo || "—"}</p>
+                                  <p>CGPA: {app.student.cgpa ?? "—"}</p>
+                                  <p>Backlogs: {app.student.activeBacklogs ?? app.student.activebacklogs ?? 0}</p>
+                                  <p>Contact: {app.student.contactNo || "—"}</p>
+                                </div>
+                              </td>
+                              <td className="hidden px-4 py-4 align-middle text-slate-600 md:table-cell">{app.student.email}</td>
+                              <td className="hidden px-4 py-4 align-middle text-slate-600 lg:table-cell">{app.student.enrollmentNo || "—"}</td>
+                              <td className="hidden px-4 py-4 align-middle tabular-nums text-slate-600 lg:table-cell">{app.student.cgpa ?? "—"}</td>
+                              <td className="hidden px-4 py-4 align-middle tabular-nums text-slate-600 lg:table-cell">
+                                {app.student.activeBacklogs ?? app.student.activebacklogs ?? 0}
+                              </td>
+                              <td className="hidden px-4 py-4 align-middle text-slate-600 xl:table-cell">{app.student.contactNo || "—"}</td>
+                              <td className="px-4 py-4 align-middle">
+                                <span className={statusBadge(app.status)}>{statusLabel(app.status)}</span>
+                              </td>
+                              <td className="rounded-r-xl px-4 py-4 text-right align-middle sm:px-7">
+                                <div className="inline-flex flex-wrap justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateStatus(app._id, "SELECTED")}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-700/25 transition duration-200 hover:-translate-y-0.5 hover:bg-emerald-700"
+                                  >
+                                    <IconCheck className="h-3.5 w-3.5" />
+                                    Shortlist
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateStatus(app._id, "REJECTED")}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-slate-50"
+                                  >
+                                    <IconX className="h-3.5 w-3.5" />
+                                    Reject
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+        </main>
       </div>
     </div>
   );
