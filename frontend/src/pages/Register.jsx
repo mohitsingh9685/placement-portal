@@ -3,21 +3,73 @@ import API from "../api/axios";
 import { Link } from "react-router-dom";
 
 function Register() {
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
+    enrollmentNo: "",
+    collegeName: "",
+    course: "",
+    branch: "",
+    semester: "",
+    passingYear: "",
+    cgpa: "",
+    counselorGroup: "",
+    contactNo: "",
+    whatsappNo: "",
+    totalBacklogs: "",
+    activeBacklogs: "",
   });
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
-  const handleRegister = async () => {
-    try {
-      await API.post("/auth/register", form);
-      alert("Registered successfully");
-    } catch {
-      alert("Error");
-    }
+  const validateStep1 = (f) => {
+    const e = {};
+    if (!f.name) e.name = "Full name is required";
+    if (!f.email) e.email = "Email is required";
+    if (!f.password) e.password = "Password is required";
+    return e;
   };
 
+  const validateStep2 = (f) => {
+    const e = {};
+    if (!f.enrollmentNo) e.enrollmentNo = "Required";
+    if (!f.collegeName) e.collegeName = "Required";
+    if (!f.course) e.course = "Required";
+    if (!f.branch) e.branch = "Required";
+    if (!f.semester) e.semester = "Required";
+    if (!f.passingYear) e.passingYear = "Required";
+    if (!f.cgpa) e.cgpa = "Required";
+    if (!f.counselorGroup) e.counselorGroup = "Required";
+    if (!f.contactNo) e.contactNo = "Required";
+    if (!f.whatsappNo) e.whatsappNo = "Required";
+    if (f.totalBacklogs === "" || f.totalBacklogs === undefined) e.totalBacklogs = "Required";
+    if (f.activeBacklogs === "" || f.activeBacklogs === undefined) e.activeBacklogs = "Required";
+    return e;
+  };
+
+  const isStep1Valid = Object.keys(validateStep1(form)).length === 0;
+  const isStep2Valid = Object.keys(validateStep2(form)).length === 0;
+
+  const handleRegister = async () => {
+  const finalData = { ...form }; // force fresh snapshot
+
+  console.log("FINAL FORM SENT:", finalData);
+
+  try {
+    await API.post("/auth/register", finalData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    alert("Registered successfully");
+  } catch (err) {
+    console.log(err.response?.data);
+    alert("Error");
+  }
+};
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-emerald-50/40 to-slate-100 px-4 py-12">
       <div className="w-full max-w-lg">
@@ -25,7 +77,7 @@ function Register() {
           <div className="mx-auto mb-4 flex max-w-[16rem] items-center gap-2">
             <div className="h-1 flex-1 rounded-full bg-emerald-500" aria-hidden />
             <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-slate-400">
-              Step 1 of 1
+              Step {step} of 2
             </span>
             <div className="h-1 flex-1 rounded-full bg-slate-200" aria-hidden />
           </div>
@@ -42,6 +94,7 @@ function Register() {
             </p>
           </div>
 
+          {step === 1 && (
           <div className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-1">
@@ -70,13 +123,20 @@ function Register() {
                   </span>
                   <input
                     id="register-name"
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none ring-emerald-500/20 transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2"
+                    className={`w-full rounded-lg border ${errors.name && touched.name ? "border-red-500" : "border-slate-200"} bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none ring-emerald-500/20 transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2`}
                     placeholder="Jane Doe"
                     autoComplete="name"
                     onChange={(e) =>
                       setForm({ ...form, name: e.target.value })
                     }
+                    onBlur={() => {
+                      setTouched({ ...touched, name: true });
+                      setErrors({ ...errors, ...validateStep1({ ...form, name: form.name }) });
+                    }}
                   />
+                  {errors.name && touched.name && (
+                    <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+                  )}
                 </div>
               </div>
 
@@ -107,13 +167,20 @@ function Register() {
                   <input
                     id="register-email"
                     type="email"
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none ring-emerald-500/20 transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2"
+                    className={`w-full rounded-lg border ${errors.email && touched.email ? "border-red-500" : "border-slate-200"} bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none ring-emerald-500/20 transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2`}
                     placeholder="you@university.edu"
                     autoComplete="email"
                     onChange={(e) =>
                       setForm({ ...form, email: e.target.value })
                     }
+                    onBlur={() => {
+                      setTouched({ ...touched, email: true });
+                      setErrors({ ...errors, ...validateStep1({ ...form, email: form.email }) });
+                    }}
                   />
+                  {errors.email && touched.email && (
+                    <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -145,13 +212,20 @@ function Register() {
                 <input
                   id="register-password"
                   type="password"
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none ring-emerald-500/20 transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2"
+                  className={`w-full rounded-lg border ${errors.password && touched.password ? "border-red-500" : "border-slate-200"} bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none ring-emerald-500/20 transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2`}
                   placeholder="••••••••"
                   autoComplete="new-password"
                   onChange={(e) =>
                     setForm({ ...form, password: e.target.value })
                   }
+                  onBlur={() => {
+                    setTouched({ ...touched, password: true });
+                    setErrors({ ...errors, ...validateStep1({ ...form, password: form.password }) });
+                  }}
                 />
+                {errors.password && touched.password && (
+                  <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+                )}
               </div>
             </div>
 
@@ -162,12 +236,230 @@ function Register() {
 
             <button
               type="button"
-              className="group relative w-full overflow-hidden rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-              onClick={handleRegister}
+              className={`w-full rounded-lg py-3 text-sm font-semibold text-white shadow-md ${isStep1Valid ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-300 cursor-not-allowed"}`}
+              disabled={!isStep1Valid}
+              onClick={() => setStep(2)}
             >
-              <span className="relative z-10">Create account</span>
+              Next
             </button>
           </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <div>
+                <input
+                  placeholder="Enrollment No"
+                  className={`w-full rounded-lg border ${errors.enrollmentNo && touched.enrollmentNo ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, enrollmentNo: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, enrollmentNo: true }));
+                  }}
+                />
+                {errors.enrollmentNo && touched.enrollmentNo && (
+                  <p className="text-xs text-red-500 mt-1">{errors.enrollmentNo}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  placeholder="College Name"
+                  className={`w-full rounded-lg border ${errors.collegeName && touched.collegeName ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, collegeName: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, collegeName: true }));
+                  }}
+                />
+                {errors.collegeName && touched.collegeName && (
+                  <p className="text-xs text-red-500 mt-1">{errors.collegeName}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  placeholder="Course"
+                  className={`w-full rounded-lg border ${errors.course && touched.course ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, course: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, course: true }));
+                  }}
+                />
+                {errors.course && touched.course && (
+                  <p className="text-xs text-red-500 mt-1">{errors.course}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  placeholder="Branch"
+                  className={`w-full rounded-lg border ${errors.branch && touched.branch ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, branch: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, branch: true }));
+                  }}
+                />
+                {errors.branch && touched.branch && (
+                  <p className="text-xs text-red-500 mt-1">{errors.branch}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  placeholder="Semester"
+                  className={`w-full rounded-lg border ${errors.semester && touched.semester ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, semester: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, semester: true }));
+                  }}
+                />
+                {errors.semester && touched.semester && (
+                  <p className="text-xs text-red-500 mt-1">{errors.semester}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  placeholder="Passing Year"
+                  className={`w-full rounded-lg border ${errors.passingYear && touched.passingYear ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, passingYear: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, passingYear: true }));
+                  }}
+                />
+                {errors.passingYear && touched.passingYear && (
+                  <p className="text-xs text-red-500 mt-1">{errors.passingYear}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  placeholder="CGPA"
+                  className={`w-full rounded-lg border ${errors.cgpa && touched.cgpa ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, cgpa: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, cgpa: true }));
+                  }}
+                />
+                {errors.cgpa && touched.cgpa && (
+                  <p className="text-xs text-red-500 mt-1">{errors.cgpa}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  placeholder="Counselor Group"
+                  className={`w-full rounded-lg border ${errors.counselorGroup && touched.counselorGroup ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, counselorGroup: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, counselorGroup: true }));
+                  }}
+                />
+                {errors.counselorGroup && touched.counselorGroup && (
+                  <p className="text-xs text-red-500 mt-1">{errors.counselorGroup}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  placeholder="Contact No"
+                  className={`w-full rounded-lg border ${errors.contactNo && touched.contactNo ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, contactNo: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, contactNo: true }));
+                  }}
+                />
+                {errors.contactNo && touched.contactNo && (
+                  <p className="text-xs text-red-500 mt-1">{errors.contactNo}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  placeholder="Whatsapp No"
+                  className={`w-full rounded-lg border ${errors.whatsappNo && touched.whatsappNo ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, whatsappNo: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, whatsappNo: true }));
+                  }}
+                />
+                {errors.whatsappNo && touched.whatsappNo && (
+                  <p className="text-xs text-red-500 mt-1">{errors.whatsappNo}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  placeholder="Total Backlogs"
+                  className={`w-full rounded-lg border ${errors.totalBacklogs && touched.totalBacklogs ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, totalBacklogs: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, totalBacklogs: true }));
+                  }}
+                />
+                {errors.totalBacklogs && touched.totalBacklogs && (
+                  <p className="text-xs text-red-500 mt-1">{errors.totalBacklogs}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  placeholder="Active Backlogs"
+                  className={`w-full rounded-lg border ${errors.activeBacklogs && touched.activeBacklogs ? "border-red-500" : "border-slate-200"} px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((prev) => ({ ...prev, activeBacklogs: value }));
+                  }}
+                  onBlur={()=>{
+                    setTouched((prev) => ({ ...prev, activeBacklogs: true }));
+                  }}
+                />
+                {errors.activeBacklogs && touched.activeBacklogs && (
+                  <p className="text-xs text-red-500 mt-1">{errors.activeBacklogs}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={()=>setStep(1)} className="w-full border py-2 rounded">Back</button>
+                <button
+                  disabled={!isStep2Valid}
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev })); // force React sync
+                    handleRegister();
+                  }}
+                  className={`w-full py-2 rounded ${isStep2Valid ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}
+                >
+                  Register
+                </button>
+              </div>
+            </div>
+          )}
 
           <p className="mt-8 border-t border-slate-100 pt-6 text-center text-sm text-slate-600">
             Already have an account?{" "}

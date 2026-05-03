@@ -15,6 +15,10 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log("API HIT:", req.method, req.url);
+  next();
+});
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -34,7 +38,7 @@ app.get("/api/protected", protect, (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 9000;
 
 const startServer = async () => {
   try {

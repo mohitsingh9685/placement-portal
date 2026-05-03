@@ -18,6 +18,15 @@ const studentSchema = new mongoose.Schema(
     password: String,
     phone: String,
 
+    enrollmentNo: String,
+    collegeName: String,
+    course: String,
+    semester: Number,
+    passingYear: Number,
+    counselorGroup: String,
+    contactNo: String,
+    whatsappNo: String,
+
     branch: String,
     year: Number,
 

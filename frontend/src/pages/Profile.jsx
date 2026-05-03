@@ -45,18 +45,58 @@ function Profile() {
       activeBacklogs: String(backlogCount(u)),
       hasActiveBacklog: Boolean(u.hasActiveBacklog),
       skills: normalizedSkills(u),
+
+      enrollmentNo: u.enrollmentNo ?? "",
+      collegeName: u.collegeName ?? "",
+      course: u.course ?? "",
+      semester: u.semester ? String(u.semester) : "",
+      passingYear: u.passingYear ? String(u.passingYear) : "",
+      contactNo: u.contactNo ?? "",
+      whatsappNo: u.whatsappNo ?? "",
+      totalBacklogs: u.totalBacklogs ? String(u.totalBacklogs) : "",
     };
   });
 
   useEffect(() => {
-    if (!profileUser) {
+  const fetchProfile = async () => {
+    try {
+      const res = await API.get("/auth/profile");
+
+      const user = res.data;
+
+      setProfileUser(user);
+
+      setForm({
+        cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
+        branch: user.branch ?? "",
+        activeBacklogs: String(user.activeBacklogs ?? 0),
+        hasActiveBacklog: Boolean(user.hasActiveBacklog),
+        skills: normalizedSkills(user),
+
+        enrollmentNo: user.enrollmentNo ?? "",
+        collegeName: user.collegeName ?? "",
+        course: user.course ?? "",
+        semester: user.semester ? String(user.semester) : "",
+        passingYear: user.passingYear ? String(user.passingYear) : "",
+        contactNo: user.contactNo ?? "",
+        whatsappNo: user.whatsappNo ?? "",
+        totalBacklogs: user.totalBacklogs ? String(user.totalBacklogs) : "",
+      });
+
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // keep your RBAC intact
+      if (user.role === "admin") {
+        navigate("/admin-profile", { replace: true });
+      }
+
+    } catch (err) {
       navigate("/", { replace: true });
-      return;
     }
-    if (profileUser.role === "admin") {
-      navigate("/admin-profile", { replace: true });
-    }
-  }, [profileUser, navigate]);
+  };
+
+  fetchProfile();
+}, [navigate]);
 
   const headlineParts = useMemo(() => {
     const parts = [];
@@ -90,18 +130,21 @@ function Profile() {
   const handleUpdate = async () => {
     setSaving(true);
     try {
-      const backlogsNum =
-        form.activeBacklogs.trim() === "" ? 0 : Number(form.activeBacklogs);
-      const cgpaPayload =
-        form.cgpa.trim() === "" ? undefined : Number(form.cgpa);
-
       const res = await API.put("/auth/update-profile", {
-        ...(cgpaPayload !== undefined &&
-          !Number.isNaN(cgpaPayload) && { cgpa: cgpaPayload }),
-        ...(form.branch.trim() && { branch: form.branch.trim() }),
-        activeBacklogs: Number.isFinite(backlogsNum) ? backlogsNum : 0,
+        cgpa: Number(form.cgpa),
+        branch: form.branch,
+        activeBacklogs: Number(form.activeBacklogs),
         hasActiveBacklog: form.hasActiveBacklog,
         skills: form.skills,
+
+        enrollmentNo: form.enrollmentNo,
+        collegeName: form.collegeName,
+        course: form.course,
+        semester: Number(form.semester),
+        passingYear: Number(form.passingYear),
+        contactNo: form.contactNo,
+        whatsappNo: form.whatsappNo,
+        totalBacklogs: Number(form.totalBacklogs),
       });
 
       localStorage.setItem("user", JSON.stringify(res.data));
@@ -237,6 +280,48 @@ function Profile() {
                   />
                   <span>Active backlog</span>
                 </label>
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">Enrollment No</label>
+                <input value={form.enrollmentNo} onChange={(e)=>setForm({...form,enrollmentNo:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">College</label>
+                <input value={form.collegeName} onChange={(e)=>setForm({...form,collegeName:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">Course</label>
+                <input value={form.course} onChange={(e)=>setForm({...form,course:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">Semester</label>
+                <input value={form.semester} onChange={(e)=>setForm({...form,semester:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">Passing Year</label>
+                <input value={form.passingYear} onChange={(e)=>setForm({...form,passingYear:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">Contact No</label>
+                <input value={form.contactNo} onChange={(e)=>setForm({...form,contactNo:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500">Whatsapp No</label>
+                <input value={form.whatsappNo} onChange={(e)=>setForm({...form,whatsappNo:e.target.value})}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
               </div>
             </div>
           </section>
