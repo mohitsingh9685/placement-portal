@@ -46,7 +46,10 @@ function Dashboard() {
       return { eligible: false, reason: "Low CGPA" };
     }
 
-    if (!company.allowedBranches?.includes(user.branch)) {
+    const userBranch = user.branch?.toUpperCase().trim();
+    const allowed = company.allowedBranches?.map(b => b.toUpperCase().trim()) || [];
+
+    if (!allowed.includes(userBranch)) {
       return { eligible: false, reason: "Branch not allowed" };
     }
 

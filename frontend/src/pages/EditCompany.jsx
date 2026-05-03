@@ -76,9 +76,9 @@ const EditCompany = () => {
             role: data.role ?? "",
             ctc: data.ctc ?? "",
             minCgpa: data.minCgpa ?? "",
-            branches: Array.isArray(data.branches)
-              ? data.branches.join(",")
-              : data.branches ?? "",
+            branches: Array.isArray(data.allowedBranches)
+              ? data.allowedBranches.join(", ")
+              : data.allowedBranches ?? "",
             maxBacklogs: data.maxBacklogs ?? "",
             description: data.description ?? "",
           });
@@ -115,7 +115,10 @@ const EditCompany = () => {
         },
         body: JSON.stringify({
           ...formData,
-          branches: formData.branches.split(",").map((b) => b.trim()),
+          allowedBranches: formData.branches
+            .split(",")
+            .map((b) => b.trim().toUpperCase())
+            .filter(Boolean),
         }),
       });
 

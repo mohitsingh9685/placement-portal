@@ -14,12 +14,16 @@ export const addCompany = async (req, res) => {
       registrationDeadline
     } = req.body;
 
+    const normalizedBranches = typeof allowedBranches === "string"
+      ? allowedBranches.split(",").map(b => b.trim().toUpperCase()).filter(Boolean)
+      : allowedBranches;
+
     const company = await Company.create({
       companyName,
       role,
       ctc,
       minCgpa,
-      allowedBranches,
+      allowedBranches: normalizedBranches,
       maxBacklogsAllowed,
       allowActiveBacklogs,
       registrationDeadline,
@@ -60,9 +64,18 @@ export const getCompanyById = async (req, res) => {
 // Update company
 export const updateCompany = async (req, res) => {
   try {
+    const body = { ...req.body };
+
+    if (body.allowedBranches && typeof body.allowedBranches === "string") {
+      body.allowedBranches = body.allowedBranches
+        .split(",")
+        .map(b => b.trim().toUpperCase())
+        .filter(Boolean);
+    }
+
     const updatedCompany = await Company.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      body,
       { new: true }
     );
 
