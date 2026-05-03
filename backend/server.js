@@ -9,8 +9,6 @@ import applicationRoutes from "./routes/applicationRoutes.js";
 
 // Load env variables
 dotenv.config();
-// Connect to database
-connectDB();
 
 const app = express();
 
@@ -38,6 +36,20 @@ app.get("/api/protected", protect, (req, res) => {
 
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    console.log("Starting server...");
+    
+    await connectDB(); // wait for DB connection
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+
+  } catch (error) {
+    console.error("Server failed to start:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

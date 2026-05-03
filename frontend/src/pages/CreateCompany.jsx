@@ -3,6 +3,47 @@ import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
 
+const inputBase =
+  "block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm transition duration-150 " +
+  "focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
+
+const textareaBase =
+  `${inputBase} min-h-[120px] resize-y`;
+
+function Field({ id, label, children }) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-2 block text-sm font-medium text-gray-700"
+      >
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Section({ id, title, children }) {
+  const titleId = `section-${id}`;
+  return (
+    <section
+      className="space-y-4"
+      aria-labelledby={titleId}
+    >
+      <div className="border-b border-gray-100 pb-1">
+        <h3
+          id={titleId}
+          className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+        >
+          {title}
+        </h3>
+      </div>
+      <div className="space-y-4 pt-1">{children}</div>
+    </section>
+  );
+}
+
 function CreateCompany() {
   const navigate = useNavigate();
 
@@ -15,6 +56,9 @@ function CreateCompany() {
     maxBacklogsAllowed: "",
     description: "",
   });
+
+  const update = (field) => (e) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -29,7 +73,6 @@ function CreateCompany() {
       description,
     } = form;
 
-    // validation
     if (
       !companyName ||
       !role ||
@@ -58,75 +101,130 @@ function CreateCompany() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Navbar />
 
-      <div className="p-6 max-w-xl mx-auto bg-white shadow rounded">
-        <form onSubmit={handleCreate}>
-          <h2 className="text-2xl font-bold mb-4">Create Company</h2>
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-lg shadow-gray-200/60">
+          <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-6 sm:px-8">
+            <h2 className="text-xl font-semibold tracking-tight text-gray-900 sm:text-2xl">
+              Create company
+            </h2>
+          </div>
 
-          <input
-            required
-            placeholder="Company Name"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-          />
+          <form onSubmit={handleCreate} className="space-y-8 px-6 py-8 sm:px-8">
+            <Section id="company-role" title="Company & role">
+              <Field id="companyName" label="Company name">
+                <input
+                  id="companyName"
+                  required
+                  type="text"
+                  autoComplete="organization"
+                  className={inputBase}
+                  value={form.companyName}
+                  onChange={update("companyName")}
+                />
+              </Field>
 
-          <input
-            required
-            placeholder="Role"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, role: e.target.value })}
-          />
+              <Field id="role" label="Role / designation">
+                <input
+                  id="role"
+                  required
+                  type="text"
+                  placeholder="Role"
+                  className={inputBase}
+                  value={form.role}
+                  onChange={update("role")}
+                />
+              </Field>
+            </Section>
 
-          <input
-            required
-            type="number"
-            placeholder="CTC / Stipend"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, ctc: e.target.value })}
-          />
+            <Section id="compensation" title="Compensation">
+              <Field id="ctc" label="CTC / stipend">
+                <input
+                  id="ctc"
+                  required
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Amount"
+                  className={inputBase}
+                  value={form.ctc}
+                  onChange={update("ctc")}
+                />
+              </Field>
+            </Section>
 
-          <input
-            required
-            type="number"
-            min="0"
-            max="10"
-            placeholder="Min CGPA"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, minCgpa: e.target.value })}
-          />
+            <Section id="eligibility" title="Eligibility criteria">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field id="minCgpa" label="Minimum CGPA">
+                  <input
+                    id="minCgpa"
+                    required
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.01"
+                    placeholder="7.0"
+                    className={inputBase}
+                    value={form.minCgpa}
+                    onChange={update("minCgpa")}
+                  />
+                </Field>
 
-          <input
-            required
-            placeholder="Branches (CSE,IT)"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, allowedBranches: e.target.value })}
-          />
+                <Field
+                  id="maxBacklogsAllowed"
+                  label="Maximum backlogs allowed"
+                >
+                  <input
+                    id="maxBacklogsAllowed"
+                    required
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    className={inputBase}
+                    value={form.maxBacklogsAllowed}
+                    onChange={update("maxBacklogsAllowed")}
+                  />
+                </Field>
+              </div>
 
-          <input
-            required
-            type="number"
-            min="0"
-            placeholder="Max Backlogs"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, maxBacklogsAllowed: e.target.value })}
-          />
+              <Field id="allowedBranches" label="Allowed branches">
+                <input
+                  id="allowedBranches"
+                  required
+                  type="text"
+                  placeholder="CSE, IT, ECE"
+                  className={inputBase}
+                  value={form.allowedBranches}
+                  onChange={update("allowedBranches")}
+                />
+              </Field>
+            </Section>
 
-          <textarea
-            required
-            placeholder="Company Description"
-            className="border p-2 mb-2 w-full"
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
+            <Section id="description-section" title="Description">
+              <Field id="description" label="Description">
+                <textarea
+                  id="description"
+                  required
+                  placeholder="Details"
+                  className={textareaBase}
+                  value={form.description}
+                  onChange={update("description")}
+                />
+              </Field>
+            </Section>
 
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded w-full mt-2"
-          >
-            Create Company
-          </button>
-        </form>
+            <div className="border-t border-gray-100 pt-8">
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto sm:min-w-[200px] sm:px-8"
+              >
+                Create company
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

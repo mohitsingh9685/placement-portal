@@ -81,16 +81,28 @@ export const login = async (req, res) => {
 // UPDATE PROFILE
 export const updateProfile = async (req, res) => {
   try {
-    const user = await Student.findByIdAndUpdate(
-      req.user._id,
-      {
-        cgpa: req.body.cgpa,
-        branch: req.body.branch,
-        activebacklogs: req.body.activebacklogs,
-        hasActiveBacklog: req.body.hasActiveBacklog,
-      },
-      { new: true },
-    );
+    const activeBackLogsVal =
+      req.body.activeBacklogs ?? req.body.activebacklogs ?? undefined;
+
+    const update = {
+      cgpa: req.body.cgpa,
+      branch: req.body.branch,
+      hasActiveBacklog: req.body.hasActiveBacklog,
+    };
+
+    if (activeBackLogsVal !== undefined && activeBackLogsVal !== "") {
+      update.activeBacklogs = Number(activeBackLogsVal);
+    }
+
+    if (Array.isArray(req.body.skills)) {
+      update.skills = req.body.skills
+        .map((s) => String(s).trim())
+        .filter(Boolean);
+    }
+
+    const user = await Student.findByIdAndUpdate(req.user._id, update, {
+      new: true,
+    });
 
     res.json(user);
   } catch (error) {
