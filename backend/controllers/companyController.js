@@ -14,9 +14,17 @@ export const addCompany = async (req, res) => {
       registrationDeadline
     } = req.body;
 
-    const normalizedBranches = typeof allowedBranches === "string"
-      ? allowedBranches.split(",").map(b => b.trim().toUpperCase()).filter(Boolean)
-      : allowedBranches;
+    let normalizedBranches = [];
+    if (typeof allowedBranches === "string") {
+      normalizedBranches = allowedBranches
+        .split(",")
+        .map(b => b.trim().toUpperCase())
+        .filter(Boolean);
+    } else if (Array.isArray(allowedBranches)) {
+      normalizedBranches = allowedBranches
+        .map(b => String(b).trim().toUpperCase())
+        .filter(Boolean);
+    }
 
     const company = await Company.create({
       companyName,
@@ -66,11 +74,17 @@ export const updateCompany = async (req, res) => {
   try {
     const body = { ...req.body };
 
-    if (body.allowedBranches && typeof body.allowedBranches === "string") {
-      body.allowedBranches = body.allowedBranches
-        .split(",")
-        .map(b => b.trim().toUpperCase())
-        .filter(Boolean);
+    if (body.allowedBranches) {
+      if (typeof body.allowedBranches === "string") {
+        body.allowedBranches = body.allowedBranches
+          .split(",")
+          .map(b => b.trim().toUpperCase())
+          .filter(Boolean);
+      } else if (Array.isArray(body.allowedBranches)) {
+        body.allowedBranches = body.allowedBranches
+          .map(b => String(b).trim().toUpperCase())
+          .filter(Boolean);
+      }
     }
 
     const updatedCompany = await Company.findByIdAndUpdate(

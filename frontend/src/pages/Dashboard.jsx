@@ -46,8 +46,8 @@ function Dashboard() {
       return { eligible: false, reason: "Low CGPA" };
     }
 
-    const userBranch = user.branch?.toUpperCase().trim();
-    const allowed = company.allowedBranches?.map(b => b.toUpperCase().trim()) || [];
+    const userBranch = user.branch?.toUpperCase().trim() || "";
+    const allowed = (company.allowedBranches || []).map(b => b?.toUpperCase().trim());
 
     if (!allowed.includes(userBranch)) {
       return { eligible: false, reason: "Branch not allowed" };
@@ -68,12 +68,13 @@ function Dashboard() {
   const handleApply = async (companyId) => {
     try {
       await API.post("/application/apply", { companyId });
-      setApplied((prev) => [...prev, companyId]);
+      await fetchApplied();
     } catch (err) {
       if (err.response?.data?.message === "Already applied") {
-        setApplied((prev) => [...prev, companyId]);
+        await fetchApplied();
+      } else {
+        alert(err.response?.data?.message || "Error applying");
       }
-      console.log(err.response?.data?.message || "Error");
     }
   };
 

@@ -5,6 +5,7 @@ import {
   getAllApplications,
   updateApplicationStatus,
   getApplicationsByCompany,
+  deleteApplication,
 } from "../controllers/applicationController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { isAdmin } from "../middleware/authMiddleware.js";
@@ -14,6 +15,7 @@ const router = express.Router();
 // student
 router.post("/apply", protect, applyToCompany);
 router.get("/my", protect, getMyApplications);
+router.delete("/:applicationId", protect, deleteApplication);
 
 // admin
 router.get("/admin/all", protect, isAdmin, getAllApplications);

@@ -68,6 +68,17 @@ function MyApplications() {
     fetchApps();
   }, []);
 
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this application?")) return;
+
+    try {
+      await API.delete(`/application/${id}`);
+      setApps((prev) => prev.filter((app) => app._id !== id));
+    } catch (err) {
+      alert(err.response?.data?.message || "Error deleting application");
+    }
+  };
+
   const companyName = (app) => app.company?.companyName ?? "Unknown company";
 
   return (
@@ -143,7 +154,15 @@ function MyApplications() {
                         </time>
                       </p>
                     </div>
-                    <StatusBadge status={app.status} />
+                    <div className="flex flex-col items-end gap-2">
+                      <StatusBadge status={app.status} />
+                      <button
+                        onClick={() => handleDelete(app._id)}
+                        className="text-xs font-semibold text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -173,6 +192,9 @@ function MyApplications() {
                       >
                         Status
                       </th>
+                      <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -191,6 +213,14 @@ function MyApplications() {
                         </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={app.status} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleDelete(app._id)}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}

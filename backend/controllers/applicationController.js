@@ -30,8 +30,23 @@ export const applyToCompany = async (req, res) => {
       });
     }
 
-    // branch check
-    if (!company.allowedBranches.includes(student.branch)) {
+    // branch check (case and whitespace insensitive, robust normalization)
+    const userBranch = String(student.branch || "")
+      .toUpperCase()
+      .trim();
+
+    // normalize allowed branches safely (handles array OR string from DB)
+    let allowedBranchesRaw = company.allowedBranches || [];
+
+    if (typeof allowedBranchesRaw === "string") {
+      allowedBranchesRaw = allowedBranchesRaw.split(",");
+    }
+
+    const allowedBranches = allowedBranchesRaw
+      .map((b) => String(b).toUpperCase().trim())
+      .filter(Boolean);
+
+    if (!allowedBranches.includes(userBranch)) {
       return res.status(400).json({
         message: "Not eligible: Branch not allowed",
       });
@@ -44,8 +59,8 @@ export const applyToCompany = async (req, res) => {
       });
     }
 
-    // strict backlog rule
-    if (!company.allowActiveBacklogs && student.hasActiveBacklog) {
+    // strict backlog rule (make safe if allowActiveBacklogs is undefined)
+    if (company.allowActiveBacklogs === false && student.hasActiveBacklog) {
       return res.status(400).json({
         message: "Not eligible: Active backlog not allowed",
       });
@@ -168,5 +183,28 @@ export const updateApplicationStatus = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error" });
+  }
+};
+export const deleteApplication = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+
+    const application = await Application.findById(applicationId);
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    // Only student can delete their own application
+    if (application.student.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    await application.deleteOne();
+
+    res.json({ message: "Application deleted successfully" });
+  } catch (error) {
+    console.error("DELETE APPLICATION ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
