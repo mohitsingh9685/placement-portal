@@ -13,9 +13,41 @@ const projectSchema = new mongoose.Schema({
 
 const studentSchema = new mongoose.Schema(
   {
-    name: String,
-    email: { type: String, unique: true },
-    password: String,
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true
+    },
+    password: {
+      type: String,
+      required: function () {
+        return this.authProvider === "local";
+      },
+      minlength: 6,
+      select: false
+    },
+    googleId: {
+      type: String,
+      default: null
+    },
+
+    profilePicture: {
+      type: String,
+      default: null
+    },
+
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local"
+    },
     phone: String,
 
     enrollmentNo: String,
@@ -63,9 +95,31 @@ const studentSchema = new mongoose.Schema(
       type: String,
       enum: ["student", "admin"],
       default: "student"
+    },
+
+    refreshToken: {
+      type: String,
+      default: null
+    },
+
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+
+    profileCompleted: {
+      type: Boolean,
+      default: false
+    },
+
+    lastLogin: {
+      type: Date
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    versionKey: false
+  }
 );
 
 export default mongoose.model("Student", studentSchema);

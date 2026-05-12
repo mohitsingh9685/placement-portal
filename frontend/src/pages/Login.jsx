@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GoogleLogin } from "@react-oauth/google";
 import API from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -7,6 +8,34 @@ function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const res = await API.post(
+        "/auth/google",
+        {
+          token: credentialResponse.credential,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+
+      if (res.data.user.role === "admin") {
+        navigate("/admin");
+      } else if (!res.data.user.profileCompleted) {
+        navigate("/complete-profile");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Google Login Error:", error);
+      alert("Google login failed");
+    }
+  };
 
   const handleLogin = async () => {
     try {
@@ -188,9 +217,32 @@ function Login() {
                     />
                   </svg>
                 )}
-                {loading ? "Signing in…" : "Sign in"}
+                {loading ? "Logging in…" : "Login"}
               </span>
             </button>
+
+            <div className="flex items-center gap-4 py-1">
+              <div className="h-px flex-1 bg-white/15"></div>
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-300/70">
+                OR
+              </span>
+              <div className="h-px flex-1 bg-white/15"></div>
+            </div>
+
+            <div className="flex justify-center">
+              <div className="overflow-hidden rounded-xl bg-white p-[2px] shadow-lg shadow-slate-900/30">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => {
+                    console.log("Google Login Failed");
+                  }}
+                  theme="filled_black"
+                  shape="pill"
+                  size="large"
+                  text="continue_with"
+                />
+              </div>
+            </div>
           </form>
 
           <p className="mt-8 text-center text-sm text-slate-200/85">

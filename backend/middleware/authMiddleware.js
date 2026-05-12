@@ -14,24 +14,33 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ message: "Not authorized, no token" });
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, no token",
+      });
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     // Get user
     req.user = await Student.findById(decoded.id).select("-password");
 
     next();
   } catch (error) {
-    return res.status(401).json({ message: "Not authorized" });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
   }
 };
 
 const isAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only access" });
+    return res.status(403).json({
+      success: false,
+      message: "Admin only access",
+    });
   }
   next();
 };

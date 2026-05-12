@@ -12,32 +12,50 @@ function Dashboard() {
   });
 
   const navigate = useNavigate();
+  const fetchProfile = async () => {
+    try {
+      const res = await API.get("/auth/profile");
 
+      const profileUser = res.data.user || res.data;
+
+      setUser(profileUser);
+
+      localStorage.setItem("user", JSON.stringify(profileUser));
+    } catch (err) {
+      console.log(err);
+    }
+  };
   useEffect(() => {
     if (user?.role === "admin") {
       navigate("/admin");
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const fetchCompanies = async () => {
     try {
       const res = await API.get("/company");
-      setCompanies(res.data);
+
+      console.log("COMPANY API RESPONSE:", res.data);
+      setCompanies(res.data.companies || res.data);
     } catch (err) {
-      alert("Failed to load companies");
+      console.log(err.response?.data || err);
+      alert(err.response?.data?.message || "Failed to load companies");
     }
   };
 
   const fetchApplied = async () => {
     try {
       const res = await API.get("/application/my");
-      const appliedIds = res.data.map((app) => app.company._id);
+
+      console.log("APPLICATION API RESPONSE:", res.data);
+      const applications = res.data.applications || res.data;
+
+      const appliedIds = applications.map((app) => app.company._id);
       setApplied(appliedIds);
     } catch (err) {
       console.log(err);
     }
   };
-
 
   const checkEligibility = (company) => {
     if (!user) return { eligible: null, reason: "" };
@@ -47,7 +65,9 @@ function Dashboard() {
     }
 
     const userBranch = user.branch?.toUpperCase().trim() || "";
-    const allowed = (company.allowedBranches || []).map(b => b?.toUpperCase().trim());
+    const allowed = (company.allowedBranches || []).map((b) =>
+      b?.toUpperCase().trim(),
+    );
 
     if (!allowed.includes(userBranch)) {
       return { eligible: false, reason: "Branch not allowed" };
@@ -79,8 +99,13 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    fetchCompanies();
-    fetchApplied();
+    const loadDashboard = async () => {
+      await fetchProfile();
+      await fetchCompanies();
+      await fetchApplied();
+    };
+
+    loadDashboard();
   }, []);
 
   const userInitial =
@@ -90,7 +115,9 @@ function Dashboard() {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase())
       .join("") || "?";
-  const eligibleCount = companies.filter((company) => checkEligibility(company).eligible).length;
+  const eligibleCount = companies.filter(
+    (company) => checkEligibility(company).eligible,
+  ).length;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1100px_580px_at_8%_-12%,rgba(6,182,212,0.18),transparent_55%),radial-gradient(900px_520px_at_94%_-8%,rgba(99,102,241,0.18),transparent_56%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
@@ -130,7 +157,7 @@ function Dashboard() {
             <div className="relative grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12">
               <div className="flex min-w-0 items-center gap-4 sm:gap-5">
                 <div
-                  className="flex h-[4rem] w-[4rem] shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 text-lg font-semibold tracking-tight text-white shadow-xl shadow-slate-400/40"
+                 className="flex h-[4rem] w-[4rem] shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 text-lg font-semibold tracking-tight text-white shadow-xl shadow-slate-400/40"
                   aria-hidden
                 >
                   {userInitial}
@@ -142,14 +169,18 @@ function Dashboard() {
                   <h3 className="mt-2 text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
                     {user.name}
                   </h3>
-                  <p className="mt-1.5 truncate text-sm leading-normal text-slate-600">{user.email}</p>
+                  <p className="mt-1.5 truncate text-sm leading-normal text-slate-600">
+                    {user.email}
+                  </p>
                 </div>
               </div>
 
               <div className="flex w-full flex-wrap items-center gap-2.5 sm:gap-3.5 lg:w-auto lg:flex-nowrap lg:justify-self-end">
                 <span className="inline-flex h-11 min-w-[5.5rem] flex-1 items-center justify-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-4 text-xs font-semibold text-slate-600 shadow-sm sm:flex-initial">
                   CGPA{" "}
-                  <span className="tabular-nums text-sm font-bold text-slate-900">{user.cgpa}</span>
+                  <span className="tabular-nums text-sm font-bold text-slate-900">
+                    {user.cgpa}
+                  </span>
                 </span>
                 <span className="inline-flex h-11 min-w-[5.5rem] flex-1 items-center justify-center rounded-full border border-emerald-200/80 bg-emerald-50/95 px-4 text-center text-xs font-semibold text-emerald-800 shadow-sm sm:flex-initial sm:min-w-0">
                   {user.branch}
@@ -174,17 +205,26 @@ function Dashboard() {
               Discover premium opportunities
             </h2>
             <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-[15px]">
-              Browse roles that match your profile, with real-time eligibility aligned to your academic criteria.
+              Browse roles that match your profile, with real-time eligibility
+              aligned to your academic criteria.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <div className="rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Open roles</p>
-              <p className="mt-1 text-xl font-bold tracking-tight text-slate-900">{companies.length}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Open roles
+              </p>
+              <p className="mt-1 text-xl font-bold tracking-tight text-slate-900">
+                {companies.length}
+              </p>
             </div>
             <div className="rounded-2xl border border-sky-200/80 bg-sky-50/90 px-4 py-3 shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-700/80">Eligible</p>
-              <p className="mt-1 text-xl font-bold tracking-tight text-sky-900">{eligibleCount}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-700/80">
+                Eligible
+              </p>
+              <p className="mt-1 text-xl font-bold tracking-tight text-sky-900">
+                {eligibleCount}
+              </p>
             </div>
           </div>
         </header>
@@ -198,7 +238,8 @@ function Dashboard() {
                 key={company._id}
                 className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/72 p-6 shadow-[0_12px_34px_-20px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-sky-200/80 hover:bg-white/85 hover:shadow-[0_28px_56px_-30px_rgba(37,99,235,0.42)]"
                 style={{
-                  animation: "dashboard-card-fade 620ms cubic-bezier(0.22,1,0.36,1) both",
+                  animation:
+                    "dashboard-card-fade 620ms cubic-bezier(0.22,1,0.36,1) both",
                   animationDelay: `${Math.min(index * 85, 700)}ms`,
                 }}
               >
@@ -214,20 +255,29 @@ function Dashboard() {
                     <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Open role
                     </p>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-700">{company.role}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                      {company.role}
+                    </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
-                      CTC <span className="ml-1.5 tabular-nums font-semibold text-slate-900">₹{company.ctc}</span>
+                      CTC{" "}
+                      <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
+                        ₹{company.ctc}
+                      </span>
                     </span>
                     <span className="inline-flex h-8 items-center rounded-xl border border-blue-200/80 bg-blue-50/90 px-3 text-xs font-medium text-blue-800 shadow-sm">
                       Min CGPA{" "}
-                      <span className="ml-1.5 tabular-nums font-semibold">{company.minCgpa}</span>
+                      <span className="ml-1.5 tabular-nums font-semibold">
+                        {company.minCgpa}
+                      </span>
                     </span>
                     <span className="inline-flex h-8 items-center rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 text-xs font-medium text-amber-900 shadow-sm">
                       Max backlogs{" "}
-                      <span className="ml-1.5 tabular-nums font-semibold">{company.maxBacklogsAllowed}</span>
+                      <span className="ml-1.5 tabular-nums font-semibold">
+                        {company.maxBacklogsAllowed}
+                      </span>
                     </span>
                   </div>
 
@@ -235,14 +285,21 @@ function Dashboard() {
                     <div className="min-h-[1.75rem]">
                       {applied.includes(company._id) ? (
                         <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200/90 bg-gradient-to-r from-emerald-50 to-green-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm shadow-emerald-100/80">
-                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-3.5 w-3.5 shrink-0"
+                          >
                             <path
                               fillRule="evenodd"
                               d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.071 7.132a1 1 0 0 1-1.42.006L3.29 8.914a1 1 0 0 1 1.414-1.414l4.217 4.217 6.364-6.423a1 1 0 0 1 1.42-.006Z"
                               clipRule="evenodd"
                             />
                           </svg>
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                            aria-hidden
+                          />
                           Applied
                         </span>
                       ) : eligibility.eligible === null ? (
@@ -251,26 +308,40 @@ function Dashboard() {
                         </span>
                       ) : eligibility.eligible ? (
                         <span className="inline-flex items-center gap-2 rounded-full border border-sky-200/90 bg-gradient-to-r from-sky-50 to-blue-50 px-3 py-1.5 text-xs font-semibold text-sky-900 shadow-sm shadow-sky-100/80">
-                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-3.5 w-3.5 shrink-0"
+                          >
                             <path
                               fillRule="evenodd"
                               d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.707-9.707a1 1 0 0 0-1.414-1.414L9 10.172 7.707 8.879a1 1 0 1 0-1.414 1.414l2 2a1 1 0 0 0 1.414 0l4-4Z"
                               clipRule="evenodd"
                             />
                           </svg>
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" aria-hidden />
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500"
+                            aria-hidden
+                          />
                           Eligible
                         </span>
                       ) : (
                         <span className="inline-flex items-start gap-2 rounded-xl border border-red-200/90 bg-gradient-to-r from-red-50 to-rose-50 px-3 py-2 text-xs font-semibold leading-snug text-red-800 shadow-sm shadow-red-100/70">
-                          <svg viewBox="0 0 20 20" fill="currentColor" className="mt-[1px] h-3.5 w-3.5 shrink-0">
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="mt-[1px] h-3.5 w-3.5 shrink-0"
+                          >
                             <path
                               fillRule="evenodd"
                               d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-8.75-3a.75.75 0 0 0 1.5 0 .75.75 0 0 0-1.5 0ZM10 8.75a.75.75 0 0 0-.75.75v3a.75.75 0 0 0 1.5 0v-3a.75.75 0 0 0-.75-.75Z"
                               clipRule="evenodd"
                             />
                           </svg>
-                          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden />
+                          <span
+                            className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
+                            aria-hidden
+                          />
                           Not eligible — {eligibility.reason}
                         </span>
                       )}
@@ -300,7 +371,11 @@ function Dashboard() {
                       >
                         <span className="inline-flex items-center gap-2">
                           Apply now
-                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 transition-transform duration-300 hover:translate-x-0.5">
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-4 w-4 transition-transform duration-300 hover:translate-x-0.5"
+                          >
                             <path
                               fillRule="evenodd"
                               d="M3.5 10a.75.75 0 0 1 .75-.75h9.69L10.72 6.03a.75.75 0 0 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H4.25A.75.75 0 0 1 3.5 10Z"

@@ -97,7 +97,7 @@ function Profile() {
     try {
       const res = await API.get("/auth/profile");
 
-      const user = res.data;
+     const user = res.data.user || res.data;
 
       setProfileUser(user);
 
@@ -182,8 +182,14 @@ function Profile() {
         totalBacklogs: Number(form.totalBacklogs),
       });
 
-      localStorage.setItem("user", JSON.stringify(res.data));
-      setProfileUser(res.data);
+      const updatedUser = res.data.user || res.data;
+
+localStorage.setItem(
+  "user",
+  JSON.stringify(updatedUser)
+);
+
+setProfileUser(updatedUser);
       alert("Profile updated ✅");
     } catch {
       alert("Error updating profile");

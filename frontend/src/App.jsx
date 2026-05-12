@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
+import Login from "./pages/Login.jsx";
 import ForgotPassword from "./pages/ForgotPassword";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -9,9 +9,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CreateCompany from "./pages/CreateCompany";
 import AdminProfile from "./pages/AdminProfile";
 import EditCompany from "./pages/EditCompany";
-
-
-
+import CompleteProfile from "./pages/CompleteProfile";
 
 function App() {
   return (
@@ -27,6 +25,7 @@ function App() {
         <Route path="/admin-profile" element={<AdminProfile />} />
         <Route path="/create-company" element={<CreateCompany />} />
         <Route path="/admin/edit-company/:id" element={<EditCompany />} />
+        <Route path="/complete-profile" element={<CompleteProfile />} />
       </Routes>
     </BrowserRouter>
   );

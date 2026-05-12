@@ -1,6 +1,8 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import { protect } from "./middleware/authMiddleware.js";
@@ -13,7 +15,14 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+app.use(cookieParser());
 app.use(express.json());
 app.use((req, res, next) => {
   console.log("API HIT:", req.method, req.url);
