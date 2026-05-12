@@ -1,16 +1,20 @@
-import express from "express";
 import dotenv from "dotenv";
+
+// Load env variables first
+dotenv.config();
+
+import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+
 import connectDB from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
 import { protect } from "./middleware/authMiddleware.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
-
-// Load env variables
-dotenv.config();
+import uploadRoutes from "./routes/upload.routes.js";
 
 const app = express();
 
@@ -33,6 +37,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/application", applicationRoutes);
+app.use("/api/v1/upload", uploadRoutes);
 
 // Test route
 app.get("/", (req, res) => {

@@ -69,7 +69,10 @@ function Profile() {
   const navigate = useNavigate();
   const [profileUser, setProfileUser] = useState(parseStoredUser);
   const [saving, setSaving] = useState(false);
-  const [skillInput, setSkillInput] = useState("");
+const [uploadingPhoto, setUploadingPhoto] = useState(false);
+const [selectedPhoto, setSelectedPhoto] = useState(null);
+const [previewPhoto, setPreviewPhoto] = useState("");
+const [skillInput, setSkillInput] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [activeSection, setActiveSection] = useState("academic");
   const [form, setForm] = useState(() => {
@@ -100,7 +103,7 @@ function Profile() {
      const user = res.data.user || res.data;
 
       setProfileUser(user);
-
+      setPreviewPhoto(user.profilePicture?.url || "");
       setForm({
         cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
         branch: user.branch ?? "",
@@ -161,7 +164,59 @@ function Profile() {
       skills: prev.skills.filter((s) => s !== skill),
     }));
   };
+  const handlePhotoChange = (e) => {
+  const file = e.target.files?.[0];
 
+  if (!file) return;
+
+  setSelectedPhoto(file);
+  setPreviewPhoto(URL.createObjectURL(file));
+};
+
+const handlePhotoUpload = async () => {
+  if (!selectedPhoto) {
+    alert("Please select a photo first");
+    return;
+  }
+
+  try {
+    setUploadingPhoto(true);
+
+    const formData = new FormData();
+
+    formData.append("profilePhoto", selectedPhoto);
+
+   const res = await API.post(
+  "/v1/upload/profile-photo",
+  formData
+);
+
+    const updatedPhoto = res.data.profilePicture;
+
+    const updatedUser = {
+      ...profileUser,
+      profilePicture: updatedPhoto,
+    };
+
+    setProfileUser(updatedUser);
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify(updatedUser)
+    );
+
+    setPreviewPhoto(updatedPhoto?.url || "");
+
+    setSelectedPhoto(null);
+
+    alert("Profile photo updated successfully ✅");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to upload profile photo");
+  } finally {
+    setUploadingPhoto(false);
+  }
+};
   const handleUpdate = async () => {
     setSaving(true);
     try {
@@ -215,9 +270,27 @@ setProfileUser(updatedUser);
           </div>
 
           <div className="relative px-6 pb-8 pt-14 sm:px-8">
-            <div className="absolute -top-16 left-6 flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-slate-800 to-slate-600 text-3xl font-semibold text-white shadow-2xl sm:left-8 sm:h-32 sm:w-32">
-              <span aria-hidden>{userInitial}</span>
-            </div>
+           <div className="absolute -top-16 left-6 sm:left-8">
+
+  <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-slate-800 to-slate-600 shadow-2xl sm:h-32 sm:w-32">
+
+    {previewPhoto ? (
+      <img
+        src={previewPhoto}
+        alt={profileUser.name}
+        className="h-full w-full object-cover"
+      />
+    ) : (
+      <div className="flex h-full w-full items-center justify-center text-3xl font-semibold text-white">
+        <span aria-hidden>{userInitial}</span>
+      </div>
+    )}
+
+  </div>
+
+  
+
+</div>
 
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 pt-2">
@@ -257,8 +330,48 @@ setProfileUser(updatedUser);
                   {editMode ? "Viewing" : "Edit mode"}
                 </button>
               </div>
+              
             </div>
           </div>
+          {editMode && (
+  <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
+
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+      <div>
+        <h3 className="text-sm font-semibold text-slate-800">
+          Profile Photo
+        </h3>
+
+        <p className="mt-1 text-xs text-slate-500">
+          JPG, PNG or WEBP • Max 2MB
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoChange}
+          className="block text-sm text-slate-600"
+        />
+
+        <button
+          type="button"
+          disabled={uploadingPhoto}
+          onClick={handlePhotoUpload}
+          className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
         </article>
 
         <div className="mt-8 rounded-2xl border border-slate-200/70 bg-white p-2 shadow-sm">

@@ -39,8 +39,14 @@ const studentSchema = new mongoose.Schema(
     },
 
     profilePicture: {
-      type: String,
-      default: null
+      url: {
+        type: String,
+        default: ""
+      },
+      publicId: {
+        type: String,
+        default: ""
+      }
     },
 
     authProvider: {
@@ -80,9 +86,22 @@ const studentSchema = new mongoose.Schema(
     linkedinUrl: String,
 
     resume: {
-      url: String,
-      fileName: String,
-      uploadedAt: Date
+      url: {
+        type: String,
+        default: ""
+      },
+      fileName: {
+        type: String,
+        default: ""
+      },
+      publicId: {
+        type: String,
+        default: ""
+      },
+      uploadedAt: {
+        type: Date,
+        default: null
+      }
     },
 
     placementStatus: {

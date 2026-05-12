@@ -156,12 +156,24 @@ function Dashboard() {
             </div>
             <div className="relative grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12">
               <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-                <div
-                 className="flex h-[4rem] w-[4rem] shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 text-lg font-semibold tracking-tight text-white shadow-xl shadow-slate-400/40"
-                  aria-hidden
-                >
-                  {userInitial}
-                </div>
+               <div className="h-[4rem] w-[4rem] shrink-0 overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 shadow-xl shadow-slate-400/40">
+
+  {user?.profilePicture?.url ? (
+    <img
+      src={user.profilePicture.url}
+      alt={user.name}
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    <div
+      className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-tight text-white"
+      aria-hidden
+    >
+      {userInitial}
+    </div>
+  )}
+
+</div>
                 <div className="min-w-0 flex-1 py-0.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                     Student profile
