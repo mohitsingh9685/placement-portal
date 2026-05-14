@@ -120,26 +120,8 @@ function Dashboard() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(1100px_580px_at_8%_-12%,rgba(6,182,212,0.18),transparent_55%),radial-gradient(900px_520px_at_94%_-8%,rgba(99,102,241,0.18),transparent_56%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
+    <div className="premium-shell min-h-screen bg-[radial-gradient(1100px_580px_at_8%_-12%,rgba(6,182,212,0.18),transparent_55%),radial-gradient(900px_520px_at_94%_-8%,rgba(99,102,241,0.18),transparent_56%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
       <style>{`
-        @keyframes dashboard-card-fade {
-          0% {
-            opacity: 0;
-            transform: translateY(20px) scale(0.98);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        @keyframes dashboard-shimmer {
-          0% {
-            transform: translateX(-120%);
-          }
-          100% {
-            transform: translateX(120%);
-          }
-        }
       `}</style>
       <Navbar />
 
@@ -148,12 +130,7 @@ function Dashboard() {
           <section className="relative mb-12 overflow-hidden rounded-3xl border border-white/70 bg-white/70 px-6 py-6 shadow-[0_24px_70px_-38px_rgba(15,23,42,0.42)] backdrop-blur-2xl ring-1 ring-slate-200/80 sm:px-8 sm:py-8">
             <div className="pointer-events-none absolute -top-24 left-0 h-56 w-56 rounded-full bg-sky-300/25 blur-3xl" />
             <div className="pointer-events-none absolute -right-16 bottom-0 h-44 w-44 rounded-full bg-indigo-300/25 blur-3xl" />
-            <div className="pointer-events-none absolute inset-0 opacity-50">
-              <div
-                className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/60 to-transparent"
-                style={{ animation: "dashboard-shimmer 7s linear infinite" }}
-              />
-            </div>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.03] via-cyan-300/[0.04] to-transparent" />
             <div className="relative grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12">
               <div className="flex min-w-0 items-center gap-4 sm:gap-5">
                <div className="h-[4rem] w-[4rem] shrink-0 overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 shadow-xl shadow-slate-400/40">
@@ -213,7 +190,7 @@ function Dashboard() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700/85">
               Placement dashboard
             </p>
-            <h2 className="mt-2.5 bg-gradient-to-r from-slate-950 via-slate-800 to-indigo-700 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
+            <h2 className="mt-2.5 bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
               Discover premium opportunities
             </h2>
             <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-[15px]">
@@ -242,7 +219,7 @@ function Dashboard() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 [grid-auto-rows:minmax(0,1fr)] sm:grid-cols-2 lg:gap-7 xl:grid-cols-3 2xl:grid-cols-4">
-          {companies.map((company, index) => {
+          {companies.map((company) => {
             const eligibility = checkEligibility(company);
 
             return (
@@ -252,11 +229,6 @@ function Dashboard() {
     navigate(`/student/company/${company._id}`)
   }
                 className="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/72 p-6 shadow-[0_12px_34px_-20px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-sky-200/80 hover:bg-white/85 hover:shadow-[0_28px_56px_-30px_rgba(37,99,235,0.42)]"
-                style={{
-                  animation:
-                    "dashboard-card-fade 620ms cubic-bezier(0.22,1,0.36,1) both",
-                  animationDelay: `${Math.min(index * 85, 700)}ms`,
-                }}
               >
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-cyan-300 via-sky-400 to-indigo-500 opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
                 <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-sky-300/25 blur-2xl transition-transform duration-500 group-hover:scale-110" />
@@ -282,15 +254,15 @@ function Dashboard() {
                         ₹{company.ctc}
                       </span>
                     </span>
-                    <span className="inline-flex h-8 items-center rounded-xl border border-blue-200/80 bg-blue-50/90 px-3 text-xs font-medium text-blue-800 shadow-sm">
+                    <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
                       Min CGPA{" "}
-                      <span className="ml-1.5 tabular-nums font-semibold">
+                      <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
                         {company.minCgpa}
                       </span>
                     </span>
-                    <span className="inline-flex h-8 items-center rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 text-xs font-medium text-amber-900 shadow-sm">
+                    <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
                       Max backlogs{" "}
-                      <span className="ml-1.5 tabular-nums font-semibold">
+                      <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
                         {company.maxBacklogsAllowed}
                       </span>
                     </span>

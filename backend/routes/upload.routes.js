@@ -19,10 +19,27 @@ import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+const uploadErrorHandler = (sizeMessage) => (err, req, res, next) => {
+  if (!err) return next();
+
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({
+      success: false,
+      message: sizeMessage,
+    });
+  }
+
+  return res.status(400).json({
+    success: false,
+    message: err.message || "File upload failed",
+  });
+};
+
 router.post(
   "/profile-photo",
   protect,
   uploadProfilePhotoMiddleware.single("profilePhoto"),
+  uploadErrorHandler("Profile photo must be 2MB or smaller"),
   uploadProfilePhoto
 );
 
@@ -30,6 +47,7 @@ router.post(
   "/resume",
   protect,
   uploadResumeMiddleware.single("resume"),
+  uploadErrorHandler("Resume must be 5MB or smaller"),
   uploadResumeController
 );
 
@@ -49,6 +67,7 @@ router.post(
   "/jd/:companyId",
   protect,
   uploadJDMiddleware.single("jd"),
+  uploadErrorHandler("Job description file must be 10MB or smaller"),
   uploadJDController
 );
 

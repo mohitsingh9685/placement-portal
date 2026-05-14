@@ -10,6 +10,7 @@ export const addCompany = async (req, res) => {
       minCgpa,
       allowedBranches,
       maxBacklogsAllowed,
+      description,
       allowActiveBacklogs,
       registrationDeadline
     } = req.body;
@@ -30,6 +31,7 @@ export const addCompany = async (req, res) => {
       companyName,
       role,
       ctc,
+      description,
       minCgpa,
       allowedBranches: normalizedBranches,
       maxBacklogsAllowed,

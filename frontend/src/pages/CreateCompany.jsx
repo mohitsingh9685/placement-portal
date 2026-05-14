@@ -171,7 +171,7 @@ function CreateCompany() {
         allowedBranches: allowedBranches.split(","),
       });
 
-      const createdCompany = companyRes.data?.company;
+      const createdCompany = companyRes.data?.company || companyRes.data;
 
       // OPTIONAL JD UPLOAD
       if (jdFile && createdCompany?._id) {
@@ -193,7 +193,7 @@ function CreateCompany() {
           );
         } catch (uploadError) {
           console.error(uploadError);
-          alert("Company created but JD upload failed");
+          alert(uploadError.response?.data?.message || "Company created but JD upload failed");
         } finally {
           setUploadingJD(false);
         }
@@ -208,7 +208,7 @@ function CreateCompany() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white">
+    <div className="premium-shell min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white">
       <Navbar />
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -269,22 +269,20 @@ function CreateCompany() {
                     <button
                       type="button"
                       onClick={() => setCompensationType("ctc")}
-                      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
-                        compensationType === "ctc"
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${compensationType === "ctc"
                           ? "bg-blue-600 text-white shadow"
                           : "text-slate-600 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       CTC / annum
                     </button>
                     <button
                       type="button"
                       onClick={() => setCompensationType("stipend")}
-                      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
-                        compensationType === "stipend"
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${compensationType === "stipend"
                           ? "bg-blue-600 text-white shadow"
                           : "text-slate-600 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       Stipend / month
                     </button>

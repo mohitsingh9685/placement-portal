@@ -1,16 +1,15 @@
-import { useState } from "react";
 import Navbar from "../components/Navbar";
 
 function AdminProfile() {
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const [form, setForm] = useState({
+  const form = {
     name: user?.name || "",
     email: user?.email || "",
-  });
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="premium-shell min-h-screen bg-gray-100">
       <Navbar />
 
       <div className="p-6 max-w-xl mx-auto bg-white shadow rounded">

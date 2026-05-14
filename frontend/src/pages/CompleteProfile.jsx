@@ -36,7 +36,7 @@ function CompleteProfile() {
 
       const token = localStorage.getItem("token");
 
-     await API.put("/auth/update-profile", form, {
+      await API.put("/auth/update-profile", form, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -50,7 +50,7 @@ function CompleteProfile() {
 
       alert(
         error.response?.data?.message ||
-          "Failed to complete profile"
+        "Failed to complete profile"
       );
     } finally {
       setLoading(false);
@@ -61,7 +61,7 @@ function CompleteProfile() {
     "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-slate-100 px-4 py-10">
+    <div className="premium-shell min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-slate-100 px-4 py-10">
       <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-slate-900">

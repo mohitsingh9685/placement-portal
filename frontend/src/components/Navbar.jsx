@@ -15,18 +15,17 @@ function Navbar() {
   };
 
   const navButtonClass = (path) =>
-    `rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${
-      isActive(path)
-        ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
-        : "text-slate-700 hover:bg-white/75 hover:text-blue-600"
+    `rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 ${isActive(path)
+      ? "bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow-lg shadow-cyan-500/20"
+      : "text-slate-300 hover:bg-white/10 hover:text-white"
     }`;
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/50 bg-white/65 px-4 py-3 backdrop-blur-xl sm:px-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/45 px-4 py-3 shadow-lg shadow-slate-900/5">
+    <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-2xl sm:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-2xl shadow-black/30 ring-1 ring-cyan-300/10">
         <h1
           onClick={() => navigate(user?.role === "admin" ? "/admin" : "/dashboard")}
-          className="cursor-pointer text-xl font-bold tracking-tight text-blue-600 transition-all duration-300 hover:text-blue-700 sm:text-2xl"
+          className="cursor-pointer bg-gradient-to-r from-white via-cyan-100 to-indigo-200 bg-clip-text text-xl font-bold tracking-tight text-transparent transition-all duration-300 hover:opacity-85 sm:text-2xl"
         >
           Placement Portal
         </h1>
@@ -71,7 +70,7 @@ function Navbar() {
 
           <button
             onClick={handleLogout}
-            className="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-600"
+            className="rounded-xl border border-red-400/25 bg-red-500/15 px-4 py-2 text-sm font-medium text-red-100 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-500/25"
           >
             Logout
           </button>

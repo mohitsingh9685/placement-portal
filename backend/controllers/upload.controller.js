@@ -92,6 +92,7 @@ export const uploadResumeController = async (req, res) => {
     student.resume = {
       key: uploadedFile.key,
       url: uploadedFile.url,
+      fileName: req.file.originalname,
       uploadedAt: new Date(),
     };
 

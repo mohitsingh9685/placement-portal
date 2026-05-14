@@ -74,7 +74,7 @@ const StudentViewCompany = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="premium-shell min-h-screen bg-slate-50">
         <Navbar />
 
         <div className="mx-auto max-w-5xl px-4 py-10">
@@ -90,7 +90,7 @@ const StudentViewCompany = () => {
 
   if (!company) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="premium-shell min-h-screen bg-slate-50">
         <Navbar />
 
         <div className="mx-auto max-w-5xl px-4 py-10">
@@ -105,7 +105,7 @@ const StudentViewCompany = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-blue-50/30">
+    <div className="premium-shell min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-blue-50/30">
       <Navbar />
 
       <div className="mx-auto max-w-5xl px-4 py-8">

@@ -29,8 +29,8 @@ function Register() {
     activeBacklogs: "",
   });
 
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
+  const [_errors, setErrors] = useState({});
+  const [_touched, setTouched] = useState({});
 
   const validateStep1 = (f) => {
     const e = {};
@@ -126,35 +126,6 @@ function Register() {
     });
   };
 
-  const touchAndValidateStep2Field = (
-    field,
-    value
-  ) => {
-    const nextForm = {
-      ...form,
-      [field]: value,
-    };
-
-    const nextErrors = validateStep2(nextForm);
-
-    setTouched((prev) => ({
-      ...prev,
-      [field]: true,
-    }));
-
-    setErrors((prev) => {
-      const updated = { ...prev };
-
-      if (nextErrors[field]) {
-        updated[field] = nextErrors[field];
-      } else {
-        delete updated[field];
-      }
-
-      return updated;
-    });
-  };
-
   const handleRegister = async () => {
     try {
       const finalData = { ...form };
@@ -219,7 +190,7 @@ function Register() {
     "w-full rounded-xl border border-slate-200 bg-white/95 px-3.5 py-3 text-sm text-slate-900 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-10">
+    <div className="premium-shell min-h-screen px-4 py-10">
       <div className="mx-auto max-w-4xl rounded-3xl bg-white p-8 shadow-xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold">

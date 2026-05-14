@@ -191,6 +191,8 @@ function companyCtc(app) {
 }
 
 function SummaryCard({ icon: Icon, label, value, className = "" }) {
+  const iconNode = Icon({ className: "h-5 w-5" });
+
   return (
     <article
       className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-100 ${className}`}
@@ -205,7 +207,7 @@ function SummaryCard({ icon: Icon, label, value, className = "" }) {
           </p>
         </div>
         <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700">
-          <Icon className="h-5 w-5" />
+          {iconNode}
         </span>
       </div>
     </article>
@@ -296,7 +298,7 @@ function MyApplications() {
   }, [apps]);
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]">
+    <div className="premium-shell min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]">
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">

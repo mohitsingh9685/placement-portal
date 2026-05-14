@@ -32,6 +32,32 @@ function normalizedSkills(user) {
   return s.map((x) => String(x).trim()).filter(Boolean);
 }
 
+function resumeFileName(resume) {
+  if (!resume) return "";
+  if (resume.fileName) return resume.fileName;
+  if (resume.name) return resume.name;
+
+  const raw = resume.key || resume.url || "";
+  if (!raw) return "";
+
+  try {
+    const pathname = raw.startsWith("http") ? new URL(raw).pathname : raw;
+    const fallbackName = decodeURIComponent(pathname.split("/").filter(Boolean).pop() || "");
+    return /^[0-9a-f-]{32,}\.(pdf|doc|docx)$/i.test(fallbackName)
+      ? "Uploaded resume"
+      : fallbackName;
+  } catch {
+    const fallbackName = raw.split("/").filter(Boolean).pop() || "";
+    return /^[0-9a-f-]{32,}\.(pdf|doc|docx)$/i.test(fallbackName)
+      ? "Uploaded resume"
+      : fallbackName;
+  }
+}
+
+function uploadErrorMessage(error, fallback) {
+  return error.response?.data?.message || error.message || fallback;
+}
+
 function FloatingField({
   id,
   label,
@@ -69,12 +95,13 @@ function Profile() {
   const navigate = useNavigate();
   const [profileUser, setProfileUser] = useState(parseStoredUser);
   const [saving, setSaving] = useState(false);
-const [uploadingPhoto, setUploadingPhoto] = useState(false);
-const [selectedPhoto, setSelectedPhoto] = useState(null);
-const [previewPhoto, setPreviewPhoto] = useState("");
-const [uploadingResume, setUploadingResume] = useState(false);
-const [selectedResume, setSelectedResume] = useState(null);
-const [skillInput, setSkillInput] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [previewPhoto, setPreviewPhoto] = useState("");
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [selectedResume, setSelectedResume] = useState(null);
+  const [resumeUploadSuccess, setResumeUploadSuccess] = useState(false);
+  const [skillInput, setSkillInput] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [activeSection, setActiveSection] = useState("academic");
   const [form, setForm] = useState(() => {
@@ -98,46 +125,56 @@ const [skillInput, setSkillInput] = useState("");
   });
 
   useEffect(() => {
-  const fetchProfile = async () => {
-    try {
-      const res = await API.get("/auth/profile");
+    const fetchProfile = async () => {
+      try {
+        const res = await API.get("/auth/profile");
 
-     const user = res.data.user || res.data;
+        const user = res.data.user || res.data;
 
-      setProfileUser(user);
-      setPreviewPhoto(user.profilePicture?.url || "");
-      setSelectedResume(null);
-      setForm({
-        cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
-        branch: user.branch ?? "",
-        activeBacklogs: String(user.activeBacklogs ?? 0),
-        hasActiveBacklog: Boolean(user.hasActiveBacklog),
-        skills: normalizedSkills(user),
+        setProfileUser(user);
+        setPreviewPhoto(user.profilePicture?.url || "");
+        setSelectedResume(null);
+        setForm({
+          cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
+          branch: user.branch ?? "",
+          activeBacklogs: String(user.activeBacklogs ?? 0),
+          hasActiveBacklog: Boolean(user.hasActiveBacklog),
+          skills: normalizedSkills(user),
 
-        enrollmentNo: user.enrollmentNo ?? "",
-        collegeName: user.collegeName ?? "",
-        course: user.course ?? "",
-        semester: user.semester ? String(user.semester) : "",
-        passingYear: user.passingYear ? String(user.passingYear) : "",
-        contactNo: user.contactNo ?? "",
-        whatsappNo: user.whatsappNo ?? "",
-        totalBacklogs: user.totalBacklogs ? String(user.totalBacklogs) : "",
-      });
+          enrollmentNo: user.enrollmentNo ?? "",
+          collegeName: user.collegeName ?? "",
+          course: user.course ?? "",
+          semester: user.semester ? String(user.semester) : "",
+          passingYear: user.passingYear ? String(user.passingYear) : "",
+          contactNo: user.contactNo ?? "",
+          whatsappNo: user.whatsappNo ?? "",
+          totalBacklogs: user.totalBacklogs ? String(user.totalBacklogs) : "",
+        });
 
-      localStorage.setItem("user", JSON.stringify(user));
+        localStorage.setItem("user", JSON.stringify(user));
 
-      // keep your RBAC intact
-      if (user.role === "admin") {
-        navigate("/admin-profile", { replace: true });
+        // keep your RBAC intact
+        if (user.role === "admin") {
+          navigate("/admin-profile", { replace: true });
+        }
+
+      } catch {
+        navigate("/", { replace: true });
       }
+    };
 
-    } catch (err) {
-      navigate("/", { replace: true });
-    }
-  };
+    fetchProfile();
+  }, [navigate]);
 
-  fetchProfile();
-}, [navigate]);
+  useEffect(() => {
+    if (!resumeUploadSuccess) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setResumeUploadSuccess(false);
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [resumeUploadSuccess]);
 
   const headlineParts = useMemo(() => {
     const parts = [];
@@ -145,6 +182,8 @@ const [skillInput, setSkillInput] = useState("");
     if (form.cgpa) parts.push(`CGPA ${form.cgpa}`);
     return parts.join(" · ");
   }, [form.branch, form.cgpa]);
+
+  const currentResumeFileName = resumeFileName(profileUser?.resume);
 
   const addSkillsFromInput = () => {
     const raw = skillInput.trim();
@@ -168,131 +207,156 @@ const [skillInput, setSkillInput] = useState("");
     }));
   };
   const handlePhotoChange = (e) => {
-  const file = e.target.files?.[0];
+    const file = e.target.files?.[0];
 
-  if (!file) return;
+    if (!file) return;
 
-  setSelectedPhoto(file);
-  setPreviewPhoto(URL.createObjectURL(file));
-};
+    const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+    const maxImageSize = 2 * 1024 * 1024;
 
-const handlePhotoUpload = async () => {
-  if (!selectedPhoto) {
-    alert("Please select a photo first");
-    return;
-  }
-
-  try {
-    setUploadingPhoto(true);
-
-    const formData = new FormData();
-
-    formData.append("profilePhoto", selectedPhoto);
-
-   const res = await API.post(
-  "/v1/upload/profile-photo",
-  formData
-);
-
-    const updatedPhoto = res.data.profilePicture;
-
-    const updatedUser = {
-      ...profileUser,
-      profilePicture: updatedPhoto,
-    };
-
-    setProfileUser(updatedUser);
-
-    localStorage.setItem(
-      "user",
-      JSON.stringify(updatedUser)
-    );
-
-    setPreviewPhoto(updatedPhoto?.url || "");
-
-    setSelectedPhoto(null);
-
-    alert("Profile photo updated successfully ✅");
-  } catch (error) {
-    console.error(error);
-    alert("Failed to upload profile photo");
-  } finally {
-    setUploadingPhoto(false);
-  }
-};
-const handleResumeChange = (e) => {
-  const file = e.target.files?.[0];
-
-  if (!file) return;
-
-  setSelectedResume(file);
-};
-
-const handleResumeUpload = async () => {
-  if (!selectedResume) {
-    alert("Please select a resume first");
-    return;
-  }
-
-  try {
-    setUploadingResume(true);
-
-    const formData = new FormData();
-
-    formData.append("resume", selectedResume);
-
-    const res = await API.post(
-      "/v1/upload/resume",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
-
-    const updatedUser = {
-      ...profileUser,
-      resume: res.data.resume,
-    };
-
-    setProfileUser(updatedUser);
-
-    localStorage.setItem(
-      "user",
-      JSON.stringify(updatedUser)
-    );
-
-    setSelectedResume(null);
-
-    alert("Resume uploaded successfully ✅");
-  } catch (error) {
-    console.error(error);
-    alert("Failed to upload resume");
-  } finally {
-    setUploadingResume(false);
-  }
-};
-const handleViewResume = async () => {
-  try {
-    const res = await API.get(
-      "/v1/upload/resume/view"
-    );
-
-    const signedUrl = res.data?.signedUrl;
-
-    if (!signedUrl) {
-      alert("Resume not found");
+    if (!allowedImageTypes.includes(file.type)) {
+      alert("Please choose a JPG, PNG, or WEBP image.");
+      e.target.value = "";
+      setSelectedPhoto(null);
       return;
     }
 
-    window.open(signedUrl, "_blank");
-  } catch (error) {
-    console.error(error);
-    alert("Failed to open resume");
-  }
-};
-const handleUpdate = async () => {
+    if (file.size > maxImageSize) {
+      alert("Profile photo must be 2MB or smaller. Please compress or choose a smaller image.");
+      e.target.value = "";
+      setSelectedPhoto(null);
+      return;
+    }
+
+    setSelectedPhoto(file);
+    setPreviewPhoto(URL.createObjectURL(file));
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedPhoto) {
+      alert("Please select a photo first");
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+
+      const formData = new FormData();
+
+      formData.append("profilePhoto", selectedPhoto);
+
+      const res = await API.post(
+        "/v1/upload/profile-photo",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      const updatedPhoto = res.data.profilePicture;
+
+      const updatedUser = {
+        ...profileUser,
+        profilePicture: updatedPhoto,
+      };
+
+      setProfileUser(updatedUser);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(updatedUser)
+      );
+
+      setPreviewPhoto(updatedPhoto?.url || "");
+
+      setSelectedPhoto(null);
+
+      alert("Profile photo updated successfully ✅");
+    } catch (error) {
+      console.error(error);
+      alert(uploadErrorMessage(error, "Failed to upload profile photo"));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+  const handleResumeChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setSelectedResume(file);
+    setResumeUploadSuccess(false);
+  };
+
+  const handleResumeUpload = async () => {
+    if (!selectedResume) {
+      alert("Please select a resume first");
+      return;
+    }
+
+    try {
+      setUploadingResume(true);
+
+      const formData = new FormData();
+
+      formData.append("resume", selectedResume);
+
+      const res = await API.post(
+        "/v1/upload/resume",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      const updatedUser = {
+        ...profileUser,
+        resume: {
+          ...res.data.resume,
+          fileName: res.data.resume?.fileName || selectedResume.name,
+        },
+      };
+
+      setProfileUser(updatedUser);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(updatedUser)
+      );
+
+      setSelectedResume(null);
+      setResumeUploadSuccess(true);
+    } catch (error) {
+      console.error(error);
+      alert(uploadErrorMessage(error, "Failed to upload resume"));
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+  const handleViewResume = async () => {
+    try {
+      const res = await API.get(
+        "/v1/upload/resume/view"
+      );
+
+      const signedUrl = res.data?.signedUrl;
+
+      if (!signedUrl) {
+        alert("Resume not found");
+        return;
+      }
+
+      window.open(signedUrl, "_blank");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to open resume");
+    }
+  };
+  const handleUpdate = async () => {
     setSaving(true);
     try {
       const res = await API.put("/auth/update-profile", {
@@ -314,12 +378,12 @@ const handleUpdate = async () => {
 
       const updatedUser = res.data.user || res.data;
 
-localStorage.setItem(
-  "user",
-  JSON.stringify(updatedUser)
-);
+      localStorage.setItem(
+        "user",
+        JSON.stringify(updatedUser)
+      );
 
-setProfileUser(updatedUser);
+      setProfileUser(updatedUser);
       alert("Profile updated ✅");
     } catch {
       alert("Error updating profile");
@@ -335,7 +399,7 @@ setProfileUser(updatedUser);
   const userInitial = initialsFromName(profileUser.name);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-100/80">
+    <div className="premium-shell min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-100/80">
       <Navbar />
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -345,27 +409,27 @@ setProfileUser(updatedUser);
           </div>
 
           <div className="relative px-6 pb-8 pt-14 sm:px-8">
-           <div className="absolute -top-16 left-6 sm:left-8">
+            <div className="absolute -top-16 left-6 sm:left-8">
 
-  <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-slate-800 to-slate-600 shadow-2xl sm:h-32 sm:w-32">
+              <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-slate-800 to-slate-600 shadow-2xl sm:h-32 sm:w-32">
 
-    {previewPhoto ? (
-      <img
-        src={previewPhoto}
-        alt={profileUser.name}
-        className="h-full w-full object-cover"
-      />
-    ) : (
-      <div className="flex h-full w-full items-center justify-center text-3xl font-semibold text-white">
-        <span aria-hidden>{userInitial}</span>
-      </div>
-    )}
+                {previewPhoto ? (
+                  <img
+                    src={previewPhoto}
+                    alt={profileUser.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-3xl font-semibold text-white">
+                    <span aria-hidden>{userInitial}</span>
+                  </div>
+                )}
 
-  </div>
+              </div>
 
-  
 
-</div>
+
+            </div>
 
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 pt-2">
@@ -379,24 +443,24 @@ setProfileUser(updatedUser);
                   <p className="mt-1 text-sm font-medium text-slate-700">{headlineParts}</p>
                 )}
                 <p className="mt-1 truncate text-sm text-slate-500">{profileUser.email}</p>
-             <div className="mt-3">
-  {profileUser?.resume?.url ? (
-    <button
-      type="button"
-      onClick={handleViewResume}
-      className="inline-flex items-center rounded-full bg-[#0a66c2]/10 px-4 py-2 text-sm font-semibold text-[#0a66c2] transition-all hover:bg-[#0a66c2]/20"
-    >
-      View Resume
-    </button>
-  ) : (
-    <p className="text-sm text-slate-500">
-      No resume uploaded yet.{" "}
-      <span className="font-medium text-[#0a66c2]">
-        Enable edit mode to upload your resume.
-      </span>
-    </p>
-  )}
-</div>
+                <div className="mt-3">
+                  {profileUser?.resume?.url ? (
+                    <button
+                      type="button"
+                      onClick={handleViewResume}
+                      className="inline-flex items-center rounded-full bg-[#0a66c2]/10 px-4 py-2 text-sm font-semibold text-[#0a66c2] transition-all hover:bg-[#0a66c2]/20"
+                    >
+                      View Resume
+                    </button>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      No resume uploaded yet.{" "}
+                      <span className="font-medium text-[#0a66c2]">
+                        Enable edit mode to upload your resume.
+                      </span>
+                    </p>
+                  )}
+                </div>
                 {form.skills.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {form.skills.slice(0, 6).map((skill) => (
@@ -423,86 +487,98 @@ setProfileUser(updatedUser);
                   {editMode ? "Viewing" : "Edit mode"}
                 </button>
               </div>
-              
+
             </div>
           </div>
           {editMode && (
-  <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
 
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-      <div>
-        <h3 className="text-sm font-semibold text-slate-800">
-          Profile Photo
-        </h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">
+                    Profile Photo
+                  </h3>
 
-        <p className="mt-1 text-xs text-slate-500">
-          JPG, PNG or WEBP • Max 2MB
-        </p>
-      </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    JPG, PNG or WEBP • Max 2MB
+                  </p>
+                </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handlePhotoChange}
-          className="block text-sm text-slate-600"
-        />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="block text-sm text-slate-600"
+                  />
 
-        <button
-          type="button"
-          disabled={uploadingPhoto}
-          onClick={handlePhotoUpload}
-          className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {uploadingPhoto ? "Uploading..." : "Upload Photo"}
-        </button>
+                  <button
+                    type="button"
+                    disabled={uploadingPhoto}
+                    onClick={handlePhotoUpload}
+                    className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+                  </button>
 
-      </div>
+                </div>
 
-    </div>
+              </div>
 
-    <div className="mt-6 border-t border-slate-200 pt-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800">
-            Resume Upload
-          </h3>
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Resume Upload
+                    </h3>
 
-          <p className="mt-1 text-xs text-slate-500">
-            PDF, DOC or DOCX • Max 5MB
-          </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      PDF, DOC or DOCX • Max 5MB
+                    </p>
 
-          {profileUser?.resume?.url && (
-            <p className="mt-2 text-xs font-medium text-emerald-600">
-              Resume uploaded successfully
-            </p>
+                    {currentResumeFileName && (
+                      <p className="mt-2 max-w-md truncate text-xs font-medium text-cyan-200">
+                        Current resume: {currentResumeFileName}
+                      </p>
+                    )}
+
+                    {selectedResume && (
+                      <p className="mt-2 max-w-md truncate text-xs font-medium text-slate-300">
+                        Selected file: {selectedResume.name}
+                      </p>
+                    )}
+
+                    {resumeUploadSuccess && (
+                      <p className="mt-2 text-xs font-medium text-emerald-400">
+                        Resume uploaded successfully
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleResumeChange}
+                      className="block text-sm text-slate-600"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={uploadingResume}
+                      onClick={handleResumeUpload}
+                      className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {uploadingResume ? "Uploading..." : "Upload Resume"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           )}
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input
-            type="file"
-            accept=".pdf,.doc,.docx"
-            onChange={handleResumeChange}
-            className="block text-sm text-slate-600"
-          />
-
-          <button
-            type="button"
-            disabled={uploadingResume}
-            onClick={handleResumeUpload}
-            className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {uploadingResume ? "Uploading..." : "Upload Resume"}
-          </button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-)}
         </article>
 
         <div className="mt-8 rounded-2xl border border-slate-200/70 bg-white p-2 shadow-sm">
@@ -516,11 +592,10 @@ setProfileUser(updatedUser);
                 key={key}
                 type="button"
                 onClick={() => setActiveSection(key)}
-                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
-                  activeSection === key
+                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${activeSection === key
                     ? "bg-gradient-to-r from-[#0a66c2] to-indigo-600 text-white shadow-lg shadow-[#0a66c2]/25"
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 {label}
               </button>
@@ -528,14 +603,9 @@ setProfileUser(updatedUser);
           </div>
         </div>
 
-        <div className="mt-6 pb-10">
-          <section
-            className={`rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7 ${
-              activeSection === "academic"
-                ? "translate-y-0 opacity-100"
-                : "pointer-events-none absolute -z-10 translate-y-2 opacity-0"
-            }`}
-          >
+        <div className="mt-6 pb-6">
+          {activeSection === "academic" && (
+          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               Academic info
             </h3>
@@ -617,14 +687,10 @@ setProfileUser(updatedUser);
               />
             </div>
           </section>
+          )}
 
-          <section
-            className={`rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7 ${
-              activeSection === "contact"
-                ? "translate-y-0 opacity-100"
-                : "pointer-events-none absolute -z-10 translate-y-2 opacity-0"
-            }`}
-          >
+          {activeSection === "contact" && (
+          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               Contact
             </h3>
@@ -645,14 +711,10 @@ setProfileUser(updatedUser);
               />
             </div>
           </section>
+          )}
 
-          <section
-            className={`rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7 ${
-              activeSection === "skills"
-                ? "translate-y-0 opacity-100"
-                : "pointer-events-none absolute -z-10 translate-y-2 opacity-0"
-            }`}
-          >
+          {activeSection === "skills" && (
+          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               Skills
             </h3>
@@ -705,6 +767,7 @@ setProfileUser(updatedUser);
               </div>
             </div>
           </section>
+          )}
         </div>
 
         <div className="flex flex-col-reverse gap-3 pb-10 sm:flex-row sm:justify-end">

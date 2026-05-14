@@ -4,10 +4,10 @@ import Navbar from "../components/Navbar";
 import API from "../api/axios";
 
 const inputBase =
-  "block w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-200 ease-out " +
-  "read-only:cursor-wait read-only:border-slate-200/80 read-only:bg-slate-50 read-only:text-slate-500 " +
-  "hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/40 " +
-  "focus:-translate-y-0.5 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15";
+  "block w-full rounded-xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 shadow-sm shadow-black/20 transition-all duration-300 ease-out " +
+  "read-only:cursor-wait read-only:border-white/10 read-only:bg-slate-900/55 read-only:text-slate-500 " +
+  "hover:-translate-y-0.5 hover:border-cyan-300/45 hover:bg-slate-950/60 hover:shadow-lg hover:shadow-cyan-500/10 " +
+  "focus:-translate-y-0.5 focus:border-cyan-300/80 focus:bg-slate-950/70 focus:outline-none focus:ring-4 focus:ring-cyan-400/15";
 
 const textareaBase = `${inputBase} min-h-[130px] resize-y`;
 
@@ -17,7 +17,7 @@ function Field({ id, label, children }) {
       <div className="flex items-center justify-between gap-3">
         <label
           htmlFor={id}
-          className="block text-sm font-semibold tracking-tight text-slate-700"
+          className="block text-sm font-semibold tracking-tight text-slate-200"
         >
           {label}
         </label>
@@ -31,13 +31,13 @@ function Section({ sectionId, title, children }) {
   const titleId = `section-${sectionId}`;
   return (
     <section
-      className="space-y-5 rounded-2xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/40 p-5 shadow-sm shadow-slate-200/40 sm:p-6"
+      className="premium-card group space-y-5 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/35 hover:shadow-2xl hover:shadow-cyan-950/35 sm:p-6"
       aria-labelledby={titleId}
     >
-      <div className="border-b border-slate-100 pb-2">
+      <div className="border-b border-white/10 pb-2">
         <h3
           id={titleId}
-          className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
+          className="bg-gradient-to-r from-cyan-200 via-indigo-200 to-pink-200 bg-clip-text text-xs font-semibold uppercase tracking-[0.16em] text-transparent"
         >
           {title}
         </h3>
@@ -84,7 +84,7 @@ const EditCompany = () => {
           const ctcValue = data.ctc ?? "";
           const inferredCompensationUnit =
             typeof ctcValue === "string" &&
-            /(month|monthly|\/month|per month)/i.test(ctcValue)
+              /(month|monthly|\/month|per month)/i.test(ctcValue)
               ? "per-month"
               : "per-annum";
 
@@ -184,49 +184,58 @@ const EditCompany = () => {
 
   const editableFieldClass = loading
     ? ""
-    : "border-blue-200/70 bg-blue-50/30 ring-1 ring-inset ring-blue-100/80";
+    : "border-cyan-300/35 bg-cyan-950/15 ring-1 ring-inset ring-cyan-300/15";
 
   const inputProps = loading
     ? {
-        readOnly: true,
-        className: `${inputBase} cursor-wait`,
-        "aria-busy": true,
-      }
+      readOnly: true,
+      className: `${inputBase} cursor-wait`,
+      "aria-busy": true,
+    }
     : {
-        className: `${inputBase} ${editableFieldClass}`,
-      };
+      className: `${inputBase} ${editableFieldClass}`,
+    };
 
   const textareaProps = loading
     ? {
-        readOnly: true,
-        className: `${textareaBase} cursor-wait`,
-        "aria-busy": true,
-      }
+      readOnly: true,
+      className: `${textareaBase} cursor-wait`,
+      "aria-busy": true,
+    }
     : {
-        className: `${textareaBase} ${editableFieldClass}`,
-      };
+      className: `${textareaBase} ${editableFieldClass}`,
+    };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-blue-50/30">
+    <div className="premium-shell min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-blue-50/30">
       <Navbar />
 
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white/95 shadow-xl shadow-slate-200/70 backdrop-blur-sm">
-          <div className="border-b border-slate-100 bg-gradient-to-r from-blue-50/80 via-slate-50 to-blue-50/30 px-6 py-7 sm:px-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-              Admin
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[1.8rem]">
-              Edit company
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Review and update company details before saving changes.
-            </p>
-            {loading && (
-              <p className="mt-2 max-w-xl text-sm text-slate-600">
-                Loading saved details…
-              </p>
-            )}
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div className="premium-glow-border premium-panel overflow-hidden rounded-3xl border border-white/10 bg-slate-950/55 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+          <div className="relative overflow-hidden border-b border-white/10 px-6 py-7 sm:px-8">
+            <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(34,211,238,0.16),transparent_36%,rgba(168,85,247,0.18)),radial-gradient(circle_at_85%_0%,rgba(236,72,153,0.18),transparent_34rem)]" />
+            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
+            <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/90">
+                  Admin Console
+                </p>
+                <h2 className="mt-2 bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
+                  Edit company
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                  Refine company details, eligibility, compensation, and JD assets with the same premium admin workspace.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-lg shadow-black/20">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  Status
+                </p>
+                <p className="mt-1 text-sm font-semibold text-cyan-100">
+                  {loading ? "Syncing details..." : "Ready to update"}
+                </p>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-7 px-6 py-8 sm:px-8 sm:py-9">
@@ -283,9 +292,8 @@ const EditCompany = () => {
                     value={compensationUnit}
                     onChange={(e) => setCompensationUnit(e.target.value)}
                     disabled={loading}
-                    className={`${inputBase} ${
-                      loading ? "cursor-wait" : editableFieldClass
-                    }`}
+                    className={`${inputBase} ${loading ? "cursor-wait" : editableFieldClass
+                      }`}
                     aria-label="Compensation unit"
                   >
                     <option value="per-annum">CTC (per annum)</option>
@@ -346,11 +354,11 @@ const EditCompany = () => {
             <Section sectionId="jd-upload" title="Job Description (Optional)">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label className="block text-sm font-medium text-slate-200">
                     Upload / Replace JD File
                   </label>
 
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-slate-400">
                     PDF, DOC or DOCX • Max 10MB
                   </p>
                 </div>
@@ -359,7 +367,7 @@ const EditCompany = () => {
                   type="file"
                   accept=".pdf,.doc,.docx"
                   onChange={(e) => setJDFile(e.target.files?.[0] || null)}
-                  className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full rounded-xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-cyan-100 hover:file:bg-cyan-400/25"
                 />
 
                 {jdFile ? (
@@ -367,7 +375,7 @@ const EditCompany = () => {
                     Selected file: {jdFile.name}
                   </p>
                 ) : (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     Leave empty to keep existing JD.
                   </p>
                 )}
@@ -389,10 +397,10 @@ const EditCompany = () => {
               </Field>
             </Section>
 
-            <div className="flex flex-col gap-3 border-t border-slate-100 pt-7 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-7 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
               <button
                 type="button"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 sm:order-none sm:w-auto sm:min-w-[140px]"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-slate-200 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.1] hover:shadow-lg hover:shadow-black/25 focus:outline-none focus:ring-2 focus:ring-cyan-300/50 sm:order-none sm:w-auto sm:min-w-[140px]"
                 onClick={() => navigate("/admin")}
               >
                 Cancel
@@ -400,7 +408,7 @@ const EditCompany = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-600/35 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-fuchsia-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/35 focus:outline-none focus:ring-2 focus:ring-cyan-300/70 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
               >
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                 <span className="relative inline-flex items-center justify-center gap-2">

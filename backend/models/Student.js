@@ -96,6 +96,11 @@ const studentSchema = new mongoose.Schema(
     default: "",
   },
 
+  fileName: {
+    type: String,
+    default: "",
+  },
+
   uploadedAt: {
     type: Date,
   },
