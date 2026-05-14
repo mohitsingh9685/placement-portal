@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import API from "../api/axios";
 
 const inputBase =
   "block w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-200 ease-out " +
@@ -51,6 +52,8 @@ const EditCompany = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [compensationUnit, setCompensationUnit] = useState("per-annum");
+  const [jdFile, setJDFile] = useState(null);
+  const [uploadingJD, setUploadingJD] = useState(false);
 
   const [formData, setFormData] = useState({
     companyName: "",
@@ -97,6 +100,7 @@ const EditCompany = () => {
             maxBacklogs: data.maxBacklogsAllowed ?? "",
             description: data.description ?? "",
           });
+          setJDFile(null);
         }
       } catch (err) {
         console.log(err);
@@ -143,6 +147,32 @@ const EditCompany = () => {
             .filter(Boolean),
         }),
       });
+
+      // OPTIONAL JD UPDATE
+      if (jdFile) {
+        try {
+          setUploadingJD(true);
+
+          const formDataObj = new FormData();
+
+          formDataObj.append("jd", jdFile);
+
+          await API.post(
+            `/v1/upload/jd/${id}`,
+            formDataObj,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+        } catch (uploadError) {
+          console.error(uploadError);
+          alert("Company updated but JD upload failed");
+        } finally {
+          setUploadingJD(false);
+        }
+      }
 
       alert("Company updated ✅");
       navigate("/admin");
@@ -313,6 +343,37 @@ const EditCompany = () => {
               </Field>
             </Section>
 
+            <Section sectionId="jd-upload" title="Job Description (Optional)">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Upload / Replace JD File
+                  </label>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    PDF, DOC or DOCX • Max 10MB
+                  </p>
+                </div>
+
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) => setJDFile(e.target.files?.[0] || null)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                />
+
+                {jdFile ? (
+                  <p className="text-sm text-emerald-600">
+                    Selected file: {jdFile.name}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Leave empty to keep existing JD.
+                  </p>
+                )}
+              </div>
+            </Section>
+
             <Section sectionId="description-section" title="Description">
               <Field id="description" label="Description">
                 <textarea
@@ -343,7 +404,7 @@ const EditCompany = () => {
               >
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                 <span className="relative inline-flex items-center justify-center gap-2">
-                  Save and update
+                  {uploadingJD ? "Uploading JD..." : "Save and update"}
                 </span>
               </button>
             </div>

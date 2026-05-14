@@ -153,6 +153,26 @@ function AdminDashboard() {
     fetchApplicationsByCompany(company._id);
   };
 
+  const handleViewResume = async (studentId) => {
+    try {
+      const res = await API.get(
+        `/v1/upload/resume/view/${studentId}`
+      );
+
+      const signedUrl = res.data?.signedUrl;
+
+      if (!signedUrl) {
+        alert("Resume not found");
+        return;
+      }
+
+      window.open(signedUrl, "_blank");
+    } catch (err) {
+      console.log(err);
+      alert("Failed to open resume");
+    }
+  };
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
 
@@ -392,6 +412,9 @@ function AdminDashboard() {
                               Contact
                             </th>
                             <th className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                              Resume
+                            </th>
+                            <th className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
                               Status
                             </th>
                             <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-600 sm:px-7">
@@ -424,6 +447,21 @@ function AdminDashboard() {
                                 {app.student.activeBacklogs ?? app.student.activebacklogs ?? 0}
                               </td>
                               <td className="hidden px-4 py-4 align-middle text-slate-600 xl:table-cell">{app.student.contactNo || "—"}</td>
+                              <td className="px-4 py-4 align-middle">
+                                {app.student?.resume?.key ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleViewResume(app.student._id)}
+                                    className="inline-flex items-center rounded-lg bg-[#0a66c2]/10 px-3 py-1.5 text-xs font-semibold text-[#0a66c2] transition hover:bg-[#0a66c2]/20"
+                                  >
+                                    View Resume
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-slate-400">
+                                    No Resume
+                                  </span>
+                                )}
+                              </td>
                               <td className="px-4 py-4 align-middle">
                                 <span className={statusBadge(app.status)}>{statusLabel(app.status)}</span>
                               </td>

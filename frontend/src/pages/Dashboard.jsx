@@ -246,9 +246,12 @@ function Dashboard() {
             const eligibility = checkEligibility(company);
 
             return (
-              <article
-                key={company._id}
-                className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/72 p-6 shadow-[0_12px_34px_-20px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-sky-200/80 hover:bg-white/85 hover:shadow-[0_28px_56px_-30px_rgba(37,99,235,0.42)]"
+             <article
+  key={company._id}
+  onClick={() =>
+    navigate(`/student/company/${company._id}`)
+  }
+                className="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-white/80 bg-white/72 p-6 shadow-[0_12px_34px_-20px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-sky-200/80 hover:bg-white/85 hover:shadow-[0_28px_56px_-30px_rgba(37,99,235,0.42)]"
                 style={{
                   animation:
                     "dashboard-card-fade 620ms cubic-bezier(0.22,1,0.36,1) both",
@@ -376,9 +379,12 @@ function Dashboard() {
                         Cannot apply
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleApply(company._id)}
+                     <button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    handleApply(company._id);
+  }}
                         className="mt-0 w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 py-3 text-center text-sm font-semibold leading-none text-white shadow-[0_12px_28px_-12px_rgba(79,70,229,0.7)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:from-blue-500 hover:via-indigo-500 hover:to-violet-500 hover:shadow-[0_18px_32px_-12px_rgba(99,102,241,0.78)] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 active:translate-y-0 active:scale-[0.985]"
                       >
                         <span className="inline-flex items-center gap-2">

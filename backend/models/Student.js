@@ -86,23 +86,20 @@ const studentSchema = new mongoose.Schema(
     linkedinUrl: String,
 
     resume: {
-      url: {
-        type: String,
-        default: ""
-      },
-      fileName: {
-        type: String,
-        default: ""
-      },
-      publicId: {
-        type: String,
-        default: ""
-      },
-      uploadedAt: {
-        type: Date,
-        default: null
-      }
-    },
+  key: {
+    type: String,
+    default: "",
+  },
+
+  url: {
+    type: String,
+    default: "",
+  },
+
+  uploadedAt: {
+    type: Date,
+  },
+},
 
     placementStatus: {
       type: String,

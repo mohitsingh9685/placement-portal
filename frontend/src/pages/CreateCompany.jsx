@@ -123,6 +123,8 @@ function IconDescription() {
 function CreateCompany() {
   const navigate = useNavigate();
   const [compensationType, setCompensationType] = useState("ctc");
+  const [jdFile, setJDFile] = useState(null);
+  const [uploadingJD, setUploadingJD] = useState(false);
 
   const [form, setForm] = useState({
     companyName: "",
@@ -164,10 +166,38 @@ function CreateCompany() {
     }
 
     try {
-      await API.post("/company", {
+      const companyRes = await API.post("/company", {
         ...form,
         allowedBranches: allowedBranches.split(","),
       });
+
+      const createdCompany = companyRes.data?.company;
+
+      // OPTIONAL JD UPLOAD
+      if (jdFile && createdCompany?._id) {
+        try {
+          setUploadingJD(true);
+
+          const formData = new FormData();
+
+          formData.append("jd", jdFile);
+
+          await API.post(
+            `/v1/upload/jd/${createdCompany._id}`,
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+        } catch (uploadError) {
+          console.error(uploadError);
+          alert("Company created but JD upload failed");
+        } finally {
+          setUploadingJD(false);
+        }
+      }
 
       alert("Company created ✅");
       navigate("/admin");
@@ -342,6 +372,33 @@ function CreateCompany() {
               </Field>
             </Section>
 
+            <Section id="jd-upload" title="Job Description (Optional)">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Upload JD File
+                  </label>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    PDF, DOC or DOCX • Max 10MB
+                  </p>
+                </div>
+
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) => setJDFile(e.target.files?.[0] || null)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                />
+
+                {jdFile && (
+                  <p className="text-sm text-emerald-600">
+                    Selected file: {jdFile.name}
+                  </p>
+                )}
+              </div>
+            </Section>
+
             <Section id="description-section" title="Description">
               <div className="relative">
                 <InputIcon>
@@ -364,7 +421,7 @@ function CreateCompany() {
                 className="group w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30 focus:outline-none focus:ring-4 focus:ring-blue-500/25 sm:w-auto sm:min-w-[220px]"
               >
                 <span className="inline-flex items-center gap-2">
-                  Create company
+                  {uploadingJD ? "Uploading JD..." : "Create company"}
                   <svg
                     viewBox="0 0 24 24"
                     className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"

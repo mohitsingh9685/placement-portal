@@ -10,6 +10,7 @@ import CreateCompany from "./pages/CreateCompany";
 import AdminProfile from "./pages/AdminProfile";
 import EditCompany from "./pages/EditCompany";
 import CompleteProfile from "./pages/CompleteProfile";
+import StudentViewCompany from "./pages/StudentViewCompany";
 
 function App() {
   return (
@@ -26,6 +27,8 @@ function App() {
         <Route path="/create-company" element={<CreateCompany />} />
         <Route path="/admin/edit-company/:id" element={<EditCompany />} />
         <Route path="/complete-profile" element={<CompleteProfile />} />
+        <Route path="/student/company/:id" element={<StudentViewCompany />}
+/>
       </Routes>
     </BrowserRouter>
   );

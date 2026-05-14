@@ -72,6 +72,8 @@ function Profile() {
 const [uploadingPhoto, setUploadingPhoto] = useState(false);
 const [selectedPhoto, setSelectedPhoto] = useState(null);
 const [previewPhoto, setPreviewPhoto] = useState("");
+const [uploadingResume, setUploadingResume] = useState(false);
+const [selectedResume, setSelectedResume] = useState(null);
 const [skillInput, setSkillInput] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [activeSection, setActiveSection] = useState("academic");
@@ -104,6 +106,7 @@ const [skillInput, setSkillInput] = useState("");
 
       setProfileUser(user);
       setPreviewPhoto(user.profilePicture?.url || "");
+      setSelectedResume(null);
       setForm({
         cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
         branch: user.branch ?? "",
@@ -217,7 +220,79 @@ const handlePhotoUpload = async () => {
     setUploadingPhoto(false);
   }
 };
-  const handleUpdate = async () => {
+const handleResumeChange = (e) => {
+  const file = e.target.files?.[0];
+
+  if (!file) return;
+
+  setSelectedResume(file);
+};
+
+const handleResumeUpload = async () => {
+  if (!selectedResume) {
+    alert("Please select a resume first");
+    return;
+  }
+
+  try {
+    setUploadingResume(true);
+
+    const formData = new FormData();
+
+    formData.append("resume", selectedResume);
+
+    const res = await API.post(
+      "/v1/upload/resume",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    const updatedUser = {
+      ...profileUser,
+      resume: res.data.resume,
+    };
+
+    setProfileUser(updatedUser);
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify(updatedUser)
+    );
+
+    setSelectedResume(null);
+
+    alert("Resume uploaded successfully ✅");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to upload resume");
+  } finally {
+    setUploadingResume(false);
+  }
+};
+const handleViewResume = async () => {
+  try {
+    const res = await API.get(
+      "/v1/upload/resume/view"
+    );
+
+    const signedUrl = res.data?.signedUrl;
+
+    if (!signedUrl) {
+      alert("Resume not found");
+      return;
+    }
+
+    window.open(signedUrl, "_blank");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to open resume");
+  }
+};
+const handleUpdate = async () => {
     setSaving(true);
     try {
       const res = await API.put("/auth/update-profile", {
@@ -304,6 +379,24 @@ setProfileUser(updatedUser);
                   <p className="mt-1 text-sm font-medium text-slate-700">{headlineParts}</p>
                 )}
                 <p className="mt-1 truncate text-sm text-slate-500">{profileUser.email}</p>
+             <div className="mt-3">
+  {profileUser?.resume?.url ? (
+    <button
+      type="button"
+      onClick={handleViewResume}
+      className="inline-flex items-center rounded-full bg-[#0a66c2]/10 px-4 py-2 text-sm font-semibold text-[#0a66c2] transition-all hover:bg-[#0a66c2]/20"
+    >
+      View Resume
+    </button>
+  ) : (
+    <p className="text-sm text-slate-500">
+      No resume uploaded yet.{" "}
+      <span className="font-medium text-[#0a66c2]">
+        Enable edit mode to upload your resume.
+      </span>
+    </p>
+  )}
+</div>
                 {form.skills.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {form.skills.slice(0, 6).map((skill) => (
@@ -368,6 +461,44 @@ setProfileUser(updatedUser);
 
       </div>
 
+    </div>
+
+    <div className="mt-6 border-t border-slate-200 pt-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Resume Upload
+          </h3>
+
+          <p className="mt-1 text-xs text-slate-500">
+            PDF, DOC or DOCX • Max 5MB
+          </p>
+
+          {profileUser?.resume?.url && (
+            <p className="mt-2 text-xs font-medium text-emerald-600">
+              Resume uploaded successfully
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx"
+            onChange={handleResumeChange}
+            className="block text-sm text-slate-600"
+          />
+
+          <button
+            type="button"
+            disabled={uploadingResume}
+            onClick={handleResumeUpload}
+            className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploadingResume ? "Uploading..." : "Upload Resume"}
+          </button>
+        </div>
+      </div>
     </div>
 
   </div>

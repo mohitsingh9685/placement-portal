@@ -13,10 +13,26 @@ const companySchema = new mongoose.Schema(
     maxBacklogsAllowed: Number,
     allowActiveBacklogs: Boolean,
 
-    jobDescription: {
-      url: String,
-      fileName: String
-    },
+   jobDescription: {
+  key: {
+    type: String,
+    default: "",
+  },
+
+  url: {
+    type: String,
+    default: "",
+  },
+
+  fileName: {
+    type: String,
+    default: "",
+  },
+
+  uploadedAt: {
+    type: Date,
+  },
+},
 
     registrationDeadline: Date,
     driveDate: Date,
