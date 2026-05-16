@@ -5,8 +5,13 @@ const protect = async (req, res, next) => {
   try {
     let token;
 
-    // Check token in header
-    if (
+    // Priority 1: HTTP-only cookie
+    if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
+
+    // Priority 2: Authorization header
+    else if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer")
     ) {
@@ -16,15 +21,27 @@ const protect = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Not authorized, no token",
+        message: "Not authorized, token missing",
       });
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.ACCESS_TOKEN_SECRET
+    );
 
-    // Get user
-    req.user = await Student.findById(decoded.id).select("-password");
+    // Fetch latest user data
+    const user = await Student.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    req.user = user;
 
     next();
   } catch (error) {
@@ -42,6 +59,7 @@ const isAdmin = (req, res, next) => {
       message: "Admin only access",
     });
   }
+
   next();
 };
 

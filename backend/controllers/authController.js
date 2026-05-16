@@ -12,18 +12,14 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // REGISTER
 export const register = async (req, res) => {
   try {
-    console.log("RAW BODY:", req.body);
     const parsed = registerSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      console.log("VALIDATION ERROR:", parsed.error);
       return res.status(400).json({
         error: parsed.error.issues.map((err) => err.message),
       });
     }
-    console.log("PARSED BODY:", parsed.data);
     const data = parsed.data;
-    console.log("FINAL DATA TO SAVE:", data);
 
     // check user exists
     const existingUser = await Student.findOne({ email: data.email });
@@ -47,8 +43,6 @@ export const register = async (req, res) => {
 
       hasActiveBacklog: Number(data.activeBacklogs) > 0,
     });
-
-    console.log("SAVED USER:", user);
 
     res.status(201).json({
       success: true,
@@ -101,11 +95,21 @@ export const login = async (req, res) => {
 
     await user.save();
 
-    res.cookie("refreshToken", refreshToken, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie("refreshToken", refreshToken, cookieOptions);
+
+    res.cookie("accessToken", accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -191,11 +195,21 @@ export const googleAuth = async (req, res) => {
 
     await user.save();
 
-    res.cookie("refreshToken", refreshToken, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie("refreshToken", refreshToken, cookieOptions);
+
+    res.cookie("accessToken", accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -258,11 +272,10 @@ export const updateProfile = async (req, res) => {
         .map((s) => String(s).trim())
         .filter(Boolean);
     }
-console.log("REQ USER:", req.user);
-console.log("REQ USER ID:", req.user.id);
+
     const user = await Student.findByIdAndUpdate(req.user.id, update, {
-  new: true,
-});
+      new: true,
+    });
 
     res.json(user);
   } catch (error) {
@@ -287,7 +300,23 @@ export const logout = async (req, res) => {
       }
     }
 
-    res.clearCookie("refreshToken");
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
+    });
+
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
+    });
 
     res.status(200).json({
       success: true,

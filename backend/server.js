@@ -15,11 +15,14 @@ import { protect } from "./middleware/authMiddleware.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import compression from "compression";
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Middleware
 app.use(helmet());
+app.use(compression());
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -28,9 +31,19 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json());
-app.use((req, res, next) => {
-  console.log("API HIT:", req.method, req.url);
-  next();
+app.use(express.urlencoded({ extended: true }));
+if (process.env.NODE_ENV !== "production") {
+  app.use((req, res, next) => {
+    console.log("API HIT:", req.method, req.url);
+    next();
+  });
+}
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Server is healthy",
+  });
 });
 
 // Routes
