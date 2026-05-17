@@ -6,6 +6,11 @@ import Navbar from "../components/Navbar";
 function Dashboard() {
   const [companies, setCompanies] = useState([]);
   const [applied, setApplied] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+const [eligibilityFilter, setEligibilityFilter] = useState("all");
+const [applicationFilter, setApplicationFilter] = useState("all");
+const [minCtc, setMinCtc] = useState("");
+const [sortBy, setSortBy] = useState("latest");
   const [user, setUser] = useState(() => {
     const data = localStorage.getItem("user");
     return data ? JSON.parse(data) : null;
@@ -123,7 +128,55 @@ function Dashboard() {
   const eligibleCount = companies.filter(
     (company) => checkEligibility(company).eligible,
   ).length;
+const filteredCompanies = [...companies]
+  .filter((company) => {
+    const eligibility = checkEligibility(company);
 
+    const matchesSearch =
+      company.companyName
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      company.role
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+    const matchesEligibility =
+      eligibilityFilter === "all" ||
+      (eligibilityFilter === "eligible" &&
+        eligibility.eligible) ||
+      (eligibilityFilter === "not-eligible" &&
+        eligibility.eligible === false);
+
+    const matchesApplication =
+      applicationFilter === "all" ||
+      (applicationFilter === "applied" &&
+        applied.includes(company._id)) ||
+      (applicationFilter === "not-applied" &&
+        !applied.includes(company._id));
+
+    const matchesCtc =
+      !minCtc || Number(company.ctc) >= Number(minCtc);
+
+    return (
+      matchesSearch &&
+      matchesEligibility &&
+      matchesApplication &&
+      matchesCtc
+    );
+  })
+  .sort((a, b) => {
+    if (sortBy === "highest-ctc") {
+      return Number(b.ctc) - Number(a.ctc);
+    }
+
+    if (sortBy === "a-z") {
+      return a.companyName.localeCompare(
+        b.companyName
+      );
+    }
+
+    return 0;
+  });
   return (
     <div className="premium-shell min-h-screen bg-[radial-gradient(1100px_580px_at_8%_-12%,rgba(6,182,212,0.18),transparent_55%),radial-gradient(900px_520px_at_94%_-8%,rgba(99,102,241,0.18),transparent_56%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
       <style>{`
@@ -223,8 +276,81 @@ function Dashboard() {
           </div>
         </header>
 
+        <section className="mb-8 rounded-3xl border border-slate-200/70 bg-white/80 p-5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Search Companies
+              </label>
+
+              <input
+                type="text"
+                placeholder="Search by company or role..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all duration-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Eligibility
+              </label>
+
+              <select
+                value={eligibilityFilter}
+                onChange={(e) =>
+                  setEligibilityFilter(e.target.value)
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all duration-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              >
+                <option value="all">All</option>
+                <option value="eligible">Eligible</option>
+                <option value="not-eligible">Not Eligible</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Application
+              </label>
+
+              <select
+                value={applicationFilter}
+                onChange={(e) =>
+                  setApplicationFilter(e.target.value)
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all duration-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              >
+                <option value="all">All</option>
+                <option value="applied">Applied</option>
+                <option value="not-applied">Not Applied</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Sort By
+              </label>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all duration-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              >
+                <option value="latest">Latest</option>
+                <option value="highest-ctc">
+                  Highest CTC
+                </option>
+                <option value="a-z">A-Z</option>
+              </select>
+            </div>
+          </div>
+
+        </section>
+
         <div className="grid grid-cols-1 gap-6 [grid-auto-rows:minmax(0,1fr)] sm:grid-cols-2 lg:gap-7 xl:grid-cols-3 2xl:grid-cols-4">
-          {companies.map((company) => {
+          {filteredCompanies.map((company) => {
             const eligibility = checkEligibility(company);
 
             return (

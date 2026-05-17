@@ -9,6 +9,7 @@ import AdminProfile from "./pages/AdminProfile";
 import EditCompany from "./pages/EditCompany";
 import CompleteProfile from "./pages/CompleteProfile";
 import StudentViewCompany from "./pages/StudentViewCompany";
+import AdminViewApplications from "./pages/AdminViewApplications";
 
 function App() {
   return (
@@ -22,6 +23,10 @@ function App() {
         <Route path="/admin-profile" element={<AdminProfile />} />
         <Route path="/create-company" element={<CreateCompany />} />
         <Route path="/admin/edit-company/:id" element={<EditCompany />} />
+        <Route
+          path="/admin/company/:id/applications"
+          element={<AdminViewApplications />}
+        />
         <Route path="/complete-profile" element={<CompleteProfile />} />
         <Route
           path="/student/company/:id"
