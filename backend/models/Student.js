@@ -25,14 +25,6 @@ const studentSchema = new mongoose.Schema(
       lowercase: true,
       trim: true
     },
-    password: {
-      type: String,
-      required: function () {
-        return this.authProvider === "local";
-      },
-      minlength: 6,
-      select: false
-    },
     googleId: {
       type: String,
       default: null
@@ -49,11 +41,6 @@ const studentSchema = new mongoose.Schema(
       }
     },
 
-    authProvider: {
-      type: String,
-      enum: ["local", "google"],
-      default: "local"
-    },
     phone: String,
 
     enrollmentNo: String,
@@ -123,10 +110,6 @@ const studentSchema = new mongoose.Schema(
       default: null
     },
 
-    isVerified: {
-      type: Boolean,
-      default: false
-    },
 
     profileCompleted: {
       type: Boolean,

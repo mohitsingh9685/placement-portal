@@ -1,7 +1,6 @@
 import Student from "../models/Student.js";
-import bcrypt from "bcryptjs";
+import ApprovedStudent from "../models/ApprovedStudent.js";
 import { OAuth2Client } from "google-auth-library";
-import { registerSchema, loginSchema } from "../validators/authValidator.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -9,119 +8,12 @@ import {
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// REGISTER
-export const register = async (req, res) => {
-  try {
-    const parsed = registerSchema.safeParse(req.body);
-
-    if (!parsed.success) {
-      return res.status(400).json({
-        error: parsed.error.issues.map((err) => err.message),
-      });
-    }
-    const data = parsed.data;
-
-    // check user exists
-    const existingUser = await Student.findOne({ email: data.email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    // hash password
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    const user = await Student.create({
-      ...data,
-      branch: data.branch ? data.branch.toUpperCase() : data.branch,
-      password: hashedPassword,
-
-      semester: Number(data.semester),
-      passingYear: Number(data.passingYear),
-      cgpa: Number(data.cgpa),
-      totalBacklogs: Number(data.totalBacklogs),
-      activeBacklogs: Number(data.activeBacklogs),
-
-      hasActiveBacklog: Number(data.activeBacklogs) > 0,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
 // GET PROFILE
 export const getProfile = async (req, res) => {
   try {
     res.status(200).json({
       success: true,
       user: req.user,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// LOGIN
-export const login = async (req, res) => {
-  try {
-    const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        error: parsed.error.issues.map((err) => err.message),
-      });
-    }
-    const { email, password } = req.body;
-
-    const user = await Student.findOne({ email }).select("+password");
-    if (!user) {
-      return res.status(400).json({ message: "User not found" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const accessToken = generateAccessToken(user);
-
-    const refreshToken = generateRefreshToken(user);
-
-    user.refreshToken = refreshToken;
-    user.lastLogin = new Date();
-
-    await user.save();
-
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? "none"
-          : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    };
-
-    res.cookie("refreshToken", refreshToken, cookieOptions);
-
-    res.cookie("accessToken", accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.status(200).json({
-      success: true,
-      accessToken,
-      token: accessToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -162,7 +54,18 @@ export const googleAuth = async (req, res) => {
       });
     }
 
-    let user = await Student.findOne({ email }).select("+password");
+    const approvedStudent = await ApprovedStudent.findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (!approvedStudent) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to access this portal",
+      });
+    }
+
+    let user = await Student.findOne({ email });
 
     // CREATE NEW USER IF NOT EXISTS
     if (!user) {
@@ -171,20 +74,21 @@ export const googleAuth = async (req, res) => {
         email,
         googleId: sub,
         profilePicture: picture,
-        authProvider: "google",
-        isVerified: true,
         profileCompleted: false,
+        role: approvedStudent.role,
       });
     }
 
-    // LINK EXISTING LOCAL ACCOUNT WITH GOOGLE
-    if (user.authProvider !== "google") {
-      user.authProvider = "google";
+    if (!user.googleId) {
       user.googleId = sub;
+    }
 
-      if (!user.profilePicture) {
-        user.profilePicture = picture;
-      }
+    if (!user.profilePicture) {
+      user.profilePicture = picture;
+    }
+
+    if (user.role !== approvedStudent.role) {
+      user.role = approvedStudent.role;
     }
 
     const accessToken = generateAccessToken(user);
@@ -277,7 +181,17 @@ export const updateProfile = async (req, res) => {
       new: true,
     });
 
-    res.json(user);
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+        profileCompleted: user.profileCompleted,
+      },
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error" });

@@ -26,10 +26,15 @@ function Dashboard() {
     }
   };
   useEffect(() => {
-    if (user?.role === "admin") {
-      navigate("/admin");
-    }
-  }, [user, navigate]);
+  if (!user) {
+    navigate("/");
+    return;
+  }
+
+  if (user.role === "admin") {
+    navigate("/admin");
+  }
+}, [user, navigate]);
 
   const fetchCompanies = async () => {
     try {

@@ -1,10 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
-console.log(localStorage.getItem("token"));
 
 function CompleteProfile() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (!user) {
+      navigate("/");
+      return;
+    }
+
+    if (user.role === "admin") {
+      navigate("/admin");
+      return;
+    }
+
+    if (user.profileCompleted) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
 
   const [form, setForm] = useState({
     enrollmentNo: "",
@@ -18,7 +35,7 @@ function CompleteProfile() {
     contactNo: "",
     whatsappNo: "",
     totalBacklogs: "",
-    hasActiveBacklog: "",
+    activeBacklogs: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -36,11 +53,16 @@ function CompleteProfile() {
 
       const token = localStorage.getItem("token");
 
-      await API.put("/auth/update-profile", form, {
+      const res = await API.put("/auth/update-profile", form, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(res.data.user)
+      );
 
       alert("Profile completed successfully");
 
@@ -258,10 +280,10 @@ function CompleteProfile() {
               type="number"
               className={inputClass}
               placeholder="0"
-              value={form.hasActiveBacklog}
+              value={form.activeBacklogs}
               onChange={(e) =>
                 handleChange(
-                  "hasActiveBacklog",
+                  "activeBacklogs",
                   e.target.value
                 )
               }

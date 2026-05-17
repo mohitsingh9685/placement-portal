@@ -1,7 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login.jsx";
-import ForgotPassword from "./pages/ForgotPassword";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import MyApplications from "./pages/MyApplications";
@@ -17,8 +15,6 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/applications" element={<MyApplications />} />
@@ -27,8 +23,10 @@ function App() {
         <Route path="/create-company" element={<CreateCompany />} />
         <Route path="/admin/edit-company/:id" element={<EditCompany />} />
         <Route path="/complete-profile" element={<CompleteProfile />} />
-        <Route path="/student/company/:id" element={<StudentViewCompany />}
-/>
+        <Route
+          path="/student/company/:id"
+          element={<StudentViewCompany />}
+        />
       </Routes>
     </BrowserRouter>
   );

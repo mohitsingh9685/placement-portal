@@ -149,13 +149,18 @@ function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
+ useEffect(() => {
+  const user = JSON.parse(localStorage.getItem("user"));
 
-    if (!user || user.role !== "admin") {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
+  if (!user) {
+    navigate("/");
+    return;
+  }
+
+  if (user.role !== "admin") {
+    navigate("/dashboard");
+  }
+}, [navigate]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

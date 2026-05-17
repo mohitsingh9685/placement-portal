@@ -16,7 +16,15 @@ const GoogleLoginButton = () => {
 
       console.log(res.data);
 
-      window.location.href = "/dashboard";
+      const user = res.data.user;
+
+      if (user.role === "admin") {
+        window.location.href = "/admin";
+      } else if (!user.profileCompleted) {
+        window.location.href = "/complete-profile";
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch (error) {
       console.error(error);
     }

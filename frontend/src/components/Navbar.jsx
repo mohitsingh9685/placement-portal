@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import API from "../api/axios";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -6,12 +8,26 @@ function Navbar() {
 
   const user = JSON.parse(localStorage.getItem("user"));
 
+  useEffect(() => {
+    if (!user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  if (!user) return null;
+
   const isActive = (path) => location.pathname === path;
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await API.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/");
+    }
   };
 
   const navButtonClass = (path) =>
