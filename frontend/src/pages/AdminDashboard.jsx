@@ -76,31 +76,33 @@ function AdminDashboard() {
   const fetchCompanies = async () => {
     try {
       const res = await API.get("/company");
-      setCompanies(res.data);
-      fetchTotalApplicationsCount(res.data || []);
+      const companyData = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.companies)
+          ? res.data.companies
+          : [];
+
+      setCompanies(companyData);
+
+      fetchTotalApplicationsCount();
     } catch (err) {
       console.log(err);
+      if (err.response?.status === 401) {
+        navigate("/");
+      }
     }
   };
 
-  const fetchTotalApplicationsCount = async (companyList) => {
+  const fetchTotalApplicationsCount = async () => {
     try {
-      if (!Array.isArray(companyList) || companyList.length === 0) {
-        setTotalApplicationsCount(0);
-        return;
-      }
+      const res = await API.get("/application/admin/all");
+      const applications = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.applications)
+          ? res.data.applications
+          : [];
 
-      const results = await Promise.allSettled(
-        companyList.map((company) => API.get(`/application/admin/company/${company._id}`))
-      );
-
-      const total = results.reduce((sum, result) => {
-        if (result.status !== "fulfilled") return sum;
-        const list = Array.isArray(result.value?.data) ? result.value.data : [];
-        return sum + list.length;
-      }, 0);
-
-      setTotalApplicationsCount(total);
+      setTotalApplicationsCount(applications.length);
     } catch (err) {
       console.log("ERROR FETCHING TOTAL APPLICATION COUNT:", err);
       setTotalApplicationsCount(0);
@@ -138,7 +140,7 @@ function AdminDashboard() {
   const allBranches = useMemo(() => {
     const branches = new Set();
 
-    companies.forEach((company) => {
+   (Array.isArray(companies) ? companies : []).forEach((company) => {
       if (Array.isArray(company.allowedBranches)) {
         company.allowedBranches.forEach((branch) => {
           if (branch) branches.add(branch);

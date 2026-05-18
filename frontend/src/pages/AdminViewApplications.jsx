@@ -121,11 +121,14 @@ function AdminViewApplications() {
   const [searchTerm, setSearchTerm] = useState("");
   const [cgpaSort, setCgpaSort] = useState("default");
   const [selectedApplications, setSelectedApplications] = useState([]);
+  const [isDeletingCompany, setIsDeletingCompany] = useState(false);
 
   const { id } = useParams();
   const navigate = useNavigate();
 
   const fetchApplications = async () => {
+    if (!id) return;
+
     try {
       const res = await API.get(`/application/admin/company/${id}`);
       setApplications(res.data || []);
@@ -159,6 +162,31 @@ function AdminViewApplications() {
     }
   };
 
+  const handleDeleteCompany = async () => {
+    if (!id) {
+      alert("Company id not found");
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this company and all related applications?",
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      setIsDeletingCompany(true);
+      await API.delete(`/company/${id}`);
+
+      alert("Company deleted successfully");
+      navigate("/admin");
+    } catch (err) {
+      console.log(err);
+      alert("Failed to delete company");
+    } finally {
+      setIsDeletingCompany(false);
+    }
+  };
   const handleViewResume = async (studentId) => {
     try {
       const res = await API.get(`/v1/upload/resume/view/${studentId}`);
@@ -240,8 +268,10 @@ function AdminViewApplications() {
       }
     };
 
-    fetchCompany();
-    fetchApplications();
+    if (id) {
+      fetchCompany();
+      fetchApplications();
+    }
     // fetchApplications is intentionally kept as the same local helper used by status updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -275,11 +305,30 @@ function AdminViewApplications() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">
-                  {filteredApplications.length}
-                </span>{" "}
-                showing from {applications.length} total
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <div className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  <span className="font-semibold text-slate-900">
+                    {filteredApplications.length}
+                  </span>{" "}
+                  showing from {applications.length} total
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/edit-company/${id}`)}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                >
+                  Edit company
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteCompany}
+                  disabled={isDeletingCompany}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isDeletingCompany ? "Deleting..." : "Delete company"}
+                </button>
               </div>
             </div>
           </header>

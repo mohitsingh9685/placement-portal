@@ -1,5 +1,17 @@
 import Company from "../models/Company.js";
+import Application from "../models/Application.js";
 import redis from "../config/redis.js";
+
+const COMPANIES_CACHE_KEY = "companies:v2:all";
+const LEGACY_COMPANIES_CACHE_KEY = "all_companies";
+
+const invalidateCompaniesCache = async () => {
+  try {
+    await redis.del(COMPANIES_CACHE_KEY, LEGACY_COMPANIES_CACHE_KEY);
+  } catch (error) {
+    console.error("Company cache invalidation failed:", error.message);
+  }
+};
 
 // Add Company (Admin)
 export const addCompany = async (req, res) => {
@@ -41,7 +53,7 @@ export const addCompany = async (req, res) => {
       createdBy: req.user._id
     });
 
-    await redis.del("all_companies");
+    await invalidateCompaniesCache();
 
     res.status(201).json(company);
   } catch (error) {
@@ -52,7 +64,13 @@ export const addCompany = async (req, res) => {
 // Get all companies (Students)
 export const getCompanies = async (req, res) => {
   try {
-    const cachedCompanies = await redis.get("all_companies");
+    let cachedCompanies = null;
+
+    try {
+      cachedCompanies = await redis.get(COMPANIES_CACHE_KEY);
+    } catch (error) {
+      console.error("Company cache read failed:", error.message);
+    }
 
     if (cachedCompanies) {
       console.log("⚡ Serving companies from Redis Cache");
@@ -67,12 +85,16 @@ export const getCompanies = async (req, res) => {
 
     console.log("📦 Serving companies from MongoDB");
 
-    await redis.set(
-      "all_companies",
-      JSON.stringify(companies),
-      "EX",
-      300
-    );
+    try {
+      await redis.set(
+        COMPANIES_CACHE_KEY,
+        JSON.stringify(companies),
+        "EX",
+        300
+      );
+    } catch (error) {
+      console.error("Company cache write failed:", error.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -130,7 +152,7 @@ export const updateCompany = async (req, res) => {
       return res.status(404).json({ message: "Company not found" });
     }
 
-    await redis.del("all_companies");
+    await invalidateCompaniesCache();
 
     res.json(updatedCompany);
   } catch (error) {
@@ -147,7 +169,8 @@ export const deleteCompany = async (req, res) => {
       return res.status(404).json({ message: "Company not found" });
     }
 
-    await redis.del("all_companies");
+    await Application.deleteMany({ company: req.params.id });
+    await invalidateCompaniesCache();
 
     res.json({ message: "Company deleted successfully" });
   } catch (error) {

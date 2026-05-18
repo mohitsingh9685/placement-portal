@@ -3,8 +3,9 @@ import { RedisStore } from "rate-limit-redis";
 import redis from "../config/redis.js";
 
 const rateLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 20,
+  windowMs: 15 * 60 * 1000,
+  limit: 1000,
+  skip: (req) => req.path === "/health",
 
   standardHeaders: "draft-7",
   legacyHeaders: false,
@@ -15,6 +16,7 @@ const rateLimiter = rateLimit({
   },
 
   store: new RedisStore({
+    prefix: "rl:global:v3:",
     sendCommand: (...args) => redis.call(...args),
   }),
 });
