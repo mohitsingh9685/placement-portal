@@ -1,4 +1,5 @@
 import Company from "../models/Company.js";
+import redis from "../config/redis.js";
 
 // Add Company (Admin)
 export const addCompany = async (req, res) => {
@@ -40,6 +41,8 @@ export const addCompany = async (req, res) => {
       createdBy: req.user._id
     });
 
+    await redis.del("all_companies");
+
     res.status(201).json(company);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -49,10 +52,38 @@ export const addCompany = async (req, res) => {
 // Get all companies (Students)
 export const getCompanies = async (req, res) => {
   try {
+    const cachedCompanies = await redis.get("all_companies");
+
+    if (cachedCompanies) {
+      console.log("⚡ Serving companies from Redis Cache");
+      return res.status(200).json({
+        success: true,
+        source: "redis-cache",
+        companies: JSON.parse(cachedCompanies),
+      });
+    }
+
     const companies = await Company.find().sort({ createdAt: -1 });
-    res.json(companies);
+
+    console.log("📦 Serving companies from MongoDB");
+
+    await redis.set(
+      "all_companies",
+      JSON.stringify(companies),
+      "EX",
+      300
+    );
+
+    return res.status(200).json({
+      success: true,
+      source: "mongodb",
+      companies,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -99,6 +130,8 @@ export const updateCompany = async (req, res) => {
       return res.status(404).json({ message: "Company not found" });
     }
 
+    await redis.del("all_companies");
+
     res.json(updatedCompany);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -113,6 +146,8 @@ export const deleteCompany = async (req, res) => {
     if (!company) {
       return res.status(404).json({ message: "Company not found" });
     }
+
+    await redis.del("all_companies");
 
     res.json({ message: "Company deleted successfully" });
   } catch (error) {
