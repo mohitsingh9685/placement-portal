@@ -71,12 +71,9 @@ const EditCompany = () => {
     const fetchCompany = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:9000/api/company/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-        const dataJson = await res.json();
+       const res = await API.get(`/company/${id}`);
+
+const dataJson = res.data;
         const data = dataJson.company || dataJson;
         console.log("Fetched company:", data);
 
@@ -132,21 +129,14 @@ const EditCompany = () => {
     e.preventDefault();
 
     try {
-      await fetch(`http://localhost:9000/api/company/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          ...formData,
-          maxBacklogsAllowed: Number(formData.maxBacklogs),
-          allowedBranches: formData.branches
-            .split(",")
-            .map((b) => b.trim().toUpperCase())
-            .filter(Boolean),
-        }),
-      });
+     await API.put(`/company/${id}`, {
+  ...formData,
+  maxBacklogsAllowed: Number(formData.maxBacklogs),
+  allowedBranches: formData.branches
+    .split(",")
+    .map((b) => b.trim().toUpperCase())
+    .filter(Boolean),
+});
 
       // OPTIONAL JD UPDATE
       if (jdFile) {
