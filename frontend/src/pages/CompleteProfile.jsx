@@ -51,13 +51,7 @@ function CompleteProfile() {
     try {
       setLoading(true);
 
-      const token = localStorage.getItem("token");
-
-      const res = await API.put("/auth/update-profile", form, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await API.put("/auth/update-profile", form);
 
       localStorage.setItem(
         "user",

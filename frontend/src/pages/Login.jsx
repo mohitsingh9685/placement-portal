@@ -2,12 +2,25 @@ import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import API from "../api/axios";
 import { useNavigate } from "react-router-dom";
+import { clearGuestSession, createGuestUser } from "../utils/guestSession";
 
 function Login() {
   const navigate = useNavigate();
+  const [googleError, setGoogleError] = useState("");
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      setGoogleError("");
+
+      if (!credentialResponse.credential) {
+        throw new Error("Google did not return a sign-in credential.");
+      }
+
+      // A successful real sign-in must always replace any old guest state.
+      clearGuestSession();
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+
       const res = await API.post(
         "/auth/google",
         {
@@ -18,7 +31,6 @@ function Login() {
         }
       );
 
-      localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
       if (res.data.user.role === "admin") {
@@ -30,8 +42,26 @@ function Login() {
       }
     } catch (error) {
       console.error("Google Login Error:", error);
-      alert("Google login failed");
+      setGoogleError(
+        error.response?.data?.message ||
+          error.message ||
+          "Google login failed. Please try again."
+      );
     }
+  };
+
+  const handleGuestLogin = async () => {
+    // Remove any previous authenticated browser session before starting the demo.
+    try {
+      await API.post("/auth/logout");
+    } catch {
+      // A guest can start even when there was no prior session to clear.
+    }
+
+    localStorage.removeItem("token");
+    clearGuestSession();
+    localStorage.setItem("user", JSON.stringify(createGuestUser()));
+    navigate("/dashboard");
   };
 
   return (
@@ -73,7 +103,7 @@ function Login() {
               MAIT Placement Portal
             </h1>
             <p className="mt-2 text-sm text-slate-200/85">
-              Only approved students can access this portal.
+              Approved students can sign in, or explore a private guest demo.
             </p>
           </div>
 
@@ -91,7 +121,9 @@ function Login() {
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
                   onError={() => {
-                    console.log("Google Login Failed");
+                    setGoogleError(
+                      "Google could not open the sign-in window. Allow pop-ups for this site and try again."
+                    );
                   }}
                   theme="filled_black"
                   shape="pill"
@@ -99,6 +131,24 @@ function Login() {
                   text="continue_with"
                 />
               </div>
+            </div>
+            {googleError && (
+              <p className="text-center text-sm text-red-200" role="alert">
+                {googleError}
+              </p>
+            )}
+
+            <div className="space-y-3 text-center">
+              <button
+                type="button"
+                onClick={handleGuestLogin}
+                className="w-full rounded-xl border border-cyan-200/30 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              >
+                Continue as guest
+              </button>
+              <p className="text-xs leading-5 text-slate-300/80">
+                Applications are stored only for this guest browser session and are never sent to the admin dashboard.
+              </p>
             </div>
           </div>
         </div>

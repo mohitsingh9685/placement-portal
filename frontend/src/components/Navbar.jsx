@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import API from "../api/axios";
+import { clearGuestSession, isGuestUser } from "../utils/guestSession";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -17,8 +18,17 @@ function Navbar() {
   if (!user) return null;
 
   const isActive = (path) => location.pathname === path;
+  const isGuest = isGuestUser(user);
 
   const handleLogout = async () => {
+    if (isGuest) {
+      clearGuestSession();
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/");
+      return;
+    }
+
     try {
       await API.post("/auth/logout");
     } catch (error) {
@@ -72,15 +82,22 @@ function Navbar() {
               <button onClick={() => navigate("/dashboard")} className={navButtonClass("/dashboard")}>
                 Dashboard
               </button>
-              <button onClick={() => navigate("/profile")} className={navButtonClass("/profile")}>
-                Profile
-              </button>
+              {!isGuest && (
+                <button onClick={() => navigate("/profile")} className={navButtonClass("/profile")}>
+                  Profile
+                </button>
+              )}
               <button
                 onClick={() => navigate("/applications")}
                 className={navButtonClass("/applications")}
               >
                 Applications
               </button>
+              {isGuest && (
+                <span className="rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100">
+                  Guest demo
+                </span>
+              )}
             </>
           )}
 

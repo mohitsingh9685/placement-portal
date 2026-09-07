@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import {
+  getGuestApplications,
+  isGuestUser,
+  removeGuestApplication,
+} from "../utils/guestSession";
 
 const STATUS_CONFIG = {
   APPLIED: {
@@ -237,9 +242,16 @@ function MyApplications() {
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState("ALL");
   const navigate = useNavigate();
+  const isGuest = isGuestUser(JSON.parse(localStorage.getItem("user") || "null"));
 
   useEffect(() => {
     const fetchApps = async () => {
+      if (isGuest) {
+        setApps(getGuestApplications());
+        setLoading(false);
+        return;
+      }
+
       try {
         setError(null);
         const res = await API.get("/application/my");
@@ -253,10 +265,15 @@ function MyApplications() {
     };
 
     fetchApps();
-  }, []);
+  }, [isGuest]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Remove this application from your tracker?")) return;
+
+    if (isGuest) {
+      setApps(removeGuestApplication(id));
+      return;
+    }
 
     try {
       await API.delete(`/application/${id}`);
@@ -327,6 +344,12 @@ function MyApplications() {
             </button>
           </div>
         </header>
+
+        {isGuest && (
+          <section className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4 text-sm text-cyan-950">
+            Guest applications are kept only in this browser session. Admins cannot view them.
+          </section>
+        )}
 
         {loading ? (
           <LoadingState />

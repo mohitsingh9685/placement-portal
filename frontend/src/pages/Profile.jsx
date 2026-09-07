@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import { isGuestUser } from "../utils/guestSession";
 
 function parseStoredUser() {
   try {
@@ -125,6 +126,11 @@ function Profile() {
   });
 
   useEffect(() => {
+    if (isGuestUser(profileUser)) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
     const fetchProfile = async () => {
       try {
         const res = await API.get("/auth/profile");

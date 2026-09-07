@@ -107,7 +107,8 @@ const studentSchema = new mongoose.Schema(
 
     refreshToken: {
       type: String,
-      default: null
+      default: null,
+      select: false
     },
 
 

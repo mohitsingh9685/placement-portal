@@ -78,9 +78,9 @@ app.get("/api/protected", protect, (req, res) => {
 const PORT = process.env.PORT || 9000;
 
 const startServer = async () => {
-  try {
-    console.log("Starting server...");
+  console.log("Starting server...");
 
+  try {
     await connectDB();
 
     app.listen(PORT, () => {

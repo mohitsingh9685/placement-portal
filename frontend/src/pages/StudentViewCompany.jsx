@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import API from "../api/axios";
+import { isGuestUser } from "../utils/guestSession";
 
 const cardClass =
   "rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg shadow-slate-200/50";
@@ -17,6 +18,7 @@ const StudentViewCompany = () => {
   const { id } = useParams();
 
   const navigate = useNavigate();
+  const isGuest = isGuestUser(JSON.parse(localStorage.getItem("user") || "null"));
 
   const [loading, setLoading] =
     useState(true);
@@ -30,7 +32,7 @@ const StudentViewCompany = () => {
         setLoading(true);
 
         const res = await API.get(
-          `/company/${id}`
+          isGuest ? `/company/guest/${id}` : `/company/${id}`
         );
 
         setCompany(
@@ -53,7 +55,7 @@ const StudentViewCompany = () => {
   const handleViewJD = async () => {
     try {
       const res = await API.get(
-        `/v1/upload/jd/view/${id}`
+        isGuest ? `/v1/upload/jd/guest/view/${id}` : `/v1/upload/jd/view/${id}`
       );
 
       const signedUrl =

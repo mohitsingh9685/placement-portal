@@ -14,6 +14,11 @@ import { protect, isAdmin } from "../middleware/authMiddleware.js";
 // Admin adds company
 router.post("/", protect, isAdmin, addCompany);
 
+// Public read-only company data for the guest showcase. Keep the normal
+// student endpoints protected so the original access rules remain unchanged.
+router.get("/guest", getCompanies);
+router.get("/guest/:id", getCompanyById);
+
 // Get all companies
 router.get("/", protect, getCompanies);
 

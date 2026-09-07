@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import {
+  addGuestApplication,
+  getGuestApplications,
+  isGuestUser,
+} from "../utils/guestSession";
+import { checkCompanyEligibility } from "../utils/eligibility";
 
 function Dashboard() {
   const [companies, setCompanies] = useState([]);
@@ -17,7 +23,9 @@ const [sortBy, setSortBy] = useState("latest");
   });
 
   const navigate = useNavigate();
+  const isGuest = isGuestUser(user);
   const fetchProfile = async () => {
+    if (isGuest) return;
     try {
       const res = await API.get("/auth/profile");
 
@@ -43,7 +51,7 @@ const [sortBy, setSortBy] = useState("latest");
 
   const fetchCompanies = async () => {
     try {
-      const res = await API.get("/company");
+      const res = await API.get(isGuest ? "/company/guest" : "/company");
 
       console.log("COMPANY API RESPONSE:", res.data);
       setCompanies(res.data.companies || res.data);
@@ -54,6 +62,10 @@ const [sortBy, setSortBy] = useState("latest");
   };
 
   const fetchApplied = async () => {
+    if (isGuest) {
+      setApplied(getGuestApplications().map((app) => app.company?._id));
+      return;
+    }
     try {
       const res = await API.get("/application/my");
 
@@ -67,35 +79,24 @@ const [sortBy, setSortBy] = useState("latest");
     }
   };
 
-  const checkEligibility = (company) => {
-    if (!user) return { eligible: null, reason: "" };
-
-    if (user.cgpa < company.minCgpa) {
-      return { eligible: false, reason: "Low CGPA" };
-    }
-
-    const userBranch = user.branch?.toUpperCase().trim() || "";
-    const allowed = (company.allowedBranches || []).map((b) =>
-      b?.toUpperCase().trim(),
-    );
-
-    if (!allowed.includes(userBranch)) {
-      return { eligible: false, reason: "Branch not allowed" };
-    }
-
-    const backlogCount = user.activeBacklogs ?? user.activebacklogs ?? 0;
-    if (backlogCount > company.maxBacklogsAllowed) {
-      return { eligible: false, reason: "Too many backlogs" };
-    }
-
-    if (!company.allowActiveBacklogs && user.hasActiveBacklog) {
-      return { eligible: false, reason: "Active backlog not allowed" };
-    }
-
-    return { eligible: true, reason: "" };
-  };
+  const checkEligibility = (company) =>
+    checkCompanyEligibility(user, company);
 
   const handleApply = async (companyId) => {
+    if (isGuest) {
+      const company = companies.find((item) => item._id === companyId);
+      if (!company) return;
+
+      const eligibility = checkEligibility(company);
+      if (!eligibility.eligible) {
+        alert(`Not eligible: ${eligibility.reason}`);
+        return;
+      }
+
+      setApplied(addGuestApplication(company).map((app) => app.company?._id));
+      return;
+    }
+
     try {
       await API.post("/application/apply", { companyId });
       await fetchApplied();
@@ -110,7 +111,7 @@ const [sortBy, setSortBy] = useState("latest");
 
   useEffect(() => {
     const loadDashboard = async () => {
-      await fetchProfile();
+      if (!isGuest) await fetchProfile();
       await fetchCompanies();
       await fetchApplied();
     };
@@ -184,6 +185,12 @@ const filteredCompanies = [...companies]
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+        {isGuest && (
+          <section className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4 text-sm text-cyan-950 shadow-sm">
+            <span className="font-semibold">Guest demo mode.</span>{" "}
+            Your applications are visible only in this browser session and are never saved to MongoDB or shown to admins.
+          </section>
+        )}
         {user && (
           <section className="relative mb-12 overflow-hidden rounded-3xl border border-white/70 bg-white/70 px-6 py-6 shadow-[0_24px_70px_-38px_rgba(15,23,42,0.42)] backdrop-blur-2xl ring-1 ring-slate-200/80 sm:px-8 sm:py-8">
             <div className="pointer-events-none absolute -top-24 left-0 h-56 w-56 rounded-full bg-sky-300/25 blur-3xl" />

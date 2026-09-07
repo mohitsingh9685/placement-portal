@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import jwt from "jsonwebtoken";
 import Student from "../models/Student.js";
 import ApprovedStudent from "../models/ApprovedStudent.js";
 import { OAuth2Client } from "google-auth-library";
@@ -7,6 +9,42 @@ import {
 } from "../services/tokenService.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000;
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+const hashToken = (token) =>
+  createHash("sha256").update(token).digest("hex");
+
+const getCookieOptions = (maxAge) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  path: "/",
+  ...(maxAge ? { maxAge } : {}),
+});
+
+const setAuthCookies = (res, { accessToken, refreshToken }) => {
+  if (refreshToken) {
+    res.cookie(
+      "refreshToken",
+      refreshToken,
+      getCookieOptions(REFRESH_TOKEN_MAX_AGE)
+    );
+  }
+
+  res.cookie(
+    "accessToken",
+    accessToken,
+    getCookieOptions(ACCESS_TOKEN_MAX_AGE)
+  );
+};
+
+const clearAuthCookies = (res) => {
+  const options = getCookieOptions();
+  res.clearCookie("refreshToken", options);
+  res.clearCookie("accessToken", options);
+};
 
 // GET PROFILE
 export const getProfile = async (req, res) => {
@@ -46,8 +84,9 @@ export const googleAuth = async (req, res) => {
       email_verified,
       sub,
     } = payload;
+    const normalizedEmail = email?.toLowerCase().trim();
 
-    if (!email_verified) {
+    if (!normalizedEmail || !email_verified) {
       return res.status(401).json({
         success: false,
         message: "Google email not verified",
@@ -55,7 +94,7 @@ export const googleAuth = async (req, res) => {
     }
 
     const approvedStudent = await ApprovedStudent.findOne({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
     });
 
     if (!approvedStudent) {
@@ -65,13 +104,13 @@ export const googleAuth = async (req, res) => {
       });
     }
 
-    let user = await Student.findOne({ email });
+    let user = await Student.findOne({ email: normalizedEmail });
 
     // CREATE NEW USER IF NOT EXISTS
     if (!user) {
       user = await Student.create({
         name,
-        email,
+        email: normalizedEmail,
         googleId: sub,
         profilePicture: picture,
         profileCompleted: false,
@@ -94,32 +133,15 @@ export const googleAuth = async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    user.refreshToken = refreshToken;
+    user.refreshToken = hashToken(refreshToken);
     user.lastLogin = new Date();
 
     await user.save();
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? "none"
-          : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    };
-
-    res.cookie("refreshToken", refreshToken, cookieOptions);
-
-    res.cookie("accessToken", accessToken, {
-      ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
+    setAuthCookies(res, { accessToken, refreshToken });
 
     res.status(200).json({
       success: true,
-      accessToken,
-      token: accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -136,6 +158,58 @@ export const googleAuth = async (req, res) => {
       success: false,
       message: "Google authentication failed",
       error: error.message,
+    });
+  }
+};
+
+// REFRESH ACCESS TOKEN
+export const refreshAccessToken = async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(401).json({
+      success: false,
+      message: "Refresh token is missing",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(
+      refreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+    const refreshTokenHash = hashToken(refreshToken);
+
+    // Accept the old plaintext format once, then migrate it to a hash.
+    const user = await Student.findOneAndUpdate(
+      {
+        _id: decoded.id,
+        refreshToken: { $in: [refreshTokenHash, refreshToken] },
+      },
+      { $set: { refreshToken: refreshTokenHash } },
+      { new: true }
+    );
+
+    if (!user) {
+      clearAuthCookies(res);
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token is invalid or has been revoked",
+      });
+    }
+
+    const accessToken = generateAccessToken(user);
+    setAuthCookies(res, { accessToken });
+
+    return res.status(200).json({
+      success: true,
+      message: "Session refreshed",
+    });
+  } catch {
+    clearAuthCookies(res);
+    return res.status(401).json({
+      success: false,
+      message: "Refresh token is invalid or expired",
     });
   }
 };
@@ -201,43 +275,27 @@ export const updateProfile = async (req, res) => {
 // LOGOUT
 export const logout = async (req, res) => {
   try {
-    const token = req.cookies.refreshToken;
+    const refreshToken = req.cookies?.refreshToken;
 
-    if (token) {
-      const user = await Student.findOne({
-        refreshToken: token,
-      });
-
-      if (user) {
-        user.refreshToken = null;
-        await user.save();
-      }
+    if (refreshToken) {
+      await Student.updateOne(
+        {
+          refreshToken: {
+            $in: [hashToken(refreshToken), refreshToken],
+          },
+        },
+        { $set: { refreshToken: null } }
+      );
     }
 
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? "none"
-          : "lax",
-    });
+    clearAuthCookies(res);
 
-    res.clearCookie("accessToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? "none"
-          : "lax",
-    });
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Logged out successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });

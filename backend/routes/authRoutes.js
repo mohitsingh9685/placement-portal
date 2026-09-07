@@ -4,12 +4,14 @@ import {
   getProfile,
   updateProfile,
   googleAuth,
+  refreshAccessToken,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.post("/logout", logout);
+router.post("/refresh", refreshAccessToken);
 router.get("/profile", protect, getProfile);
 router.put("/update-profile", protect, updateProfile);
 router.post("/google", googleAuth);

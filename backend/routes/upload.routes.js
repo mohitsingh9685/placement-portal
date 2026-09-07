@@ -15,7 +15,7 @@ import {
   uploadJDMiddleware,
 } from "../middleware/multer.middleware.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, isAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -60,12 +60,14 @@ router.get(
 router.get(
   "/resume/view/:studentId",
   protect,
+  isAdmin,
   getStudentResumeByAdminController
 );
 
 router.post(
   "/jd/:companyId",
   protect,
+  isAdmin,
   uploadJDMiddleware.single("jd"),
   uploadErrorHandler("Job description file must be 10MB or smaller"),
   uploadJDController
@@ -74,6 +76,12 @@ router.post(
 router.get(
   "/jd/view/:companyId",
   protect,
+  getSignedJDUrlController
+);
+
+// Read-only guest showcase route. Uploading and the normal student route stay protected.
+router.get(
+  "/jd/guest/view/:companyId",
   getSignedJDUrlController
 );
 

@@ -5,7 +5,6 @@ import Student from "../models/Student.js";
 // APPLY TO COMPANY
 export const applyToCompany = async (req, res) => {
   try {
-    console.log("USER:", req.user);
     const studentId = req.user._id;
     const { companyId } = req.body;
 

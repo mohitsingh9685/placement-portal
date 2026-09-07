@@ -32,7 +32,9 @@ const protect = async (req, res, next) => {
     );
 
     // Fetch latest user data
-    const user = await Student.findById(decoded.id).select("-password");
+    const user = await Student.findById(decoded.id).select(
+      "-password -refreshToken"
+    );
 
     if (!user) {
       return res.status(401).json({
