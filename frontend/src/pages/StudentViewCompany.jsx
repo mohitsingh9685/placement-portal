@@ -50,7 +50,7 @@ const StudentViewCompany = () => {
     };
 
     fetchCompany();
-  }, [id]);
+  }, [id, isGuest]);
 
   const handleViewJD = async () => {
     try {

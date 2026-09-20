@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
@@ -9,35 +9,18 @@ import {
 } from "../utils/guestSession";
 import { checkCompanyEligibility } from "../utils/eligibility";
 
+import useAuth from "../auth/useAuth.js";
+
 function Dashboard() {
+  const { user } = useAuth();
   const [companies, setCompanies] = useState([]);
-  const [applied, setApplied] = useState([]);
+  const [applied, setApplied] = useState(() => isGuestUser(user) ? getGuestApplications().map((app) => app.company?._id) : []);
   const [searchTerm, setSearchTerm] = useState("");
 const [eligibilityFilter, setEligibilityFilter] = useState("all");
 const [applicationFilter, setApplicationFilter] = useState("all");
-const [minCtc, setMinCtc] = useState("");
 const [sortBy, setSortBy] = useState("latest");
-  const [user, setUser] = useState(() => {
-    const data = localStorage.getItem("user");
-    return data ? JSON.parse(data) : null;
-  });
-
   const navigate = useNavigate();
   const isGuest = isGuestUser(user);
-  const fetchProfile = async () => {
-    if (isGuest) return;
-    try {
-      const res = await API.get("/auth/profile");
-
-      const profileUser = res.data.user || res.data;
-
-      setUser(profileUser);
-
-      localStorage.setItem("user", JSON.stringify(profileUser));
-    } catch (err) {
-      console.log(err);
-    }
-  };
   useEffect(() => {
   if (!user) {
     navigate("/");
@@ -49,35 +32,19 @@ const [sortBy, setSortBy] = useState("latest");
   }
 }, [user, navigate]);
 
-  const fetchCompanies = async () => {
-    try {
-      const res = await API.get(isGuest ? "/company/guest" : "/company");
-
-      console.log("COMPANY API RESPONSE:", res.data);
-      setCompanies(res.data.companies || res.data);
-    } catch (err) {
-      console.log(err.response?.data || err);
-      alert(err.response?.data?.message || "Failed to load companies");
-    }
-  };
-
-  const fetchApplied = async () => {
-    if (isGuest) {
-      setApplied(getGuestApplications().map((app) => app.company?._id));
-      return;
-    }
+  const fetchApplied = useCallback(async () => {
+    if (isGuest) return getGuestApplications().map((app) => app.company?._id);
     try {
       const res = await API.get("/application/my");
 
-      console.log("APPLICATION API RESPONSE:", res.data);
       const applications = res.data.applications || res.data;
 
-      const appliedIds = applications.map((app) => app.company._id);
-      setApplied(appliedIds);
+      return applications.map((app) => app.company?._id);
     } catch (err) {
       console.log(err);
+      return [];
     }
-  };
+  }, [isGuest]);
 
   const checkEligibility = (company) =>
     checkCompanyEligibility(user, company);
@@ -99,10 +66,10 @@ const [sortBy, setSortBy] = useState("latest");
 
     try {
       await API.post("/application/apply", { companyId });
-      await fetchApplied();
+      setApplied(await fetchApplied());
     } catch (err) {
       if (err.response?.data?.message === "Already applied") {
-        await fetchApplied();
+        setApplied(await fetchApplied());
       } else {
         alert(err.response?.data?.message || "Error applying");
       }
@@ -110,14 +77,19 @@ const [sortBy, setSortBy] = useState("latest");
   };
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      if (!isGuest) await fetchProfile();
-      await fetchCompanies();
-      await fetchApplied();
+    let cancelled = false;
+    const loadCompanies = async () => {
+      try {
+        const response = await API.get(isGuest ? "/company/guest" : "/company");
+        if (!cancelled) setCompanies(response.data.companies || response.data);
+      } catch (error) {
+        if (!cancelled) alert(error.response?.data?.message || "Failed to load companies");
+      }
     };
-
-    loadDashboard();
-  }, []);
+    loadCompanies();
+    fetchApplied().then((ids) => { if (!cancelled) setApplied(ids); });
+    return () => { cancelled = true; };
+  }, [isGuest, fetchApplied]);
 
   const userInitial =
     user?.name
@@ -155,14 +127,11 @@ const filteredCompanies = [...companies]
       (applicationFilter === "not-applied" &&
         !applied.includes(company._id));
 
-    const matchesCtc =
-      !minCtc || Number(company.ctc) >= Number(minCtc);
 
     return (
       matchesSearch &&
       matchesEligibility &&
-      matchesApplication &&
-      matchesCtc
+      matchesApplication
     );
   })
   .sort((a, b) => {

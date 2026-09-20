@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import useAuth from "../auth/useAuth.js";
 import { useNavigate, useLocation } from "react-router-dom";
 import API from "../api/axios";
 import { clearGuestSession, isGuestUser } from "../utils/guestSession";
@@ -7,13 +7,7 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  useEffect(() => {
-    if (!user) {
-      navigate("/");
-    }
-  }, [user, navigate]);
+  const { user, updateUser } = useAuth();
 
   if (!user) return null;
 
@@ -24,7 +18,7 @@ function Navbar() {
     if (isGuest) {
       clearGuestSession();
       localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      updateUser(null);
       navigate("/");
       return;
     }
@@ -32,12 +26,12 @@ function Navbar() {
     try {
       await API.post("/auth/logout");
     } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      navigate("/");
+      alert(error.response?.data?.message || "Logout could not be confirmed. Please try again.");
+      return;
     }
+    localStorage.removeItem("token");
+    updateUser(null);
+    navigate("/");
   };
 
   const navButtonClass = (path) =>

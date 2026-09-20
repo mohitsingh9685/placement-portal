@@ -5,11 +5,11 @@ A full-stack placement management system for students and administrators. It cen
 ## Highlights
 
 - Google OAuth restricted to pre-approved students and administrators
-- HTTP-only JWT cookies with automatic access-token refresh
+- HTTP-only JWT cookies, automatic session restoration, and independent device sessions
 - Role-based access for company, applicant, resume, and JD operations
 - CGPA, branch, backlog, and active-backlog eligibility checks
 - Session-only guest demo with realistic eligibility and private applications
-- Redis company caching and global API rate limiting
+- Optional Redis caching with bounded fallback, request validation, and API rate limiting
 - Private AWS S3 storage with short-lived signed URLs
 - Cloudinary profile-photo uploads
 - Docker Compose development environment
@@ -64,6 +64,8 @@ VITE_GOOGLE_CLIENT_ID=
 
 Never commit real credentials.
 
+Access and refresh secrets must be different random strings of at least 32 characters. Startup checks required settings before connecting. `CLIENT_URL` must be the frontend origin with no path; HTTPS is required in production. Specify the intended database in `MONGO_URI`. Redis may be omitted for local development.
+
 ## Run with Docker
 
 Requirements: Docker Desktop and Docker Compose.
@@ -113,14 +115,18 @@ Add these Authorized JavaScript origins to the Google OAuth web client:
 - `http://localhost:5173`
 - `https://placement-portal-college.vercel.app`
 
-The same Google client ID must be configured in the frontend and backend. A Google account must also exist in the MongoDB `ApprovedStudent` collection.
+The same Google client ID must be configured in the frontend and backend. The verified Google email must exactly match an active entry in the MongoDB `approvedstudents` collection (after trimming/lowercasing). Personal Gmail accounts are supported. Setting `isActive: false` blocks access, including existing sessions. The approval record controls the role; browser-supplied roles are ignored.
+
+Browser POST/PUT/PATCH/DELETE requests must send an allowed `Origin`. CORS alone is not the CSRF defense. Non-browser clients may use bearer-only authorization without cookies; Google login and cookie refresh/logout require an allowed origin.
 
 ## Focused Tests
 
 ```bash
-node --test backend/tests/auth-refresh.test.js
-node --test frontend/tests/eligibility.test.js
+npm test
+npm run check
 ```
+
+Tests use synthetic persistence and Google verification without connecting to Atlas or cloud services. See [stage 1 testing and rollout](STAGE_1_TESTING.md) and the [six-stage implementation plan](IMPLEMENTATION_PLAN.md). The separate `admins` collection is scheduled for stage 2; there is no need to delete existing databases.
 
 ## Deployment Notes
 

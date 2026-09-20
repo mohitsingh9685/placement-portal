@@ -10,6 +10,8 @@ const approvedStudentSchema = new mongoose.Schema(
       trim: true,
     },
 
+    isActive: { type: Boolean, default: true },
+
     role: {
       type: String,
       enum: ["student", "admin"],

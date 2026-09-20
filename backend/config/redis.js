@@ -1,44 +1,13 @@
-import "dotenv/config";
 import Redis from "ioredis";
 
-if (!process.env.REDIS_URL) {
-  throw new Error("REDIS_URL is missing. Add it to backend/.env before starting the server.");
+// Importing the app must never connect to a real service (tests import it too).
+const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
+  lazyConnect: true, enableOfflineQueue: false, maxRetriesPerRequest: 1,
+  commandTimeout: 500, connectTimeout: 2000,
+  retryStrategy: (times) => times > 10 ? null : Math.min(times * 500, 5000),
+}) : null;
+redis?.on("error", (error) => console.error("Redis unavailable:", error.code || error.name));
+export function connectRedis() {
+  if (redis?.status === "wait") redis.connect().catch(() => {});
 }
-
-const redisUrl = new URL(process.env.REDIS_URL);
-
-const redis = new Redis(process.env.REDIS_URL, {
-  db: 0,
-
-  maxRetriesPerRequest: null,
-
-  enableReadyCheck: true,
-
-  connectTimeout: 10000,
-
-  retryStrategy(times) {
-    if (times > 10) {
-      return null;
-    }
-
-    return Math.min(times * 500, 5000);
-  },
-});
-
-redis.on("connect", () => {
-  console.log("✅ Redis Connected");
-});
-
-redis.on("ready", () => {
-  console.log("🚀 Redis Ready");
-});
-
-redis.on("error", (err) => {
-  console.error("❌ Redis Error:", {
-    host: redisUrl.hostname,
-    code: err?.code,
-    message: err?.message || String(err),
-  });
-});
-
 export default redis;

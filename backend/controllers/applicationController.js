@@ -1,9 +1,9 @@
 import Application from "../models/Application.js";
 import Company from "../models/Company.js";
-import Student from "../models/Student.js"; 
+
 
 // APPLY TO COMPANY
-export const applyToCompany = async (req, res) => {
+export const applyToCompany = async (req, res, next) => {
   try {
     const studentId = req.user._id;
     const { companyId } = req.body;
@@ -21,6 +21,14 @@ export const applyToCompany = async (req, res) => {
 
     // fetch student from req.user
     const student = req.user;
+
+    if (!student.profileCompleted || !Number.isFinite(student.cgpa) || student.cgpa < 0 || student.cgpa > 10 ||
+        !Number.isInteger(student.activeBacklogs) || student.activeBacklogs < 0) {
+      return res.status(400).json({ message: "Complete a valid academic profile before applying" });
+    }
+    if (company.registrationDeadline && new Date(company.registrationDeadline) <= new Date()) {
+      return res.status(400).json({ message: "Registration deadline has passed" });
+    }
 
     // CGPA check
     if (student.cgpa < company.minCgpa) {
@@ -59,7 +67,7 @@ export const applyToCompany = async (req, res) => {
     }
 
     // strict backlog rule (make safe if allowActiveBacklogs is undefined)
-    if (company.allowActiveBacklogs === false && student.hasActiveBacklog) {
+    if (company.allowActiveBacklogs === false && student.activeBacklogs > 0) {
       return res.status(400).json({
         message: "Not eligible: Active backlog not allowed",
       });
@@ -79,6 +87,7 @@ export const applyToCompany = async (req, res) => {
     const application = await Application.create({
       student: studentId,
       company: companyId,
+      isEligible: true,
 
       snapshot: {
         name: student.name,
@@ -94,30 +103,29 @@ export const applyToCompany = async (req, res) => {
       application,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    if (error.code === 11000) return res.status(409).json({ message: "Already applied" });
+    next(error);
   }
 
 };
 
 // GET APPLICATIONS BY COMPANY (Admin)
-export const getApplicationsByCompany = async (req, res) => {
+export const getApplicationsByCompany = async (req, res, next) => {
   try {
     const { companyId } = req.params;
 
     const applications = await Application.find({ company: companyId })
-      .populate("student")
+      .populate("student", "-refreshToken -password -googleId")
       .populate("company");
 
     res.status(200).json(applications);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    next(error);
   }
 };
 
 // GET MY APPLICATIONS (Student Dashboard)
-export const getMyApplications = async (req, res) => {
+export const getMyApplications = async (req, res, next) => {
   try {
     const studentId = req.user._id;
 
@@ -127,33 +135,31 @@ export const getMyApplications = async (req, res) => {
 
     res.status(200).json(applications);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    next(error);
   }
 };
 
 // GET ALL APPLICATIONS (Admin Dashboard)
-export const getAllApplications = async (req, res) => {
+export const getAllApplications = async (req, res, next) => {
   try {
     const applications = await Application.find()
-      .populate("student")
+      .populate("student", "-refreshToken -password -googleId")
       .populate("company");
 
     res.status(200).json(applications);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    next(error);
   }
 };
 
 // UPDATE APPLICATION STATUS (Admin)
-export const updateApplicationStatus = async (req, res) => {
+export const updateApplicationStatus = async (req, res, next) => {
   try {
     const { applicationId } = req.params;
     const { status } = req.body;
 
     // fetch application with student populated
-    const application = await Application.findById(applicationId).populate("student");
+    const application = await Application.findById(applicationId).populate("student", "-refreshToken -password -googleId");
 
     if (!application) {
       return res.status(404).json({ message: "Application not found" });
@@ -180,11 +186,10 @@ export const updateApplicationStatus = async (req, res) => {
       application,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error" });
+    next(error);
   }
 };
-export const deleteApplication = async (req, res) => {
+export const deleteApplication = async (req, res, next) => {
   try {
     const { applicationId } = req.params;
 
@@ -203,7 +208,6 @@ export const deleteApplication = async (req, res) => {
 
     res.json({ message: "Application deleted successfully" });
   } catch (error) {
-    console.error("DELETE APPLICATION ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };

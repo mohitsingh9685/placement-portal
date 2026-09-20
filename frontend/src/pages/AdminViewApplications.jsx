@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
@@ -108,7 +108,7 @@ function SummaryCard({ icon: Icon, label, value, className = "" }) {
           </p>
         </div>
         <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700">
-          <Icon className="h-5 w-5" />
+          {createElement(Icon, { className: "h-5 w-5" })}
         </span>
       </div>
     </article>

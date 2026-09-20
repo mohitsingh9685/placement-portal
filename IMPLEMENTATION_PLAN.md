@@ -1,0 +1,73 @@
+# Placement portal: six-stage implementation plan
+
+Production databases and cloud resources are not test environments. All stages require meaningful regression checks and a recorded deployment checklist.
+
+## 1. Authentication, reliability, and regression foundation — implemented and verified locally
+
+- Separate JWT signing secrets and token types; reject invalid configuration.
+- Restore sessions across visits and support independent phone/laptop sessions.
+- Check current email approval and role on protected requests; revoke sessions on logout.
+- Add CSRF protection, request validation, consistent errors, and bounded Redis fallback.
+- Fix Google photos, incomplete profile responses, and lint issues.
+- Add automated authentication, authorization, HTTP/API and frontend checks plus CI.
+- Real Google login and production cookies require staging verification before deployment.
+
+Local checks: automated API/frontend regressions, clean ESLint and Vite build, plus browser checks with synthetic student/admin/guest accounts. See [verification and rollout checklist](STAGE_1_TESTING.md). No Atlas data or live cloud settings were changed. Stage 1 is not deployed.
+
+## 2. Data model and student administration — planned
+
+- **Add an `admins` collection inside the `placement-portal` database**, alongside students, applications, and companies. This is not a frontend folder or separate app.
+- Rehearse migration of existing admin accounts, company creator references, authentication lookups, and sessions. Preserve references and do not delete the current database.
+- Introduce Company → Drive → Roles → Stages and role-specific applications.
+- Import the college's approved personal Gmail roster with duplicate/error reporting; student imports cannot grant admin access.
+- Academic verification, correction requests, batch management, 10th/12th marks, complete profile fields, application snapshots, and resume versions.
+- Define compensation units and maintain currently unused eligibility/count/placement fields.
+- Test migration on an isolated database copy, indexes, references, duplicates, validation, and rollback.
+
+## 3. Admin drive publishing — planned
+
+- Company description, application deadline, and an Add role action.
+- Per-role title, domain, location, employment type, salary/stipend with explicit units, and eligibility.
+- Multiple shared/per-role PDFs, Word documents, and images; shared or role-specific recruitment stages.
+- Upload replacements before retiring old objects, retain application-referenced documents, correct content types, and invalidate cached JD metadata.
+- Test role isolation, deadline/time-zone boundaries, uploads, permissions, and failure recovery.
+
+## 4. Student applications — planned
+
+- Explain eligibility; enforce deadlines, completed/valid academics, and configured resume requirements server-side.
+- Agree one-role/multiple-role policy per drive and enforce it during simultaneous submissions.
+- Snapshot submitted details/resume versions; prevent duplicate applications safely.
+- Application timeline, saved opportunities, in-app notifications, calendar/reminders, profile checklist, withdrawal/correction requests.
+- Test invalid/missing academics, closed drives, duplicate races, and later profile changes.
+
+## 5. Recruiter exports, rounds, and offers — planned
+
+- Excel/CSV exports scoped to drive, role and round, including name, email, enrolment number and selected academic columns.
+- Paste/import recruiter emails, normalize/deduplicate, flag unmatched candidates, and preview outcomes.
+- Publish final results: advance matched students and reject remaining pending students in that round only. Partial imports leave others pending.
+- Distinguish Applied/Pending, shortlist rounds, interviews, Selected, Offered, and Placed.
+- Idempotent imports, concurrent-admin safety, audit history, controlled corrections, staff permissions, offers and configurable college placement policies.
+- Test repeated imports, unmatched emails, multiple roles, partial failures, and exported data.
+
+## 6. Reports, capacity, and launch — planned
+
+- Unique placed students versus offers, branch/batch reports, and consistent compensation statistics.
+- Count/aggregate endpoints instead of downloading every applicant; server pagination/filter/sort and narrow projections.
+- Staging with 1,000 synthetic students and about 20,000 applications; test browsing, exports, results, and agreed deadline bursts.
+- Monitoring, backups/restore rehearsal, hosting assessment, email notifications if selected, and rollback procedure.
+- Pilot with staff and 30–50 students; record response times, errors and data correctness before wider rollout.
+
+## Open decisions
+
+- One or multiple roles per drive; academic verification method; definition of Placed; offer/dream-company policies.
+- Staging resources, existing real-data migration, recruiter export columns, email provider, launch date.
+- Guest demo: real public listings/JDs or synthetic data.
+- Interpret existing SELECTED records before migration; do not assume they represent accepted offers.
+
+## Explicit follow-up backlog
+
+Attendance, support tickets, preparation resources, and richer recommendations. No automatic applications on behalf of students.
+
+## Testing policy
+
+Automated stage-1 checks use synthetic identities and isolated persistence doubles. Stage 2 adds real isolated MongoDB migration/integration tests. Never seed, load-test, migrate or clean production resources during local checks. Passing local tests does not establish live Google/cloud functionality or deployment capacity.

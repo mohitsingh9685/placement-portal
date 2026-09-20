@@ -3,6 +3,18 @@ export function checkCompanyEligibility(user, company) {
     return { eligible: null, reason: "" };
   }
 
+  const cgpa = Number(user.cgpa);
+  const backlogs = user.activeBacklogs ?? user.activebacklogs;
+  const backlogCount = Number(backlogs);
+  if (!user.profileCompleted || user.cgpa == null || String(user.cgpa).trim() === "" ||
+      !Number.isFinite(cgpa) || cgpa < 0 || cgpa > 10 || backlogs == null || String(backlogs).trim() === "" ||
+      !Number.isInteger(backlogCount) || backlogCount < 0) {
+    return { eligible: false, reason: "Complete your academic profile" };
+  }
+  if (company.registrationDeadline && new Date(company.registrationDeadline) <= new Date()) {
+    return { eligible: false, reason: "Registration closed" };
+  }
+
   if (Number(user.cgpa) < Number(company.minCgpa)) {
     return { eligible: false, reason: "Low CGPA" };
   }
@@ -20,15 +32,11 @@ export function checkCompanyEligibility(user, company) {
     return { eligible: false, reason: "Branch not allowed" };
   }
 
-  const backlogCount = Number(
-    user.activeBacklogs ?? user.activebacklogs ?? 0
-  );
-
   if (backlogCount > Number(company.maxBacklogsAllowed ?? 0)) {
     return { eligible: false, reason: "Too many backlogs" };
   }
 
-  if (company.allowActiveBacklogs === false && user.hasActiveBacklog) {
+  if (company.allowActiveBacklogs === false && backlogCount > 0) {
     return { eligible: false, reason: "Active backlog not allowed" };
   }
 

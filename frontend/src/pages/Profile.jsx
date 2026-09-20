@@ -1,3 +1,4 @@
+import useAuth from "../auth/useAuth.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
@@ -93,6 +94,8 @@ function FloatingField({
 }
 
 function Profile() {
+  const { user: sessionUser, updateUser } = useAuth();
+  const isGuest = isGuestUser(sessionUser);
   const navigate = useNavigate();
   const [profileUser, setProfileUser] = useState(parseStoredUser);
   const [saving, setSaving] = useState(false);
@@ -111,7 +114,6 @@ function Profile() {
       cgpa: u.cgpa != null && u.cgpa !== "" ? String(u.cgpa) : "",
       branch: u.branch ?? "",
       activeBacklogs: String(backlogCount(u)),
-      hasActiveBacklog: Boolean(u.hasActiveBacklog),
       skills: normalizedSkills(u),
 
       enrollmentNo: u.enrollmentNo ?? "",
@@ -121,12 +123,12 @@ function Profile() {
       passingYear: u.passingYear ? String(u.passingYear) : "",
       contactNo: u.contactNo ?? "",
       whatsappNo: u.whatsappNo ?? "",
-      totalBacklogs: u.totalBacklogs ? String(u.totalBacklogs) : "",
+      totalBacklogs: u.totalBacklogs != null ? String(u.totalBacklogs) : "",
     };
   });
 
   useEffect(() => {
-    if (isGuestUser(profileUser)) {
+    if (isGuest) {
       navigate("/dashboard", { replace: true });
       return;
     }
@@ -144,7 +146,6 @@ function Profile() {
           cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
           branch: user.branch ?? "",
           activeBacklogs: String(user.activeBacklogs ?? 0),
-          hasActiveBacklog: Boolean(user.hasActiveBacklog),
           skills: normalizedSkills(user),
 
           enrollmentNo: user.enrollmentNo ?? "",
@@ -154,7 +155,7 @@ function Profile() {
           passingYear: user.passingYear ? String(user.passingYear) : "",
           contactNo: user.contactNo ?? "",
           whatsappNo: user.whatsappNo ?? "",
-          totalBacklogs: user.totalBacklogs ? String(user.totalBacklogs) : "",
+          totalBacklogs: user.totalBacklogs != null ? String(user.totalBacklogs) : "",
         });
 
         localStorage.setItem("user", JSON.stringify(user));
@@ -170,7 +171,7 @@ function Profile() {
     };
 
     fetchProfile();
-  }, [navigate]);
+  }, [navigate, isGuest]);
 
   useEffect(() => {
     if (!resumeUploadSuccess) return undefined;
@@ -270,10 +271,7 @@ function Profile() {
 
       setProfileUser(updatedUser);
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(updatedUser)
-      );
+      updateUser(updatedUser);
 
       setPreviewPhoto(updatedPhoto?.url || "");
 
@@ -329,10 +327,7 @@ function Profile() {
 
       setProfileUser(updatedUser);
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(updatedUser)
-      );
+      updateUser(updatedUser);
 
       setSelectedResume(null);
       setResumeUploadSuccess(true);
@@ -366,33 +361,29 @@ function Profile() {
     setSaving(true);
     try {
       const res = await API.put("/auth/update-profile", {
-        cgpa: Number(form.cgpa),
+        cgpa: form.cgpa,
         branch: form.branch,
-        activeBacklogs: Number(form.activeBacklogs),
-        hasActiveBacklog: form.hasActiveBacklog,
+        activeBacklogs: form.activeBacklogs,
         skills: form.skills,
 
         enrollmentNo: form.enrollmentNo,
         collegeName: form.collegeName,
         course: form.course,
-        semester: Number(form.semester),
-        passingYear: Number(form.passingYear),
+        semester: form.semester || undefined,
+        passingYear: form.passingYear || undefined,
         contactNo: form.contactNo,
         whatsappNo: form.whatsappNo,
-        totalBacklogs: Number(form.totalBacklogs),
+        totalBacklogs: form.totalBacklogs,
       });
 
       const updatedUser = res.data.user || res.data;
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(updatedUser)
-      );
+      updateUser(updatedUser);
 
       setProfileUser(updatedUser);
       alert("Profile updated ✅");
-    } catch {
-      alert("Error updating profile");
+    } catch (error) {
+      alert(error.response?.data?.message || "Error updating profile");
     } finally {
       setSaving(false);
     }
@@ -633,7 +624,7 @@ function Profile() {
               />
               <FloatingField
                 id="profile-backlogs"
-                label="Backlogs"
+                label="Active backlogs"
                 type="number"
                 min={0}
                 value={form.activeBacklogs}
@@ -641,20 +632,15 @@ function Profile() {
                 onChange={(e) => setForm({ ...form, activeBacklogs: e.target.value })}
               />
 
-              <div className="flex items-center">
-                <label className="flex w-full cursor-pointer select-none items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
-                  <input
-                    type="checkbox"
-                    checked={form.hasActiveBacklog}
-                    disabled={!editMode}
-                    onChange={(e) =>
-                      setForm({ ...form, hasActiveBacklog: e.target.checked })
-                    }
-                    className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#0a66c2] focus:ring-[#0a66c2]/30"
-                  />
-                  <span>Active backlog</span>
-                </label>
-              </div>
+              <FloatingField
+                id="profile-total-backlogs"
+                label="Total backlogs"
+                type="number"
+                min={0}
+                value={form.totalBacklogs}
+                disabled={!editMode}
+                onChange={(e) => setForm({ ...form, totalBacklogs: e.target.value })}
+              />
 
               <FloatingField
                 id="profile-enrollment"

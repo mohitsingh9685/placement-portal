@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import API from "../api/axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { clearGuestSession, createGuestUser } from "../utils/guestSession";
 
+import useAuth from "../auth/useAuth.js";
+import SessionStatus from "../auth/SessionStatus.jsx";
+import { sessionDestination } from "../utils/session.js";
+
 function Login() {
+  const { user, loading, error: sessionError, retry, updateUser } = useAuth();
   const navigate = useNavigate();
   const [googleError, setGoogleError] = useState("");
 
@@ -31,7 +36,7 @@ function Login() {
         }
       );
 
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+      updateUser(res.data.user);
 
       if (res.data.user.role === "admin") {
         navigate("/admin");
@@ -60,9 +65,12 @@ function Login() {
 
     localStorage.removeItem("token");
     clearGuestSession();
-    localStorage.setItem("user", JSON.stringify(createGuestUser()));
+    updateUser(createGuestUser());
     navigate("/dashboard");
   };
+
+  if (loading || sessionError) return <SessionStatus error={sessionError} retry={retry} />;
+  if (user) return <Navigate to={sessionDestination(user)} replace />;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-12">

@@ -17,7 +17,10 @@ import {
 
 import { protect, isAdmin } from "../middleware/authMiddleware.js";
 
+import { validateObjectId } from "../middleware/validateMiddleware.js";
 const router = express.Router();
+router.param("studentId", validateObjectId);
+router.param("companyId", validateObjectId);
 
 const uploadErrorHandler = (sizeMessage) => (err, req, res, next) => {
   if (!err) return next();

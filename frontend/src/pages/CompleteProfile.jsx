@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 
+import useAuth from "../auth/useAuth.js";
+
 function CompleteProfile() {
+  const { updateUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,10 +56,7 @@ function CompleteProfile() {
 
       const res = await API.put("/auth/update-profile", form);
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(res.data.user)
-      );
+      updateUser(res.data.user);
 
       alert("Profile completed successfully");
 

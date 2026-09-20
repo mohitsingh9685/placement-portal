@@ -64,3 +64,15 @@ test("eligibility normalizes branch values", () => {
     true
   );
 });
+
+test("missing or invalid academics never display eligible", () => {
+  for (const invalid of [
+    { profileCompleted: false }, { cgpa: undefined }, { cgpa: "" }, { cgpa: 99 },
+    { activeBacklogs: undefined }, { activeBacklogs: -1 }, { activeBacklogs: 1.5 },
+  ]) assert.equal(checkCompanyEligibility({ ...guest, ...invalid }, baseCompany).eligible, false);
+});
+
+test("closed registrations are rejected and active-backlog count controls eligibility", () => {
+  assert.equal(checkCompanyEligibility(guest, { ...baseCompany, registrationDeadline: new Date(0).toISOString() }).reason, "Registration closed");
+  assert.equal(checkCompanyEligibility({ ...guest, hasActiveBacklog: false }, { ...baseCompany, allowActiveBacklogs: false }).reason, "Active backlog not allowed");
+});

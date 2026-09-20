@@ -7,19 +7,23 @@ import {
   getApplicationsByCompany,
   deleteApplication,
 } from "../controllers/applicationController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, isStudent } from "../middleware/authMiddleware.js";
 import { isAdmin } from "../middleware/authMiddleware.js";
 
+import validate, { validateObjectId } from "../middleware/validateMiddleware.js";
+import { applySchema, statusSchema } from "../validators/authValidator.js";
 const router = express.Router();
+router.param("applicationId", validateObjectId);
+router.param("companyId", validateObjectId);
 
 // student
-router.post("/apply", protect, applyToCompany);
-router.get("/my", protect, getMyApplications);
-router.delete("/:applicationId", protect, deleteApplication);
+router.post("/apply", protect, isStudent, validate(applySchema), applyToCompany);
+router.get("/my", protect, isStudent, getMyApplications);
+router.delete("/:applicationId", protect, isStudent, deleteApplication);
 
 // admin
 router.get("/admin/all", protect, isAdmin, getAllApplications);
-router.put("/admin/status/:applicationId", protect, isAdmin, updateApplicationStatus);
+router.put("/admin/status/:applicationId", protect, isAdmin, validate(statusSchema), updateApplicationStatus);
 router.get("/admin/company/:companyId", protect, isAdmin, getApplicationsByCompany);
 
 export default router;

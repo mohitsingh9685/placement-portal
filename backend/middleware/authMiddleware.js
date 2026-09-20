@@ -1,68 +1,31 @@
-import jwt from "jsonwebtoken";
-import Student from "../models/Student.js";
-
-const protect = async (req, res, next) => {
+import AuthSession from "../models/AuthSession.js";
+import { requireApprovedUser } from "../services/authService.js";
+import { verifyToken, isTokenError } from "../services/tokenService.js";
+import { clearAuthCookies } from "../config/cookie.js";
+export const protect = async (req, res, next) => {
   try {
-    let token;
-
-    // Priority 1: HTTP-only cookie
-    if (req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
+    const token = req.cookies?.accessToken || req.headers.authorization?.match(/^Bearer\s+(\S+)$/)?.[1];
+    if (!token) return res.status(401).json({ success: false, message: "Sign in to continue" });
+    const decoded = verifyToken(token, "access");
+    const session = await AuthSession.findOne({ _id: decoded.sid, user: decoded.id, expiresAt: { $gt: new Date() } });
+    if (!session) {
+      clearAuthCookies(res);
+      return res.status(401).json({ success: false, message: "Session has expired or been revoked" });
     }
-
-    // Priority 2: Authorization header
-    else if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authorized, token missing",
-      });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(
-      token,
-      process.env.ACCESS_TOKEN_SECRET
-    );
-
-    // Fetch latest user data
-    const user = await Student.findById(decoded.id).select(
-      "-password -refreshToken"
-    );
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    req.user = user;
-
-    next();
+    req.user = await requireApprovedUser(decoded.id);
+    req.sessionId = decoded.sid;
+    return next();
   } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or expired token",
-    });
+    if (isTokenError(error)) return res.status(401).json({ success: false, message: "Invalid or expired access token" });
+    if ([401, 403].includes(error.statusCode)) clearAuthCookies(res);
+    return next(error);
   }
 };
-
-const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin only access",
-    });
-  }
-
-  next();
+export const isAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ success: false, message: "Admin only access" });
+  return next();
 };
-
-export { protect, isAdmin };
+export const isStudent = (req, res, next) => {
+  if (req.user?.role !== "student") return res.status(403).json({ success: false, message: "Student only access" });
+  return next();
+};

@@ -1,5 +1,8 @@
 import express from "express";
+import validate, { validateObjectId } from "../middleware/validateMiddleware.js";
+import { createCompanySchema, updateCompanySchema } from "../validators/authValidator.js";
 const router = express.Router();
+router.param("id", validateObjectId);
 
 import {
   addCompany,
@@ -12,7 +15,7 @@ import {
 import { protect, isAdmin } from "../middleware/authMiddleware.js";
 
 // Admin adds company
-router.post("/", protect, isAdmin, addCompany);
+router.post("/", protect, isAdmin, validate(createCompanySchema), addCompany);
 
 // Public read-only company data for the guest showcase. Keep the normal
 // student endpoints protected so the original access rules remain unchanged.
@@ -26,7 +29,7 @@ router.get("/", protect, getCompanies);
 router.get("/:id", protect, getCompanyById);
 
 // 🔹 NEW: Update company
-router.put("/:id", protect, isAdmin, updateCompany);
+router.put("/:id", protect, isAdmin, validate(updateCompanySchema), updateCompany);
 
 // 🔹 NEW: Delete company
 router.delete("/:id", protect, isAdmin, deleteCompany);

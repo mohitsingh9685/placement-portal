@@ -1,0 +1,34 @@
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import compression from "compression";
+import authRoutes from "./routes/authRoutes.js";
+import companyRoutes from "./routes/companyRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
+import uploadRoutes from "./routes/upload.routes.js";
+import rateLimiter from "./middleware/rateLimiter.js";
+import csrfProtection from "./middleware/csrfMiddleware.js";
+import errorMiddleware from "./middleware/errorMiddleware.js";
+import { corsOptions } from "./config/cors.js";
+import { protect } from "./middleware/authMiddleware.js";
+import { serializeUser } from "./services/authService.js";
+
+export function createApp({ rateLimit = true } = {}) {
+  const app = express();
+  app.set("trust proxy", 1);
+  app.use(helmet(), compression(), cors(corsOptions()), cookieParser());
+  app.use(csrfProtection);
+  app.use(express.json({ limit: "100kb" }), express.urlencoded({ extended: false, limit: "100kb" }));
+  if (rateLimit) app.use(rateLimiter);
+  app.get("/health", (req, res) => res.json({ success: true, message: "Server is healthy" }));
+  app.get("/", (req, res) => res.send("API is running..."));
+  app.use("/api/auth", authRoutes);
+  app.use("/api/company", companyRoutes);
+  app.use("/api/application", applicationRoutes);
+  app.use("/api/v1/upload", uploadRoutes);
+  app.get("/api/protected", protect, (req, res) => res.json({ success: true, user: serializeUser(req.user) }));
+  app.use((req, res) => res.status(404).json({ success: false, message: "Route not found" }));
+  app.use(errorMiddleware);
+  return app;
+}

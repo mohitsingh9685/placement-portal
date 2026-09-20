@@ -1,20 +1,11 @@
 import Company from "../models/Company.js";
 import Application from "../models/Application.js";
-import redis from "../config/redis.js";
+import companyCache from "../services/companyCache.js";
 
-const COMPANIES_CACHE_KEY = "companies:v2:all";
-const LEGACY_COMPANIES_CACHE_KEY = "all_companies";
-
-const invalidateCompaniesCache = async () => {
-  try {
-    await redis.del(COMPANIES_CACHE_KEY, LEGACY_COMPANIES_CACHE_KEY);
-  } catch (error) {
-    console.error("Company cache invalidation failed:", error.message);
-  }
-};
+const invalidateCompaniesCache = () => companyCache.invalidate();
 
 // Add Company (Admin)
-export const addCompany = async (req, res) => {
+export const addCompany = async (req, res, next) => {
   try {
     const {
       companyName,
@@ -57,44 +48,17 @@ export const addCompany = async (req, res) => {
 
     res.status(201).json(company);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 // Get all companies (Students)
-export const getCompanies = async (req, res) => {
+export const getCompanies = async (req, res, next) => {
   try {
-    let cachedCompanies = null;
-
-    try {
-      cachedCompanies = await redis.get(COMPANIES_CACHE_KEY);
-    } catch (error) {
-      console.error("Company cache read failed:", error.message);
-    }
-
-    if (cachedCompanies) {
-      console.log("⚡ Serving companies from Redis Cache");
-      return res.status(200).json({
-        success: true,
-        source: "redis-cache",
-        companies: JSON.parse(cachedCompanies),
-      });
-    }
-
+    const cachedCompanies = await companyCache.get();
+    if (cachedCompanies) return res.json({ success: true, source: "redis-cache", companies: cachedCompanies });
     const companies = await Company.find().sort({ createdAt: -1 });
-
-    console.log("📦 Serving companies from MongoDB");
-
-    try {
-      await redis.set(
-        COMPANIES_CACHE_KEY,
-        JSON.stringify(companies),
-        "EX",
-        300
-      );
-    } catch (error) {
-      console.error("Company cache write failed:", error.message);
-    }
+    await companyCache.set(companies);
 
     return res.status(200).json({
       success: true,
@@ -102,15 +66,12 @@ export const getCompanies = async (req, res) => {
       companies,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // Get single company
-export const getCompanyById = async (req, res) => {
+export const getCompanyById = async (req, res, next) => {
   try {
     const company = await Company.findById(req.params.id);
 
@@ -120,12 +81,12 @@ export const getCompanyById = async (req, res) => {
 
     res.json(company);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 // Update company
-export const updateCompany = async (req, res) => {
+export const updateCompany = async (req, res, next) => {
   try {
     const body = { ...req.body };
 
@@ -145,7 +106,7 @@ export const updateCompany = async (req, res) => {
     const updatedCompany = await Company.findByIdAndUpdate(
       req.params.id,
       body,
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!updatedCompany) {
@@ -156,12 +117,12 @@ export const updateCompany = async (req, res) => {
 
     res.json(updatedCompany);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 // Delete company
-export const deleteCompany = async (req, res) => {
+export const deleteCompany = async (req, res, next) => {
   try {
     const company = await Company.findByIdAndDelete(req.params.id);
 
@@ -174,6 +135,6 @@ export const deleteCompany = async (req, res) => {
 
     res.json({ message: "Company deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
