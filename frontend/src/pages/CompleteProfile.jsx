@@ -1,3 +1,6 @@
+import { isStaffRole } from "../utils/permissions.js";
+import ProfileExtraFields from "../components/ProfileExtraFields.jsx";
+import { extraProfileState, profileExtrasPayload } from "../utils/profileFields.js";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
@@ -5,7 +8,7 @@ import API from "../api/axios";
 import useAuth from "../auth/useAuth.js";
 
 function CompleteProfile() {
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,7 +19,7 @@ function CompleteProfile() {
       return;
     }
 
-    if (user.role === "admin") {
+    if (isStaffRole(user.role)) {
       navigate("/admin");
       return;
     }
@@ -26,20 +29,22 @@ function CompleteProfile() {
     }
   }, [navigate]);
 
-  const [form, setForm] = useState({
-    enrollmentNo: "",
-    collegeName: "",
-    course: "",
-    branch: "",
-    semester: "",
-    passingYear: "",
-    cgpa: "",
-    counselorGroup: "",
-    contactNo: "",
-    whatsappNo: "",
-    totalBacklogs: "",
-    activeBacklogs: "",
-  });
+  const [form, setForm] = useState(() => ({
+    ...extraProfileState(user || {}),
+    name: user?.name || "",
+    enrollmentNo: user?.enrollmentNo || "",
+    collegeName: user?.collegeName || "",
+    course: user?.course || "",
+    branch: user?.branch || "",
+    semester: user?.semester ?? "",
+    passingYear: user?.passingYear ?? "",
+    cgpa: user?.cgpa ?? "",
+    counselorGroup: user?.counselorGroup || "",
+    contactNo: user?.contactNo || "",
+    whatsappNo: user?.whatsappNo || "",
+    totalBacklogs: user?.totalBacklogs ?? "",
+    activeBacklogs: user?.activeBacklogs ?? "",
+  }));
 
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +59,7 @@ function CompleteProfile() {
     try {
       setLoading(true);
 
-      const res = await API.put("/auth/update-profile", form);
+      const res = await API.put("/auth/update-profile", { ...form, ...profileExtrasPayload(form) });
 
       updateUser(res.data.user);
 
@@ -87,9 +92,14 @@ function CompleteProfile() {
           <p className="mt-2 text-sm text-slate-500">
             Please complete your academic details to continue.
           </p>
+          <p className="mt-2 text-sm text-slate-500">Signed in as {user?.email}</p>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label htmlFor="complete-profile-name" className="mb-2 block text-sm font-medium">Full name (as in college records)</label>
+            <input id="complete-profile-name" className={inputClass} value={form.name} autoComplete="name" maxLength={200} onChange={event => handleChange("name", event.target.value)} />
+          </div>
           <div>
             <label className="mb-2 block text-sm font-medium">
               Enrollment No
@@ -200,24 +210,6 @@ function CompleteProfile() {
 
           <div>
             <label className="mb-2 block text-sm font-medium">
-              Counselor Group
-            </label>
-
-            <input
-              className={inputClass}
-              placeholder="A1"
-              value={form.counselorGroup}
-              onChange={(e) =>
-                handleChange(
-                  "counselorGroup",
-                  e.target.value
-                )
-              }
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium">
               Contact No
             </label>
 
@@ -285,6 +277,7 @@ function CompleteProfile() {
           </div>
         </div>
 
+        <ProfileExtraFields form={form} onChange={patch => setForm(previous => ({ ...previous, ...patch }))} />
         <button
           onClick={handleSubmit}
           disabled={loading}

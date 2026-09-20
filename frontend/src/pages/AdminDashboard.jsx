@@ -1,7 +1,10 @@
+import { formatCompensation } from "../utils/compensation.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import useAuth from "../auth/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 function IconPencil(props) {
   return (
@@ -61,7 +64,9 @@ function IconBriefcase(props) {
 }
 
 function AdminDashboard() {
-
+  const { user } = useAuth();
+  const canViewApplications = hasPermission(user, "applications.view");
+  const canManageCompanies = hasPermission(user, "companies.manage");
   const [companies, setCompanies] = useState([]);
 
   const [totalApplicationsCount, setTotalApplicationsCount] = useState(0);
@@ -84,7 +89,7 @@ function AdminDashboard() {
 
       setCompanies(companyData);
 
-      fetchTotalApplicationsCount();
+      if (canViewApplications) fetchTotalApplicationsCount();
     } catch (err) {
       console.log(err);
       if (err.response?.status === 401) {
@@ -114,19 +119,6 @@ function AdminDashboard() {
 
  
 
- useEffect(() => {
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  if (!user) {
-    navigate("/");
-    return;
-  }
-
-  if (user.role !== "admin") {
-    navigate("/dashboard");
-  }
-}, [navigate]);
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       fetchCompanies();
@@ -135,7 +127,7 @@ function AdminDashboard() {
     return () => window.clearTimeout(timer);
     // fetchCompanies closes over stable API helpers in this component.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canViewApplications]);
 
   const allBranches = useMemo(() => {
     const branches = new Set();
@@ -239,7 +231,7 @@ function AdminDashboard() {
                 <div className="flex flex-col gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Dashboard overview</p>
                   <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Recruitment management</h1>
-                  <p className="text-sm text-slate-600">Select a company to view and manage its applicants.</p>
+                  <p className="text-sm text-slate-600">{canViewApplications ? "Select a company to view its applicants." : canManageCompanies ? "Select a company to edit its details." : "Browse the college's company listings."}</p>
                 </div>
               </header>
 
@@ -259,7 +251,8 @@ function AdminDashboard() {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Total applications</p>
-                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{totalApplicationsCount}</p>
+                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{canViewApplications ? totalApplicationsCount : "—"}</p>
+                      {!canViewApplications && <p className="mt-1 text-sm text-slate-500">Application access not assigned</p>}
                     </div>
                     <span className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700">
                       <IconUsers className="h-5 w-5" />
@@ -363,13 +356,13 @@ function AdminDashboard() {
                   <div className="px-8 py-20 text-center">
                     <div className="mx-auto max-w-sm rounded-2xl border border-slate-300 bg-slate-50 px-8 py-10">
                       <p className="text-sm text-slate-600">No companies</p>
-                      <button
+                      {canManageCompanies && <button
                         type="button"
                         onClick={() => navigate("/create-company")}
                         className="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                       >
                         Create company
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 ) : (
@@ -377,16 +370,14 @@ function AdminDashboard() {
                     {filteredCompanies.map((c) => (
                       <article
                         key={c._id}
-                       onClick={() =>
-  navigate(`/admin/company/${c._id}/applications`)
-}
+                       onClick={() => { if (canViewApplications) navigate(`/admin/company/${c._id}/applications`); else if (canManageCompanies) navigate(`/admin/edit-company/${c._id}`); }}
                         className="group cursor-pointer rounded-2xl border border-slate-300 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg"
-                        role="button"
-                        tabIndex={0}
+                        role={canViewApplications || canManageCompanies ? "button" : undefined}
+                        tabIndex={canViewApplications || canManageCompanies ? 0 : undefined}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                           navigate(`/admin/company/${c._id}/applications`);
+                           if (canViewApplications) navigate(`/admin/company/${c._id}/applications`); else if (canManageCompanies) navigate(`/admin/edit-company/${c._id}`);
                           }
                         }}
                       >
@@ -398,7 +389,7 @@ function AdminDashboard() {
                         <div className="mt-4 space-y-2 text-sm">
                           <p className="text-slate-700">
                             <span className="font-semibold text-slate-900">Compensation:</span>{" "}
-                            {c.ctc ? `${c.ctc} ${String(c.role || "").toLowerCase().includes("intern") ? "/month stipend" : "/annum CTC"}` : "—"}
+                            {formatCompensation(c)}
                           </p>
                           <p className="text-slate-700">
                             <span className="font-semibold text-slate-900">Min CGPA:</span> {c.minCgpa ?? "—"}

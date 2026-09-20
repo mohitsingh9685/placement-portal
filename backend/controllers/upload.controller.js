@@ -1,3 +1,7 @@
+import Admin from "../models/Admin.js";
+import { isStaffRole } from "../config/permissions.js";
+import ResumeVersion from "../models/ResumeVersion.js";
+import { saveResumeVersion } from "../services/resumeService.js";
 import Student from "../models/Student.js";
 import Company from "../models/Company.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
@@ -17,20 +21,15 @@ export const uploadProfilePhoto = async (req, res) => {
       });
     }
 
-    const existingStudent = await Student.findById(req.user.id);
-
-    if (existingStudent?.profilePicture?.publicId) {
-      await cloudinary.uploader.destroy(
-        existingStudent.profilePicture.publicId
-      );
-    }
+    const Profile = isStaffRole(req.user.role) ? Admin : Student;
+    const existingStudent = await Profile.findById(req.user.id);
 
     const uploadResult = await uploadToCloudinary(
       req.file.buffer,
       "placement-portal/profile-photos"
     );
 
-    const updatedStudent = await Student.findByIdAndUpdate(
+    const updatedStudent = await Profile.findByIdAndUpdate(
       req.user.id,
       {
         profilePicture: {
@@ -38,8 +37,10 @@ export const uploadProfilePhoto = async (req, res) => {
           publicId: uploadResult.public_id,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
+
+    if (existingStudent?.profilePicture?.publicId) await cloudinary.uploader.destroy(existingStudent.profilePicture.publicId).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -56,64 +57,19 @@ export const uploadProfilePhoto = async (req, res) => {
   }
 };
 
-export const uploadResumeController = async (req, res) => {
+export const uploadResumeController = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Resume file required",
-      });
-    }
+    if (!req.file) return res.status(400).json({ success: false, message: "Resume file required" });
+    const resume = await saveResumeVersion(req.user._id, req.file);
+    return res.json({ success: true, message: "Resume uploaded successfully", resume });
+  } catch (error) { next(error); }
+};
 
-    const student = await Student.findById(req.user.id);
-
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: "Student not found",
-      });
-    }
-
-    // DELETE OLD RESUME
-    if (student.resume?.key) {
-      await deleteFileFromS3(student.resume.key);
-    }
-
-    // UPLOAD TO S3
-    const uploadedFile = await uploadFileToS3(
-      req.file,
-      `resumes/${student._id}`
-    );
-
-    const signedResumeUrl = await generateSignedFileUrl(
-      uploadedFile.key
-    );
-
-    student.resume = {
-      key: uploadedFile.key,
-      url: uploadedFile.url,
-      fileName: req.file.originalname,
-      uploadedAt: new Date(),
-    };
-
-    await student.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Resume uploaded successfully",
-      resume: {
-        ...student.resume,
-        signedUrl: signedResumeUrl,
-      },
-    });
-  } catch (error) {
-    console.error("Resume upload error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Resume upload failed",
-    });
-  }
+export const listResumeVersions = async (req, res, next) => {
+  try {
+    const versions = await ResumeVersion.find({ student: req.user._id }).select("fileName contentType uploadedAt createdAt").sort({ createdAt: -1 }).limit(50);
+    res.json({ versions });
+  } catch (error) { next(error); }
 };
 
 export const getSignedResumeUrlController = async (
@@ -125,17 +81,21 @@ export const getSignedResumeUrlController = async (
       req.user.id
     );
 
-    if (!student?.resume?.key) {
+    if (!student || (!req.query.versionId && !student.resume?.key)) {
       return res.status(404).json({
         success: false,
         message: "Resume not found",
       });
     }
 
-    const signedUrl =
-      await generateSignedFileUrl(
-        student.resume.key
-      );
+    let key = student.resume?.key;
+    if (req.query.versionId) {
+      if (!/^[a-f\d]{24}$/i.test(req.query.versionId)) return res.status(400).json({ message: "Invalid resume version" });
+      const version = await ResumeVersion.findOne({ _id: req.query.versionId, student: student._id });
+      if (!version) return res.status(404).json({ message: "Resume version not found" });
+      key = version.key;
+    }
+    const signedUrl = await generateSignedFileUrl(key);
 
     return res.status(200).json({
       success: true,
@@ -166,17 +126,21 @@ export const getStudentResumeByAdminController = async (
       studentId
     );
 
-    if (!student?.resume?.key) {
+    if (!student || (!req.query.versionId && !student.resume?.key)) {
       return res.status(404).json({
         success: false,
         message: "Resume not found",
       });
     }
 
-    const signedUrl =
-      await generateSignedFileUrl(
-        student.resume.key
-      );
+    let key = student.resume?.key;
+    if (req.query.versionId) {
+      if (!/^[a-f\d]{24}$/i.test(req.query.versionId)) return res.status(400).json({ message: "Invalid resume version" });
+      const version = await ResumeVersion.findOne({ _id: req.query.versionId, student: student._id });
+      if (!version) return res.status(404).json({ message: "Resume version not found" });
+      key = version.key;
+    }
+    const signedUrl = await generateSignedFileUrl(key);
 
     return res.status(200).json({
       success: true,

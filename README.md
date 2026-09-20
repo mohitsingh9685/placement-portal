@@ -12,6 +12,10 @@ A full-stack placement management system for students and administrators. It cen
 - Optional Redis caching with bounded fallback, request validation, and API rate limiting
 - Private AWS S3 storage with short-lived signed URLs
 - Cloudinary profile-photo uploads
+- Separate staff accounts, college email-roster imports and batch administration
+- Super Admins can add staff, grant/revoke ordinary admin permissions and disable/restore ordinary admin access; all Super Admin accounts are protected from management changes
+- Direct academic profile editing, application snapshots and retained resume versions
+- Drive/role data foundation with one application per student per drive
 - Docker Compose development environment
 
 ## Tech Stack
@@ -70,6 +74,8 @@ Access and refresh secrets must be different random strings of at least 32 chara
 
 Requirements: Docker Desktop and Docker Compose.
 
+This release requires the explicit stage 2 database migration before the regular backend starts. Follow [stage 2 verification and rollout](STAGE_2_TESTING.md); use its synthetic preview to inspect the screens without changing Atlas. Coordinate the migration with deployment rather than starting stage 1 and stage 2 against the same database.
+
 ```bash
 docker compose up -d --build
 ```
@@ -115,7 +121,9 @@ Add these Authorized JavaScript origins to the Google OAuth web client:
 - `http://localhost:5173`
 - `https://placement-portal-college.vercel.app`
 
-The same Google client ID must be configured in the frontend and backend. The verified Google email must exactly match an active entry in the MongoDB `approvedstudents` collection (after trimming/lowercasing). Personal Gmail accounts are supported. Setting `isActive: false` blocks access, including existing sessions. The approval record controls the role; browser-supplied roles are ignored.
+The same Google client ID must be configured in the frontend and backend. After trimming/lowercasing, a student's verified Google email must match an active `approvedstudents` entry. Personal Gmail accounts are supported. Staff emails must match an active `admins` account instead; administrators are not student records. Setting `isActive: false` blocks access, including existing sessions. Roles come from the server's account model; browser-supplied roles are ignored. Student roster imports cannot create staff access.
+
+Super Admins have full administrative access and manage staff through **Admins**. Ordinary admins require explicit permissions for student management, company changes, applicant results and resumes. See [Super Admin setup, permissions and testing](SUPER_ADMIN_TESTING.md) for the one-time owner bootstrap and access-management workflow.
 
 Browser POST/PUT/PATCH/DELETE requests must send an allowed `Origin`. CORS alone is not the CSRF defense. Non-browser clients may use bearer-only authorization without cookies; Google login and cookie refresh/logout require an allowed origin.
 
@@ -126,7 +134,7 @@ npm test
 npm run check
 ```
 
-Tests use synthetic persistence and Google verification without connecting to Atlas or cloud services. See [stage 1 testing and rollout](STAGE_1_TESTING.md) and the [six-stage implementation plan](IMPLEMENTATION_PLAN.md). The separate `admins` collection is scheduled for stage 2; there is no need to delete existing databases.
+These checks use synthetic persistence and Google verification without connecting to Atlas or cloud services. `npm run test:integration` additionally uses a disposable localhost MongoDB replica set supplied through `TEST_MONGO_URI`. See [stage 2 setup, preview and rollout](STAGE_2_TESTING.md), the [stage 1 baseline](STAGE_1_TESTING.md), and the [six-stage implementation plan](IMPLEMENTATION_PLAN.md). The migration creates `admins` within the existing database; there is no need to delete existing databases.
 
 ## Deployment Notes
 

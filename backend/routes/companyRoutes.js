@@ -12,10 +12,10 @@ import {
   getCompanyById
 } from "../controllers/companyController.js";
 
-import { protect, isAdmin } from "../middleware/authMiddleware.js";
+import { protect, requirePermission } from "../middleware/authMiddleware.js";
 
 // Admin adds company
-router.post("/", protect, isAdmin, validate(createCompanySchema), addCompany);
+router.post("/", protect, requirePermission("companies.manage"), validate(createCompanySchema), addCompany);
 
 // Public read-only company data for the guest showcase. Keep the normal
 // student endpoints protected so the original access rules remain unchanged.
@@ -29,9 +29,9 @@ router.get("/", protect, getCompanies);
 router.get("/:id", protect, getCompanyById);
 
 // 🔹 NEW: Update company
-router.put("/:id", protect, isAdmin, validate(updateCompanySchema), updateCompany);
+router.put("/:id", protect, requirePermission("companies.manage"), validate(updateCompanySchema), updateCompany);
 
 // 🔹 NEW: Delete company
-router.delete("/:id", protect, isAdmin, deleteCompany);
+router.delete("/:id", protect, requirePermission("companies.manage"), deleteCompany);
 
 export default router;

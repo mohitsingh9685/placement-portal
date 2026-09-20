@@ -21,3 +21,15 @@ jobs:
       - run: npm --prefix backend ci
       - run: npm --prefix frontend ci
       - run: npm run check
+      - name: Start isolated MongoDB replica set
+        run: |
+          docker run -d --name placement-test-mongo -p 127.0.0.1:27028:27028 mongo:7.0 --replSet rs0 --bind_ip_all --port 27028
+          for attempt in $(seq 1 30); do
+            if docker exec placement-test-mongo mongosh --quiet --port 27028 --eval 'db.adminCommand({ping:1})'; then break; fi
+            sleep 1
+          done
+          docker exec placement-test-mongo mongosh --quiet --port 27028 --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27028"}]})'
+      - name: Migration and database integration tests
+        run: npm run test:integration
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27028/?replicaSet=rs0

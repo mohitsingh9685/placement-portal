@@ -44,7 +44,7 @@ const tokenFrom = (cookie, name) => cookie.split("; ").find((c) => c.startsWith(
 test("Google login only admits approved verified emails and creates new accounts with a photo object", async () => {
   store.credentials.set("new", { email: "NEW@example.invalid", sub: "new-id", email_verified: true, name: "New Student", picture: "https://example.invalid/new.png" });
   let result = await request("/api/auth/google", { method: "POST", body: { token: "new" } });
-  assert.equal(result.status, 403); assert.equal(store.students.size, 2);
+  assert.equal(result.status, 403); assert.equal(store.students.size, 1);
   store.approvals.set("new@example.invalid", { role: "student" });
   result = await request("/api/auth/google", { method: "POST", body: { token: "new" } });
   assert.equal(result.status, 200); assert.equal(result.body.user.profilePicture.url, "https://example.invalid/new.png");
@@ -107,11 +107,11 @@ test("removing or disabling an approved student blocks active requests and revok
   assert.equal((await request("/api/auth/google", { method: "POST", body: { token: student.email } })).status, 403);
 });
 
-test("admin endpoints enforce the current approval role, including demotion", async () => {
+test("admin endpoints enforce the separate staff account and its active status", async () => {
   const studentCookie = await login(), adminCookie = await login(admin.email);
   assert.equal((await request("/api/application/admin/all", { cookie: studentCookie })).status, 403);
   assert.equal((await request("/api/application/admin/all", { cookie: adminCookie })).status, 200);
-  store.approvals.get(admin.email).role = "student";
+  store.admins.get(String(admin._id)).isActive = false;
   assert.equal((await request("/api/application/admin/all", { cookie: adminCookie })).status, 403);
   assert.equal((await request(`/api/v1/upload/resume/view/${student._id}`, { cookie: studentCookie })).status, 403);
 });
@@ -139,12 +139,13 @@ test("unsafe requests reject foreign/missing/null origins, including form posts"
 
 test("profile validation rejects invalid academics and strips privilege fields; full profile is retained", async () => {
   const cookie = await login();
-  const body = { cgpa: "8.5", branch: " cse ", activeBacklogs: "0", totalBacklogs: "1", semester: "6", passingYear: "2027", counselorGroup: "A1", skills: ["React"], role: "admin", refreshToken: "forged" };
-  for (const invalid of [{ cgpa: 999 }, { activeBacklogs: -1 }, { activeBacklogs: 2 }, { cgpa: "" }, { semester: -3 }]) {
+  const body = { name: " College Record Name ", email: "unapproved@example.invalid", cgpa: "8.5", branch: " cse ", activeBacklogs: "0", totalBacklogs: "1", semester: "6", passingYear: "2027", counselorGroup: "A1", skills: ["React"], role: "admin", refreshToken: "forged" };
+  for (const invalid of [{ name: " " }, { cgpa: 999 }, { activeBacklogs: -1 }, { activeBacklogs: 2 }, { cgpa: "" }, { semester: -3 }]) {
     assert.equal((await request("/api/auth/update-profile", { method: "PUT", cookie, body: { ...body, ...invalid } })).status, 400);
   }
   const result = await request("/api/auth/update-profile", { method: "PUT", cookie, body });
   assert.equal(result.status, 200); assert.equal(result.body.user.role, "student");
+  assert.equal(result.body.user.name, "College Record Name"); assert.equal(result.body.user.email, student.email);
   assert.equal(result.body.user.cgpa, 8.5); assert.equal(result.body.user.branch, "CSE");
   assert.equal(result.body.user.counselorGroup, "A1"); assert.equal(result.body.user.resume.key, "test/resume.pdf");
   assert.equal(result.body.user.refreshToken, undefined); assert.equal(result.body.user.placementStatus, "NOT_PLACED");
@@ -161,16 +162,15 @@ test("invalid JSON, IDs, application statuses and company inputs return client e
 test("applications enforce deadlines/profile completeness and prevent duplicates", async () => {
   const cookie = await login();
   const id = "507f1f77bcf86cd799439022";
-  const company = { _id: id, minCgpa: 7, allowedBranches: ["CSE"], maxBacklogsAllowed: 0, registrationDeadline: new Date(0) };
-  store.companies.set(id, company);
+  const company = store.seedCompany({ _id: id, minCgpa: 7, allowedBranches: ["CSE"], maxBacklogsAllowed: 0, registrationDeadline: new Date(0) });
   const apply = () => request("/api/application/apply", { method: "POST", cookie, body: { companyId: id } });
   assert.equal((await apply()).status, 400);
-  company.registrationDeadline = new Date(Date.now() + 60000);
+  store.drives.get(String(company.defaultDrive)).registrationDeadline = new Date(Date.now() + 60000);
   student.profileCompleted = false; assert.equal((await apply()).status, 400);
   student.profileCompleted = true; student.cgpa = undefined; assert.equal((await apply()).status, 400);
   student.cgpa = 8;
   const result = await apply(); assert.equal(result.status, 201); assert.equal(result.body.application.isEligible, true);
-  assert.equal((await apply()).status, 400); assert.equal(store.applications.size, 1);
+  assert.equal((await apply()).status, 409); assert.equal(store.applications.size, 1);
 });
 
 test("profile and protected endpoints omit stored credentials and no database is connected", async () => {

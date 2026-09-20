@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { documentSchema } from "./schemas/document.js";
 
 const semesterSchema = new mongoose.Schema({
   sem: Number,
@@ -72,26 +73,8 @@ const studentSchema = new mongoose.Schema(
     githubUrl: String,
     linkedinUrl: String,
 
-    resume: {
-  key: {
-    type: String,
-    default: "",
-  },
-
-  url: {
-    type: String,
-    default: "",
-  },
-
-  fileName: {
-    type: String,
-    default: "",
-  },
-
-  uploadedAt: {
-    type: Date,
-  },
-},
+    resume: documentSchema,
+    profileVersion: { type: Number, default: 0 },
 
     placementStatus: {
       type: String,
@@ -101,7 +84,7 @@ const studentSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["student", "admin"],
+      enum: ["student"],
       default: "student"
     },
 
@@ -126,5 +109,7 @@ const studentSchema = new mongoose.Schema(
     versionKey: false
   }
 );
+
+studentSchema.index({ passingYear: 1, branch: 1 });
 
 export default mongoose.model("Student", studentSchema);

@@ -1,5 +1,7 @@
 # Stage 1 verification and rollout
 
+This document records the stage 1 baseline. Stage 2 moves administrators from student/approval records into `admins`; use [the stage 2 checklist](STAGE_2_TESTING.md) for the current model, preview and migration requirements.
+
 ## Automated local checks
 
 Run `npm run check` from the repository root after installing both dependency sets with `npm ci`.

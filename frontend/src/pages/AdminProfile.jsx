@@ -1,7 +1,9 @@
 import Navbar from "../components/Navbar";
+import useAuth from "../auth/useAuth.js";
+import { roleLabel } from "../utils/permissions.js";
 
 function AdminProfile() {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const { user } = useAuth();
 
   const form = {
     name: user?.name || "",
@@ -31,7 +33,7 @@ function AdminProfile() {
 
         <div className="bg-gray-50 p-3 rounded mt-4">
           <p className="text-sm text-gray-500">Role</p>
-          <p className="font-semibold text-blue-600">Admin</p>
+          <p className="font-semibold text-blue-600">{roleLabel(user?.role)}</p>
         </div>
       </div>
     </div>

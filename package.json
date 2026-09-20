@@ -6,6 +6,8 @@
     "frontend": "npm --prefix frontend run dev",
     "backend": "npm --prefix backend run dev",
     "test": "npm --prefix backend test && npm --prefix frontend test",
-    "check": "npm test && npm --prefix frontend run lint && npm --prefix frontend run build"
+    "check": "npm test && npm --prefix frontend run lint && npm --prefix frontend run build",
+    "test:integration": "npm --prefix backend run test:integration",
+    "preview:stage2": "node backend/scripts/preview-stage2.js"
   }
 }

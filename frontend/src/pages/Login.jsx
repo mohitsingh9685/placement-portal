@@ -7,6 +7,7 @@ import { clearGuestSession, createGuestUser } from "../utils/guestSession";
 import useAuth from "../auth/useAuth.js";
 import SessionStatus from "../auth/SessionStatus.jsx";
 import { sessionDestination } from "../utils/session.js";
+import { isStaffRole } from "../utils/permissions.js";
 
 function Login() {
   const { user, loading, error: sessionError, retry, updateUser } = useAuth();
@@ -38,7 +39,7 @@ function Login() {
 
       updateUser(res.data.user);
 
-      if (res.data.user.role === "admin") {
+      if (isStaffRole(res.data.user.role)) {
         navigate("/admin");
       } else if (!res.data.user.profileCompleted) {
         navigate("/complete-profile");

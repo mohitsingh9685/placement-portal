@@ -1,3 +1,7 @@
+import { isStaffRole } from "../utils/permissions.js";
+import ProfileExtraFields from "../components/ProfileExtraFields.jsx";
+import ResumeHistory from "../components/ResumeHistory.jsx";
+import { extraProfileState, profileExtrasPayload } from "../utils/profileFields.js";
 import useAuth from "../auth/useAuth.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -111,6 +115,7 @@ function Profile() {
   const [form, setForm] = useState(() => {
     const u = parseStoredUser() || {};
     return {
+      ...extraProfileState(u),
       cgpa: u.cgpa != null && u.cgpa !== "" ? String(u.cgpa) : "",
       branch: u.branch ?? "",
       activeBacklogs: String(backlogCount(u)),
@@ -143,6 +148,7 @@ function Profile() {
         setPreviewPhoto(user.profilePicture?.url || "");
         setSelectedResume(null);
         setForm({
+          ...extraProfileState(user),
           cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
           branch: user.branch ?? "",
           activeBacklogs: String(user.activeBacklogs ?? 0),
@@ -161,7 +167,7 @@ function Profile() {
         localStorage.setItem("user", JSON.stringify(user));
 
         // keep your RBAC intact
-        if (user.role === "admin") {
+        if (isStaffRole(user.role)) {
           navigate("/admin-profile", { replace: true });
         }
 
@@ -361,6 +367,7 @@ function Profile() {
     setSaving(true);
     try {
       const res = await API.put("/auth/update-profile", {
+        ...profileExtrasPayload(form),
         cgpa: form.cgpa,
         branch: form.branch,
         activeBacklogs: form.activeBacklogs,
@@ -389,7 +396,7 @@ function Profile() {
     }
   };
 
-  if (!profileUser || profileUser.role === "admin") {
+  if (!profileUser || isStaffRole(profileUser.role)) {
     return null;
   }
 
@@ -600,6 +607,8 @@ function Profile() {
           </div>
         </div>
 
+        <ResumeHistory currentVersionId={profileUser?.resume?.versionId} />
+        {activeSection === "academic" && <ProfileExtraFields form={form} onChange={patch => setForm(previous => ({ ...previous, ...patch }))} disabled={!editMode} />}
         <div className="mt-6 pb-6">
           {activeSection === "academic" && (
           <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">

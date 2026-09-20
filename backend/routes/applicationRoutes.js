@@ -8,7 +8,7 @@ import {
   deleteApplication,
 } from "../controllers/applicationController.js";
 import { protect, isStudent } from "../middleware/authMiddleware.js";
-import { isAdmin } from "../middleware/authMiddleware.js";
+import { requirePermission } from "../middleware/authMiddleware.js";
 
 import validate, { validateObjectId } from "../middleware/validateMiddleware.js";
 import { applySchema, statusSchema } from "../validators/authValidator.js";
@@ -22,8 +22,8 @@ router.get("/my", protect, isStudent, getMyApplications);
 router.delete("/:applicationId", protect, isStudent, deleteApplication);
 
 // admin
-router.get("/admin/all", protect, isAdmin, getAllApplications);
-router.put("/admin/status/:applicationId", protect, isAdmin, validate(statusSchema), updateApplicationStatus);
-router.get("/admin/company/:companyId", protect, isAdmin, getApplicationsByCompany);
+router.get("/admin/all", protect, requirePermission("applications.view"), getAllApplications);
+router.put("/admin/status/:applicationId", protect, requirePermission("applications.manage"), validate(statusSchema), updateApplicationStatus);
+router.get("/admin/company/:companyId", protect, requirePermission("applications.view"), getApplicationsByCompany);
 
 export default router;

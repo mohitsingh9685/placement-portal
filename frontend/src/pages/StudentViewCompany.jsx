@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import API from "../api/axios";
+import { formatCompensation } from "../utils/compensation";
 import { isGuestUser } from "../utils/guestSession";
 
 const cardClass =
@@ -143,7 +144,7 @@ const StudentViewCompany = () => {
             </p>
 
             <p className={valueClass}>
-              {company.ctc || "N/A"}
+              {formatCompensation(company)}
             </p>
           </div>
 

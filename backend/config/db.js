@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
 mongoose.set("strictQuery", true);
+// Schema/index changes are applied by the explicit migration, never by server startup.
+mongoose.set("autoIndex", false);
+mongoose.set("autoCreate", false);
 
 const connectDB = async () => {
   try {

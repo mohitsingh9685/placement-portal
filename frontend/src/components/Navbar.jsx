@@ -2,6 +2,7 @@ import useAuth from "../auth/useAuth.js";
 import { useNavigate, useLocation } from "react-router-dom";
 import API from "../api/axios";
 import { clearGuestSession, isGuestUser } from "../utils/guestSession";
+import { hasPermission, isStaffRole, roleLabel } from "../utils/permissions.js";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-2xl sm:px-6">
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-2xl shadow-black/30 ring-1 ring-cyan-300/10">
         <h1
-          onClick={() => navigate(user?.role === "admin" ? "/admin" : "/dashboard")}
+          onClick={() => navigate(isStaffRole(user?.role) ? "/admin" : "/dashboard")}
           className="cursor-pointer bg-gradient-to-r from-white via-cyan-100 to-indigo-200 bg-clip-text text-xl font-bold tracking-tight text-transparent transition-all duration-300 hover:opacity-85 sm:text-2xl"
         >
           Placement Portal
@@ -52,23 +53,28 @@ function Navbar() {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* ADMIN NAV */}
-          {user?.role === "admin" ? (
+          {isStaffRole(user?.role) ? (
             <>
               <button onClick={() => navigate("/admin")} className={navButtonClass("/admin")}>
                 Dashboard
               </button>
-              <button
+              {hasPermission(user, "students.view") && <button onClick={() => navigate("/admin/students")} className={navButtonClass("/admin/students")}>
+                Students
+              </button>}
+              {user.role === "super_admin" && <button onClick={() => navigate("/admin/accounts")} className={navButtonClass("/admin/accounts")}>Admins</button>}
+              {hasPermission(user, "companies.manage") && <button
                 onClick={() => navigate("/create-company")}
                 className={navButtonClass("/create-company")}
               >
                 + Company
-              </button>
+              </button>}
               <button
                 onClick={() => navigate("/admin-profile")}
                 className={navButtonClass("/admin-profile")}
               >
                 Profile
               </button>
+              <span className="self-center text-xs text-slate-300">{roleLabel(user.role)}</span>
             </>
           ) : (
             /* STUDENT NAV */

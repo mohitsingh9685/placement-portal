@@ -68,7 +68,6 @@ export const generateSignedFileUrl = async (
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: key,
     ResponseContentDisposition: "inline",
-    ResponseContentType: "application/pdf",
   });
 
   const signedUrl = await getSignedUrl(

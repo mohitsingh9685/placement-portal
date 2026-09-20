@@ -2,6 +2,7 @@ import AuthSession from "../models/AuthSession.js";
 import { requireApprovedUser } from "../services/authService.js";
 import { verifyToken, isTokenError } from "../services/tokenService.js";
 import { clearAuthCookies } from "../config/cookie.js";
+import { hasPermission, isStaffRole } from "../config/permissions.js";
 export const protect = async (req, res, next) => {
   try {
     const token = req.cookies?.accessToken || req.headers.authorization?.match(/^Bearer\s+(\S+)$/)?.[1];
@@ -12,7 +13,7 @@ export const protect = async (req, res, next) => {
       clearAuthCookies(res);
       return res.status(401).json({ success: false, message: "Session has expired or been revoked" });
     }
-    req.user = await requireApprovedUser(decoded.id);
+    req.user = await requireApprovedUser(decoded.id, session.userModel);
     req.sessionId = decoded.sid;
     return next();
   } catch (error) {
@@ -22,7 +23,15 @@ export const protect = async (req, res, next) => {
   }
 };
 export const isAdmin = (req, res, next) => {
-  if (req.user?.role !== "admin") return res.status(403).json({ success: false, message: "Admin only access" });
+  if (!isStaffRole(req.user?.role)) return res.status(403).json({ success: false, message: "Admin only access" });
+  return next();
+};
+export const isSuperAdmin = (req, res, next) => {
+  if (req.user?.role !== "super_admin") return res.status(403).json({ success: false, message: "Super Admin access required" });
+  return next();
+};
+export const requirePermission = permission => (req, res, next) => {
+  if (!hasPermission(req.user, permission)) return res.status(403).json({ success: false, code: "PERMISSION_REQUIRED", message: "You do not have permission for this action" });
   return next();
 };
 export const isStudent = (req, res, next) => {

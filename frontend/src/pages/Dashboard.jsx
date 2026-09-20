@@ -1,3 +1,5 @@
+import { isStaffRole } from "../utils/permissions.js";
+import { formatCompensation } from "../utils/compensation.js";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
@@ -27,7 +29,7 @@ const [sortBy, setSortBy] = useState("latest");
     return;
   }
 
-  if (user.role === "admin") {
+  if (isStaffRole(user.role)) {
     navigate("/admin");
   }
 }, [user, navigate]);
@@ -68,7 +70,7 @@ const [sortBy, setSortBy] = useState("latest");
       await API.post("/application/apply", { companyId });
       setApplied(await fetchApplied());
     } catch (err) {
-      if (err.response?.data?.message === "Already applied") {
+      if (err.response?.status === 409) {
         setApplied(await fetchApplied());
       } else {
         alert(err.response?.data?.message || "Error applying");
@@ -358,7 +360,7 @@ const filteredCompanies = [...companies]
                     <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
                       CTC{" "}
                       <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
-                        ₹{company.ctc}
+                        {formatCompensation(company)}
                       </span>
                     </span>
                     <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">

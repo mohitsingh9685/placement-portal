@@ -1,213 +1,86 @@
+import mongoose from "mongoose";
 import Application from "../models/Application.js";
 import Company from "../models/Company.js";
+import Drive from "../models/Drive.js";
+import JobRole from "../models/JobRole.js";
+import AuditLog from "../models/AuditLog.js";
+import ApiError from "../utils/ApiError.js";
+import companyCache from "../services/companyCache.js";
+import { applicationSnapshot, checkEligibility } from "../services/applicationService.js";
+import { hasPermission } from "../config/permissions.js";
+const studentFields = "-refreshToken -password -googleId";
 
+function staffApplications(applications, user) {
+  if (hasPermission(user, "resumes.view")) return applications;
+  // Resume access also controls any stored URL returned in applicant data.
+  return applications.map(application => {
+    const data = application.toObject();
+    if (data.snapshot) delete data.snapshot.resume;
+    if (data.student) delete data.student.resume;
+    return data;
+  });
+}
 
-// APPLY TO COMPANY
-export const applyToCompany = async (req, res, next) => {
+export async function applyToCompany(req, res, next) {
   try {
-    const studentId = req.user._id;
-    const { companyId } = req.body;
-
-    // check input
-    if (!companyId) {
-      return res.status(400).json({ message: "Company ID is required" });
-    }
-
-    // check company exists
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    // fetch student from req.user
-    const student = req.user;
-
-    if (!student.profileCompleted || !Number.isFinite(student.cgpa) || student.cgpa < 0 || student.cgpa > 10 ||
-        !Number.isInteger(student.activeBacklogs) || student.activeBacklogs < 0) {
-      return res.status(400).json({ message: "Complete a valid academic profile before applying" });
-    }
-    if (company.registrationDeadline && new Date(company.registrationDeadline) <= new Date()) {
-      return res.status(400).json({ message: "Registration deadline has passed" });
-    }
-
-    // CGPA check
-    if (student.cgpa < company.minCgpa) {
-      return res.status(400).json({
-        message: "Not eligible: CGPA too low",
-      });
-    }
-
-    // branch check (case and whitespace insensitive, robust normalization)
-    const userBranch = String(student.branch || "")
-      .toUpperCase()
-      .trim();
-
-    // normalize allowed branches safely (handles array OR string from DB)
-    let allowedBranchesRaw = company.allowedBranches || [];
-
-    if (typeof allowedBranchesRaw === "string") {
-      allowedBranchesRaw = allowedBranchesRaw.split(",");
-    }
-
-    const allowedBranches = allowedBranchesRaw
-      .map((b) => String(b).toUpperCase().trim())
-      .filter(Boolean);
-
-    if (!allowedBranches.includes(userBranch)) {
-      return res.status(400).json({
-        message: "Not eligible: Branch not allowed",
-      });
-    }
-
-    // active backlog count check
-    if (student.activeBacklogs > company.maxBacklogsAllowed) {
-      return res.status(400).json({
-        message: "Not eligible: Too many active backlogs",
-      });
-    }
-
-    // strict backlog rule (make safe if allowActiveBacklogs is undefined)
-    if (company.allowActiveBacklogs === false && student.activeBacklogs > 0) {
-      return res.status(400).json({
-        message: "Not eligible: Active backlog not allowed",
-      });
-    }
-
-    // check already applied
-    const existingApplication = await Application.findOne({
-      student: studentId,
-      company: companyId,
+    let application;
+    await mongoose.connection.transaction(async (session) => {
+      const company = req.body.companyId ? await Company.findById(req.body.companyId).session(session) : null;
+      const roleId = req.body.roleId || company?.defaultRole;
+      if (!roleId) throw new ApiError(404, "Company or role not found");
+      const role = await JobRole.findById(roleId).session(session);
+      if (!role || !role.isActive) throw new ApiError(404, "Role is not available");
+      const drive = await Drive.findById(role.drive).session(session);
+      if (!drive || drive.status !== "PUBLISHED") throw new ApiError(400, "Drive is not open for applications");
+      if (drive.registrationDeadline && drive.registrationDeadline <= new Date()) throw new ApiError(400, "Registration deadline has passed");
+      checkEligibility(req.user, role.eligibility);
+      if (await Application.exists({ student: req.user._id, drive: drive._id }).session(session)) throw new ApiError(409, "You have already applied to a role in this drive");
+      [application] = await Application.create([{
+        student: req.user._id, company: drive.company, drive: drive._id, role: role._id,
+        isEligible: true, snapshot: applicationSnapshot(req.user),
+      }], { session });
+      await Company.updateOne({ _id: drive.company }, { $inc: { totalApplicants: 1 } }, { session });
     });
-
-    if (existingApplication) {
-      return res.status(400).json({ message: "Already applied" });
-    }
-
-    // create application
-    const application = await Application.create({
-      student: studentId,
-      company: companyId,
-      isEligible: true,
-
-      snapshot: {
-        name: student.name,
-        email: student.email,
-        cgpa: student.cgpa,
-        branch: student.branch,
-        backlogs: student.activeBacklogs || 0
-      }
+    await companyCache.invalidate();
+    res.status(201).json({ message: "Applied successfully", application });
+  } catch (error) {
+    if (error.code === 11000) return next(new ApiError(409, "You have already applied to a role in this drive"));
+    next(error);
+  }
+}
+export async function getApplicationsByCompany(req, res, next) {
+  try { res.json(staffApplications(await Application.find({ company: req.params.companyId }).populate("student", studentFields).populate("company").populate("role", "title"), req.user)); }
+  catch (error) { next(error); }
+}
+export async function getMyApplications(req, res, next) {
+  try { res.json(await Application.find({ student: req.user._id }).populate("company").populate("role", "title")); }
+  catch (error) { next(error); }
+}
+export async function getAllApplications(req, res, next) {
+  try { res.json(staffApplications(await Application.find().populate("student", studentFields).populate("company").populate("role", "title"), req.user)); }
+  catch (error) { next(error); }
+}
+export async function updateApplicationStatus(req, res, next) {
+  try {
+    let application;
+    await mongoose.connection.transaction(async (session) => {
+      application = await Application.findByIdAndUpdate(req.params.applicationId, { $set: { status: req.body.status } }, { returnDocument: "after", runValidators: true, session });
+      if (!application) throw new ApiError(404, "Application not found");
+      await AuditLog.create([{ actor: req.user._id, actorModel: "Admin", action: "APPLICATION_STATUS_UPDATED", target: String(application._id), details: { status: application.status } }], { session });
     });
-
-    res.status(201).json({
-      message: "Applied successfully",
-      application,
+    // SELECTED is not an accepted offer; it must not silently mark a student PLACED.
+    res.json({ message: "Status updated", application: staffApplications([application], req.user)[0] });
+  } catch (error) { next(error); }
+}
+export async function deleteApplication(req, res, next) {
+  try {
+    await mongoose.connection.transaction(async (session) => {
+      const application = await Application.findById(req.params.applicationId).session(session);
+      if (!application) throw new ApiError(404, "Application not found");
+      if (String(application.student) !== String(req.user._id)) throw new ApiError(403, "Not authorized");
+      await application.deleteOne({ session });
+      await Company.updateOne({ _id: application.company, totalApplicants: { $gt: 0 } }, { $inc: { totalApplicants: -1 } }, { session });
     });
-  } catch (error) {
-    if (error.code === 11000) return res.status(409).json({ message: "Already applied" });
-    next(error);
-  }
-
-};
-
-// GET APPLICATIONS BY COMPANY (Admin)
-export const getApplicationsByCompany = async (req, res, next) => {
-  try {
-    const { companyId } = req.params;
-
-    const applications = await Application.find({ company: companyId })
-      .populate("student", "-refreshToken -password -googleId")
-      .populate("company");
-
-    res.status(200).json(applications);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// GET MY APPLICATIONS (Student Dashboard)
-export const getMyApplications = async (req, res, next) => {
-  try {
-    const studentId = req.user._id;
-
-    const applications = await Application.find({
-      student: studentId,
-    }).populate("company");
-
-    res.status(200).json(applications);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// GET ALL APPLICATIONS (Admin Dashboard)
-export const getAllApplications = async (req, res, next) => {
-  try {
-    const applications = await Application.find()
-      .populate("student", "-refreshToken -password -googleId")
-      .populate("company");
-
-    res.status(200).json(applications);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// UPDATE APPLICATION STATUS (Admin)
-export const updateApplicationStatus = async (req, res, next) => {
-  try {
-    const { applicationId } = req.params;
-    const { status } = req.body;
-
-    // fetch application with student populated
-    const application = await Application.findById(applicationId).populate("student", "-refreshToken -password -googleId");
-
-    if (!application) {
-      return res.status(404).json({ message: "Application not found" });
-    }
-
-    // FIX 1: ensure valid enum format
-    const updatedStatus = status.toUpperCase();
-
-    // FIX 2: ensure snapshot exists (required fields)
-    if (!application.snapshot || !application.snapshot.name || !application.snapshot.email) {
-      application.snapshot = {
-        name: application.student?.name || "N/A",
-        email: application.student?.email || "N/A"
-      };
-    }
-
-    // update status
-    application.status = updatedStatus;
-
-    await application.save();
-
-    res.status(200).json({
-      message: "Status updated",
-      application,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-export const deleteApplication = async (req, res, next) => {
-  try {
-    const { applicationId } = req.params;
-
-    const application = await Application.findById(applicationId);
-
-    if (!application) {
-      return res.status(404).json({ message: "Application not found" });
-    }
-
-    // Only student can delete their own application
-    if (application.student.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
-
-    await application.deleteOne();
-
-    res.json({ message: "Application deleted successfully" });
-  } catch (error) {
-    next(error);
-  }
-};
+    await companyCache.invalidate(); res.json({ message: "Application deleted successfully" });
+  } catch (error) { next(error); }
+}

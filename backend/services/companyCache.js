@@ -1,5 +1,5 @@
 import redis from "../config/redis.js";
-export const COMPANIES_CACHE_KEY = "companies:v2:all";
+export const COMPANIES_CACHE_KEY = "companies:v3:all";
 export function createCompanyCache(client, timeoutMs = 600) {
   async function attempt(operation, fallback) {
     if (client?.status !== "ready") return fallback;
@@ -18,7 +18,7 @@ export function createCompanyCache(client, timeoutMs = 600) {
       try { const data = JSON.parse(value); return Array.isArray(data) ? data : null; } catch { return null; }
     },
     set: (companies) => attempt(() => client.set(COMPANIES_CACHE_KEY, JSON.stringify(companies), "EX", 300), null),
-    invalidate: () => attempt(() => client.del(COMPANIES_CACHE_KEY, "all_companies"), null),
+    invalidate: () => attempt(() => client.del(COMPANIES_CACHE_KEY, "companies:v2:all", "all_companies"), null),
   };
 }
 export default createCompanyCache(redis);

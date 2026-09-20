@@ -1,3 +1,4 @@
+import { isStaffRole } from "../../utils/permissions.js";
 import { GoogleLogin } from "@react-oauth/google";
 import API from "../../api/axios";
 
@@ -14,11 +15,9 @@ const GoogleLoginButton = () => {
         }
       );
 
-      console.log(res.data);
-
       const user = res.data.user;
 
-      if (user.role === "admin") {
+      if (isStaffRole(user.role)) {
         window.location.href = "/admin";
       } else if (!user.profileCompleted) {
         window.location.href = "/complete-profile";

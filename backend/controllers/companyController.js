@@ -1,140 +1,62 @@
+import mongoose from "mongoose";
 import Company from "../models/Company.js";
 import Application from "../models/Application.js";
+import Drive from "../models/Drive.js";
+import JobRole from "../models/JobRole.js";
 import companyCache from "../services/companyCache.js";
+import { syncLegacyDrive } from "../services/driveService.js";
+import ApiError from "../utils/ApiError.js";
 
-const invalidateCompaniesCache = () => companyCache.invalidate();
-
-// Add Company (Admin)
-export const addCompany = async (req, res, next) => {
+export async function addCompany(req, res, next) {
   try {
-    const {
-      companyName,
-      role,
-      ctc,
-      minCgpa,
-      allowedBranches,
-      maxBacklogsAllowed,
-      description,
-      allowActiveBacklogs,
-      registrationDeadline
-    } = req.body;
-
-    let normalizedBranches = [];
-    if (typeof allowedBranches === "string") {
-      normalizedBranches = allowedBranches
-        .split(",")
-        .map(b => b.trim().toUpperCase())
-        .filter(Boolean);
-    } else if (Array.isArray(allowedBranches)) {
-      normalizedBranches = allowedBranches
-        .map(b => String(b).trim().toUpperCase())
-        .filter(Boolean);
-    }
-
-    const company = await Company.create({
-      companyName,
-      role,
-      ctc,
-      description,
-      minCgpa,
-      allowedBranches: normalizedBranches,
-      maxBacklogsAllowed,
-      allowActiveBacklogs,
-      registrationDeadline,
-      createdBy: req.user._id
+    let company;
+    await mongoose.connection.transaction(async (session) => {
+      [company] = await Company.create([{ ...req.body, createdBy: req.user._id }], { session });
+      await syncLegacyDrive(company, session);
     });
-
-    await invalidateCompaniesCache();
-
-    res.status(201).json(company);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get all companies (Students)
-export const getCompanies = async (req, res, next) => {
+    await companyCache.invalidate(); res.status(201).json(company);
+  } catch (error) { next(error); }
+}
+export async function getCompanies(req, res, next) {
   try {
-    const cachedCompanies = await companyCache.get();
-    if (cachedCompanies) return res.json({ success: true, source: "redis-cache", companies: cachedCompanies });
+    const cached = await companyCache.get();
+    if (cached) return res.json({ success: true, source: "redis-cache", companies: cached });
     const companies = await Company.find().sort({ createdAt: -1 });
     await companyCache.set(companies);
-
-    return res.status(200).json({
-      success: true,
-      source: "mongodb",
-      companies,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get single company
-export const getCompanyById = async (req, res, next) => {
+    res.json({ success: true, source: "mongodb", companies });
+  } catch (error) { next(error); }
+}
+export async function getCompanyById(req, res, next) {
   try {
     const company = await Company.findById(req.params.id);
-
-    if (!company) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
+    if (!company) throw new ApiError(404, "Company not found");
     res.json(company);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Update company
-export const updateCompany = async (req, res, next) => {
+  } catch (error) { next(error); }
+}
+export async function updateCompany(req, res, next) {
   try {
-    const body = { ...req.body };
-
-    if (body.allowedBranches) {
-      if (typeof body.allowedBranches === "string") {
-        body.allowedBranches = body.allowedBranches
-          .split(",")
-          .map(b => b.trim().toUpperCase())
-          .filter(Boolean);
-      } else if (Array.isArray(body.allowedBranches)) {
-        body.allowedBranches = body.allowedBranches
-          .map(b => String(b).trim().toUpperCase())
-          .filter(Boolean);
-      }
-    }
-
-    const updatedCompany = await Company.findByIdAndUpdate(
-      req.params.id,
-      body,
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedCompany) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    await invalidateCompaniesCache();
-
-    res.json(updatedCompany);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Delete company
-export const deleteCompany = async (req, res, next) => {
+    let company;
+    await mongoose.connection.transaction(async (session) => {
+      company = await Company.findById(req.params.id).session(session);
+      if (!company) throw new ApiError(404, "Company not found");
+      Object.assign(company, req.body);
+      if (req.body.compensation) company.ctc = req.body.compensation.amount;
+      else if (req.body.ctc !== undefined && company.compensation) company.compensation.amount = req.body.ctc;
+      await syncLegacyDrive(company, session);
+    });
+    await companyCache.invalidate(); res.json(company);
+  } catch (error) { next(error); }
+}
+export async function deleteCompany(req, res, next) {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id);
-
-    if (!company) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    await Application.deleteMany({ company: req.params.id });
-    await invalidateCompaniesCache();
-
-    res.json({ message: "Company deleted successfully" });
-  } catch (error) {
-    next(error);
-  }
-};
+    await mongoose.connection.transaction(async (session) => {
+      const company = await Company.findByIdAndDelete(req.params.id, { session });
+      if (!company) throw new ApiError(404, "Company not found");
+      const drives = await Drive.find({ company: company._id }).select("_id").session(session);
+      await Application.deleteMany({ company: company._id }, { session });
+      await JobRole.deleteMany({ drive: { $in: drives.map(drive => drive._id) } }, { session });
+      await Drive.deleteMany({ company: company._id }, { session });
+    });
+    await companyCache.invalidate(); res.json({ message: "Company deleted successfully" });
+  } catch (error) { next(error); }
+}

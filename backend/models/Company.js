@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { compensationSchema } from "./schemas/document.js";
 
 const companySchema = new mongoose.Schema(
   {
@@ -7,6 +8,9 @@ const companySchema = new mongoose.Schema(
     description: String,
 
     ctc: Number,
+    compensation: compensationSchema,
+    defaultDrive: { type: mongoose.Schema.Types.ObjectId, ref: "Drive" },
+    defaultRole: { type: mongoose.Schema.Types.ObjectId, ref: "JobRole" },
 
     minCgpa: Number,
     allowedBranches: [String],
@@ -50,7 +54,7 @@ const companySchema = new mongoose.Schema(
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Student"
+      ref: "Admin"
     }
   },
   { timestamps: true }

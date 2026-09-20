@@ -5,6 +5,8 @@ import Profile from "./pages/Profile";
 import MyApplications from "./pages/MyApplications";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateCompany from "./pages/CreateCompany";
+import AdminStudents from "./pages/AdminStudents.jsx";
+import AdminAccounts from "./pages/AdminAccounts.jsx";
 import AdminProfile from "./pages/AdminProfile";
 import EditCompany from "./pages/EditCompany";
 import CompleteProfile from "./pages/CompleteProfile";
@@ -30,8 +32,18 @@ export default function App() {
     <Route element={<RequireSession role="admin" />}>
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin-profile" element={<AdminProfile />} />
+    </Route>
+    <Route element={<RequireSession role="super_admin" />}>
+      <Route path="/admin/accounts" element={<AdminAccounts />} />
+    </Route>
+    <Route element={<RequireSession role="admin" permission="students.view" />}>
+      <Route path="/admin/students" element={<AdminStudents />} />
+    </Route>
+    <Route element={<RequireSession role="admin" permission="companies.manage" />}>
       <Route path="/create-company" element={<CreateCompany />} />
       <Route path="/admin/edit-company/:id" element={<EditCompany />} />
+    </Route>
+    <Route element={<RequireSession role="admin" permission="applications.view" />}>
       <Route path="/admin/company/:id/applications" element={<AdminViewApplications />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />

@@ -79,11 +79,8 @@ const dataJson = res.data;
 
         if (!cancelled) {
           const ctcValue = data.ctc ?? "";
-          const inferredCompensationUnit =
-            typeof ctcValue === "string" &&
-              /(month|monthly|\/month|per month)/i.test(ctcValue)
-              ? "per-month"
-              : "per-annum";
+          const inferredCompensationUnit = data.compensation?.period === "MONTHLY" ? "per-month" : data.compensation?.period === "ANNUAL" ? "per-annum" : "unspecified";
+
 
           setCompensationUnit(inferredCompensationUnit);
           setFormData({
@@ -131,6 +128,7 @@ const dataJson = res.data;
     try {
      await API.put(`/company/${id}`, {
   ...formData,
+  compensation: { amount: Number(formData.ctc), currency: "INR", period: compensationUnit === "per-month" ? "MONTHLY" : compensationUnit === "per-annum" ? "ANNUAL" : "UNSPECIFIED", kind: compensationUnit === "per-month" ? "STIPEND" : compensationUnit === "per-annum" ? "SALARY" : "UNSPECIFIED" },
   maxBacklogsAllowed: Number(formData.maxBacklogs),
   allowedBranches: formData.branches
     .split(",")
@@ -286,6 +284,7 @@ const dataJson = res.data;
                       }`}
                     aria-label="Compensation unit"
                   >
+                    <option value="unspecified">Unit not specified</option>
                     <option value="per-annum">CTC (per annum)</option>
                     <option value="per-month">Stipend (per month)</option>
                   </select>

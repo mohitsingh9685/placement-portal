@@ -1,4 +1,7 @@
 import { OAuth2Client } from "google-auth-library";
+import Admin from "../models/Admin.js";
+import AuditLog from "../models/AuditLog.js";
+import mongoose from "mongoose";
 import Student from "../models/Student.js";
 import ApprovedStudent from "../models/ApprovedStudent.js";
 import AuthSession from "../models/AuthSession.js";
@@ -19,27 +22,32 @@ export async function googleAuth(req, res, next) {
     } catch { throw new ApiError(401, "Google sign-in could not be verified. Please try again."); }
     const email = payload?.email?.toLowerCase().trim();
     if (!email || !payload.email_verified || !payload.sub) throw new ApiError(401, "Google email is not verified");
-    const approval = await ApprovedStudent.findOne({ email, isActive: { $ne: false } });
-    if (!approval) throw new ApiError(403, "You are not authorized to access this portal");
-    let user = await Student.findOne({ email });
+    let user = await Admin.findOne({ email });
+    if (user && user.isActive === false) throw new ApiError(403, "Your portal access has been revoked");
     if (!user) {
-      try {
-        user = await Student.create({
-          name: payload.name || email, email, googleId: payload.sub, role: approval.role,
-          profilePicture: { url: payload.picture || "", publicId: "" }, profileCompleted: false,
-        });
-      } catch (error) {
-        if (error.code !== 11000) throw error;
-        user = await Student.findOne({ email });
-        if (!user) throw error;
+      const approval = await ApprovedStudent.findOne({ email, role: "student", isActive: { $ne: false } });
+      if (!approval || approval.role !== "student") throw new ApiError(403, "You are not authorized to access this portal");
+      user = await Student.findOne({ email });
+      if (user && user.role !== "student") throw new ApiError(403, "Staff account migration is required");
+      if (!user) {
+        try {
+          user = await Student.create({
+            name: payload.name || approval.name || email, email, googleId: payload.sub, role: "student",
+            enrollmentNo: approval.enrollmentNo, branch: approval.branch, passingYear: approval.passingYear,
+            profilePicture: { url: payload.picture || "", publicId: "" }, profileCompleted: false,
+          });
+        } catch (error) {
+          if (error.code !== 11000) throw error;
+          user = await Student.findOne({ email });
+          if (!user) throw error;
+        }
       }
     }
     if (user.googleId && user.googleId !== payload.sub) throw new ApiError(401, "Google account does not match the registered account");
     user.googleId = payload.sub;
     if (!user.profilePicture?.url) user.profilePicture = { url: payload.picture || "", publicId: "" };
-    user.role = approval.role;
     user.lastLogin = new Date();
-    user.refreshToken = null; // Retire the old single-device token field.
+    if (user.role === "student") user.refreshToken = null; // Retire the old single-device token field.
     await user.save();
     setAuthCookies(res, await createSession(user));
     return res.json({ success: true, user: serializeUser(user) });
@@ -55,7 +63,7 @@ export async function refreshAccessToken(req, res, next) {
       _id: decoded.sid, user: decoded.id, tokenHash: hashToken(token), expiresAt: { $gt: new Date() },
     });
     if (!session) throw new ApiError(401, "Session has expired or been revoked");
-    const user = await requireApprovedUser(decoded.id);
+    const user = await requireApprovedUser(decoded.id, session.userModel);
     // Keep the seven-day expiry fixed. Concurrent tabs can safely refresh the same session.
     setAuthCookies(res, { accessToken: generateAccessToken(user, decoded.sid) });
     return res.json({ success: true, message: "Session refreshed" });
@@ -68,10 +76,13 @@ export async function refreshAccessToken(req, res, next) {
 
 export async function updateProfile(req, res, next) {
   try {
-    const update = { ...req.body, hasActiveBacklog: req.body.activeBacklogs > 0, profileCompleted: true };
-    const user = await Student.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
-    if (!user) throw new ApiError(404, "Account not found");
-    user.role = req.user.role;
+    const update = { ...req.body, ...(req.body.semester ? { year: Math.ceil(req.body.semester / 2) } : {}), hasActiveBacklog: req.body.activeBacklogs > 0, profileCompleted: true };
+    let user;
+    await mongoose.connection.transaction(async (session) => {
+      user = await Student.findByIdAndUpdate(req.user._id, { $set: update, $inc: { profileVersion: 1 } }, { returnDocument: "after", runValidators: true, session });
+      if (!user) throw new ApiError(404, "Account not found");
+      await AuditLog.create([{ actor: user._id, actorModel: "Student", action: "PROFILE_UPDATED", target: String(user._id), details: { fields: Object.keys(update), profileVersion: user.profileVersion } }], { session });
+    });
     return res.json({ success: true, user: serializeUser(user) });
   } catch (error) { return next(error); }
 }

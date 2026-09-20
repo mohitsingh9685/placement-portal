@@ -168,6 +168,7 @@ function CreateCompany() {
     try {
       const companyRes = await API.post("/company", {
         ...form,
+        compensation: { amount: Number(form.ctc), currency: "INR", kind: compensationType === "ctc" ? "SALARY" : "STIPEND", period: compensationType === "ctc" ? "ANNUAL" : "MONTHLY" },
         allowedBranches: allowedBranches.split(","),
       });
 

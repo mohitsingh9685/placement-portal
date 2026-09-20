@@ -2,6 +2,8 @@ import { createElement, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import useAuth from "../auth/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 const STATUS_CONFIG = {
   APPLIED: {
@@ -69,15 +71,15 @@ function normalizeStatus(raw) {
 }
 
 function studentName(app) {
-  return app.student?.name || "Unknown student";
+  return app.snapshot?.name || app.student?.name || "Unknown student";
 }
 
 function studentEmail(app) {
-  return app.student?.email || "Email not available";
+  return app.snapshot?.email || app.student?.email || "Email not available";
 }
 
 function studentCgpa(app) {
-  return app.student?.cgpa ?? "N/A";
+  return app.snapshot?.cgpa ?? "N/A";
 }
 
 function StatusBadge({ status }) {
@@ -116,6 +118,10 @@ function SummaryCard({ icon: Icon, label, value, className = "" }) {
 }
 
 function AdminViewApplications() {
+  const { user } = useAuth();
+  const canManageCompanies = hasPermission(user, "companies.manage");
+  const canUpdateApplications = hasPermission(user, "applications.manage");
+  const canViewResumes = hasPermission(user, "resumes.view");
   const [applications, setApplications] = useState([]);
   const [company, setCompany] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -187,9 +193,11 @@ function AdminViewApplications() {
       setIsDeletingCompany(false);
     }
   };
-  const handleViewResume = async (studentId) => {
+  const handleViewResume = async (app) => {
+    const studentId = app.student?._id;
+    const versionId = app.snapshot?.resume?.versionId;
     try {
-      const res = await API.get(`/v1/upload/resume/view/${studentId}`);
+      const res = await API.get(`/v1/upload/resume/view/${studentId}`, { params: { versionId } });
       const signedUrl = res.data?.signedUrl;
 
       if (!signedUrl) {
@@ -215,13 +223,13 @@ function AdminViewApplications() {
 
     if (cgpaSort === "high") {
       filtered.sort(
-        (a, b) => Number(b.student?.cgpa || 0) - Number(a.student?.cgpa || 0),
+        (a, b) => Number(b.snapshot?.cgpa || 0) - Number(a.snapshot?.cgpa || 0),
       );
     }
 
     if (cgpaSort === "low") {
       filtered.sort(
-        (a, b) => Number(a.student?.cgpa || 0) - Number(b.student?.cgpa || 0),
+        (a, b) => Number(a.snapshot?.cgpa || 0) - Number(b.snapshot?.cgpa || 0),
       );
     }
 
@@ -316,7 +324,8 @@ function AdminViewApplications() {
                 <button
                   type="button"
                   onClick={() => navigate(`/admin/edit-company/${id}`)}
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                  disabled={!canManageCompanies}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Edit company
                 </button>
@@ -324,7 +333,7 @@ function AdminViewApplications() {
                 <button
                   type="button"
                   onClick={handleDeleteCompany}
-                  disabled={isDeletingCompany}
+                  disabled={!canManageCompanies || isDeletingCompany}
                   className="inline-flex h-11 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isDeletingCompany ? "Deleting..." : "Delete company"}
@@ -379,7 +388,7 @@ function AdminViewApplications() {
               <button
                 type="button"
                 onClick={() => updateBulkStatus("SELECTED")}
-                disabled={selectedApplications.length === 0}
+                disabled={!canUpdateApplications || selectedApplications.length === 0}
                 className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Shortlist selected ({selectedApplications.length})
@@ -388,7 +397,7 @@ function AdminViewApplications() {
               <button
                 type="button"
                 onClick={() => updateBulkStatus("REJECTED")}
-                disabled={selectedApplications.length === 0}
+                disabled={!canUpdateApplications || selectedApplications.length === 0}
                 className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reject selected ({selectedApplications.length})
@@ -397,7 +406,7 @@ function AdminViewApplications() {
               <button
                 type="button"
                 onClick={() => setSelectedApplications([])}
-                disabled={selectedApplications.length === 0}
+                disabled={!canUpdateApplications || selectedApplications.length === 0}
                 className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Clear selection
@@ -418,7 +427,7 @@ function AdminViewApplications() {
 
               <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 md:hidden">
                 <input
-                  type="checkbox"
+                  type="checkbox" disabled={!canUpdateApplications}
                   checked={allSelected}
                   onChange={(e) => {
                     setSelectedApplications(
@@ -460,7 +469,7 @@ function AdminViewApplications() {
                           </p>
                         </div>
                         <input
-                          type="checkbox"
+                          type="checkbox" disabled={!canUpdateApplications}
                           checked={selectedApplications.includes(app._id)}
                           onChange={(e) => toggleSelected(app._id, e.target.checked)}
                           className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -484,33 +493,34 @@ function AdminViewApplications() {
                       </dl>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {app.student?.resume?.key ? (
+                        {(app.snapshot?.resume?.key || (app.snapshot?.legacyIncomplete && app.student?.resume?.key)) ? (
                           <button
                             type="button"
-                            onClick={() => handleViewResume(app.student._id)}
-                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50"
+                            onClick={() => handleViewResume(app)}
+                            disabled={!canViewResumes}
+                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <IconFile className="h-4 w-4" />
                             Resume
                           </button>
                         ) : (
                           <span className="inline-flex h-9 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-500">
-                            No resume
+                            {canViewResumes ? "No resume" : "Resume access not assigned"}
                           </span>
                         )}
 
                         <button
                           type="button"
-                          onClick={() => updateStatus(app._id, "SELECTED")}
-                          className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                          onClick={() => updateStatus(app._id, "SELECTED")} disabled={!canUpdateApplications}
+                          className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Shortlist
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => updateStatus(app._id, "REJECTED")}
-                          className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700"
+                          onClick={() => updateStatus(app._id, "REJECTED")} disabled={!canUpdateApplications}
+                          className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Reject
                         </button>
@@ -525,7 +535,7 @@ function AdminViewApplications() {
                       <tr className="border-b border-slate-300 bg-slate-50">
                         <th className="px-6 py-3">
                           <input
-                            type="checkbox"
+                            type="checkbox" disabled={!canUpdateApplications}
                             checked={allSelected}
                             onChange={(e) => {
                               setSelectedApplications(
@@ -561,7 +571,7 @@ function AdminViewApplications() {
                         <tr key={app._id} className="bg-white transition hover:bg-slate-50">
                           <td className="px-6 py-4">
                             <input
-                              type="checkbox"
+                              type="checkbox" disabled={!canUpdateApplications}
                               checked={selectedApplications.includes(app._id)}
                               onChange={(e) => toggleSelected(app._id, e.target.checked)}
                               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -590,18 +600,19 @@ function AdminViewApplications() {
                           </td>
 
                           <td className="px-6 py-4">
-                            {app.student?.resume?.key ? (
+                            {(app.snapshot?.resume?.key || (app.snapshot?.legacyIncomplete && app.student?.resume?.key)) ? (
                               <button
                                 type="button"
-                                onClick={() => handleViewResume(app.student._id)}
-                                className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50"
+                                onClick={() => handleViewResume(app)}
+                            disabled={!canViewResumes}
+                                className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 <IconFile className="h-4 w-4" />
-                                View resume
+                                {app.snapshot?.legacyIncomplete ? "View current resume (legacy)" : "View submitted resume"}
                               </button>
                             ) : (
                               <span className="text-sm font-medium text-slate-500">
-                                No resume
+                                {canViewResumes ? "No resume" : "Resume access not assigned"}
                               </span>
                             )}
                           </td>
@@ -614,16 +625,16 @@ function AdminViewApplications() {
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
-                                onClick={() => updateStatus(app._id, "SELECTED")}
-                                className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                                onClick={() => updateStatus(app._id, "SELECTED")} disabled={!canUpdateApplications}
+                                className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Shortlist
                               </button>
 
                               <button
                                 type="button"
-                                onClick={() => updateStatus(app._id, "REJECTED")}
-                                className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700"
+                                onClick={() => updateStatus(app._id, "REJECTED")} disabled={!canUpdateApplications}
+                                className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Reject
                               </button>

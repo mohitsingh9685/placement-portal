@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   uploadProfilePhoto,
+  listResumeVersions,
   uploadResumeController,
   getSignedResumeUrlController,
   getStudentResumeByAdminController,
@@ -15,7 +16,7 @@ import {
   uploadJDMiddleware,
 } from "../middleware/multer.middleware.js";
 
-import { protect, isAdmin } from "../middleware/authMiddleware.js";
+import { protect, requirePermission, isStudent } from "../middleware/authMiddleware.js";
 
 import { validateObjectId } from "../middleware/validateMiddleware.js";
 const router = express.Router();
@@ -48,29 +49,31 @@ router.post(
 
 router.post(
   "/resume",
-  protect,
+  protect, isStudent,
   uploadResumeMiddleware.single("resume"),
   uploadErrorHandler("Resume must be 5MB or smaller"),
   uploadResumeController
 );
 
+router.get("/resume/versions", protect, isStudent, listResumeVersions);
+
 router.get(
   "/resume/view",
-  protect,
+  protect, isStudent,
   getSignedResumeUrlController
 );
 
 router.get(
   "/resume/view/:studentId",
   protect,
-  isAdmin,
+  requirePermission("resumes.view"),
   getStudentResumeByAdminController
 );
 
 router.post(
   "/jd/:companyId",
   protect,
-  isAdmin,
+  requirePermission("companies.manage"),
   uploadJDMiddleware.single("jd"),
   uploadErrorHandler("Job description file must be 10MB or smaller"),
   uploadJDController
