@@ -1,5 +1,13 @@
 export const formatPortalDate = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "Not recorded";
 export const applicationStatus = status => ({ APPLIED: "In review", SELECTED: "Selected", REJECTED: "Rejected", WITHDRAWN: "Withdrawn" })[status] || status;
+// A background read can finish after a request/decision response. Keep the newer record.
+export function mergeApplicationUpdates(previous, incoming) {
+  const existing = new Map(previous.map(application => [application._id, application]));
+  return incoming.map(application => {
+    const current = existing.get(application._id);
+    return current && new Date(current.updatedAt).getTime() > new Date(application.updatedAt).getTime() ? current : application;
+  });
+}
 export function profileChecklist(profile = {}) {
   const present = value => value != null && String(value).trim() !== "";
   const percentage = value => present(value) && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100;

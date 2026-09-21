@@ -3,10 +3,12 @@ import { createElement, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import AdminApplicationRequests from "../components/AdminApplicationRequests.jsx";
 import useAuth from "../auth/useAuth.js";
 import { hasPermission } from "../utils/permissions.js";
 
 const STATUS_CONFIG = {
+  WITHDRAWN: { label: "Withdrawn", dot: "bg-slate-400", badge: "border-slate-300 bg-slate-100 text-slate-600" },
   APPLIED: {
     label: "In review",
     dot: "bg-amber-500",
@@ -72,15 +74,15 @@ function normalizeStatus(raw) {
 }
 
 function studentName(app) {
-  return app.snapshot?.name || app.student?.name || "Unknown student";
+  return (app.effectiveSnapshot || app.snapshot)?.name || app.student?.name || "Unknown student";
 }
 
 function studentEmail(app) {
-  return app.snapshot?.email || app.student?.email || "Email not available";
+  return (app.effectiveSnapshot || app.snapshot)?.email || app.student?.email || "Email not available";
 }
 
 function studentCgpa(app) {
-  return app.snapshot?.cgpa ?? "N/A";
+  return (app.effectiveSnapshot || app.snapshot)?.cgpa ?? "N/A";
 }
 
 function StatusBadge({ status }) {
@@ -169,7 +171,7 @@ function ApplicationView({ id, roleId }) {
 
   const updateBulkStatus = async (status) => {
     if (isUpdating || !canUpdateApplications) return;
-    const scopedIds = selectedApplications.filter(id => filteredApplications.some(app => app._id === id));
+    const scopedIds = selectedApplications.filter(id => selectableApplications.some(app => app._id === id));
     if (!scopedIds.length) return;
     setIsUpdating(true);
     setActionError("");
@@ -216,7 +218,7 @@ function ApplicationView({ id, roleId }) {
   };
   const handleViewResume = async (app) => {
     const studentId = app.student?._id;
-    const versionId = app.snapshot?.resume?.versionId;
+    const versionId = (app.effectiveSnapshot || app.snapshot)?.resume?.versionId;
     try {
       const res = await API.get(`/v1/upload/resume/view/${studentId}`, { params: { versionId } });
       const signedUrl = res.data?.signedUrl;
@@ -244,13 +246,13 @@ function ApplicationView({ id, roleId }) {
 
     if (cgpaSort === "high") {
       filtered.sort(
-        (a, b) => Number(b.snapshot?.cgpa || 0) - Number(a.snapshot?.cgpa || 0),
+        (a, b) => Number((b.effectiveSnapshot || b.snapshot)?.cgpa || 0) - Number((a.effectiveSnapshot || a.snapshot)?.cgpa || 0),
       );
     }
 
     if (cgpaSort === "low") {
       filtered.sort(
-        (a, b) => Number(a.snapshot?.cgpa || 0) - Number(b.snapshot?.cgpa || 0),
+        (a, b) => Number((a.effectiveSnapshot || a.snapshot)?.cgpa || 0) - Number((b.effectiveSnapshot || b.snapshot)?.cgpa || 0),
       );
     }
 
@@ -263,7 +265,7 @@ function ApplicationView({ id, roleId }) {
         acc[normalizeStatus(app.status)] += 1;
         return acc;
       },
-      { APPLIED: 0, SELECTED: 0, REJECTED: 0 },
+      { APPLIED: 0, SELECTED: 0, REJECTED: 0, WITHDRAWN: 0 },
     );
 
     return {
@@ -272,9 +274,8 @@ function ApplicationView({ id, roleId }) {
     };
   }, [applications]);
 
-  const allSelected =
-    filteredApplications.length > 0 &&
-    filteredApplications.every((app) => selectedApplications.includes(app._id));
+  const selectableApplications = filteredApplications.filter(app => app.status !== "WITHDRAWN");
+  const allSelected = selectableApplications.length > 0 && selectableApplications.every((app) => selectedApplications.includes(app._id));
 
   const toggleSelected = (applicationId, checked) => {
     if (checked) {
@@ -377,6 +378,7 @@ function ApplicationView({ id, roleId }) {
           </header>
 
           {actionError && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700">{actionError}</p>}
+          <AdminApplicationRequests applications={applications} canManage={canUpdateApplications} canViewResumes={canViewResumes} onUpdated={fetchApplications} />
 
           <section className="grid gap-4 md:grid-cols-3">
             <SummaryCard icon={IconUsers} label="Total applications" value={stats.total} />
@@ -468,7 +470,7 @@ function ApplicationView({ id, roleId }) {
                   checked={allSelected}
                   onChange={(e) => {
                     setSelectedApplications(
-                      e.target.checked ? filteredApplications.map((app) => app._id) : [],
+                      e.target.checked ? selectableApplications.map((app) => app._id) : [],
                     );
                   }}
                   className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -502,11 +504,11 @@ function ApplicationView({ id, roleId }) {
                             {studentName(app)}
                           </p>
                           <p className="mt-1 truncate text-sm text-slate-600">
-                            {studentEmail(app)}<br /><span className="text-xs text-cyan-600">{app.snapshot?.roleTitle || app.role?.title || "Legacy role"}</span>{app.snapshot?.entryQualification && <span className="mt-1 block text-xs text-slate-500">{qualificationSummary(app.snapshot)}</span>}
+                            {studentEmail(app)}<br /><span className="text-xs text-cyan-600">{(app.effectiveSnapshot || app.snapshot)?.roleTitle || app.role?.title || "Legacy role"}</span>{(app.effectiveSnapshot || app.snapshot)?.entryQualification && <span className="mt-1 block text-xs text-slate-500">{qualificationSummary(app.effectiveSnapshot || app.snapshot)}</span>}
                           </p>
                         </div>
                         <input
-                          type="checkbox" disabled={isUpdating || !canUpdateApplications}
+                          type="checkbox" disabled={isUpdating || !canUpdateApplications || app.status === "WITHDRAWN"}
                           checked={selectedApplications.includes(app._id)}
                           onChange={(e) => toggleSelected(app._id, e.target.checked)}
                           className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -530,7 +532,7 @@ function ApplicationView({ id, roleId }) {
                       </dl>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {(app.snapshot?.resume?.key || (app.snapshot?.legacyIncomplete && app.student?.resume?.key)) ? (
+                        {((app.effectiveSnapshot || app.snapshot)?.resume?.key || ((app.effectiveSnapshot || app.snapshot)?.legacyIncomplete && app.student?.resume?.key)) ? (
                           <button
                             type="button"
                             onClick={() => handleViewResume(app)}
@@ -548,7 +550,7 @@ function ApplicationView({ id, roleId }) {
 
                         <button
                           type="button"
-                          onClick={() => updateStatus(app._id, "SELECTED")} disabled={isUpdating || !canUpdateApplications}
+                          onClick={() => updateStatus(app._id, "SELECTED")} disabled={isUpdating || !canUpdateApplications || app.status === "WITHDRAWN"}
                           className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Shortlist
@@ -556,7 +558,7 @@ function ApplicationView({ id, roleId }) {
 
                         <button
                           type="button"
-                          onClick={() => updateStatus(app._id, "REJECTED")} disabled={isUpdating || !canUpdateApplications}
+                          onClick={() => updateStatus(app._id, "REJECTED")} disabled={isUpdating || !canUpdateApplications || app.status === "WITHDRAWN"}
                           className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Reject
@@ -577,7 +579,7 @@ function ApplicationView({ id, roleId }) {
                             onChange={(e) => {
                               setSelectedApplications(
                                 e.target.checked
-                                  ? filteredApplications.map((app) => app._id)
+                                  ? selectableApplications.map((app) => app._id)
                                   : [],
                               );
                             }}
@@ -608,7 +610,7 @@ function ApplicationView({ id, roleId }) {
                         <tr key={app._id} className="bg-white transition hover:bg-slate-50">
                           <td className="px-6 py-4">
                             <input
-                              type="checkbox" disabled={isUpdating || !canUpdateApplications}
+                              type="checkbox" disabled={isUpdating || !canUpdateApplications || app.status === "WITHDRAWN"}
                               checked={selectedApplications.includes(app._id)}
                               onChange={(e) => toggleSelected(app._id, e.target.checked)}
                               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -626,7 +628,7 @@ function ApplicationView({ id, roleId }) {
                                   {studentName(app)}
                                 </p>
                                 <p className="mt-0.5 truncate text-xs text-slate-500">
-                                  {studentEmail(app)}<br /><span className="text-xs text-cyan-600">{app.snapshot?.roleTitle || app.role?.title || "Legacy role"}</span>{app.snapshot?.entryQualification && <p className="mt-1 text-xs text-slate-500">{qualificationSummary(app.snapshot)}</p>}
+                                  {studentEmail(app)}<br /><span className="text-xs text-cyan-600">{(app.effectiveSnapshot || app.snapshot)?.roleTitle || app.role?.title || "Legacy role"}</span>{(app.effectiveSnapshot || app.snapshot)?.entryQualification && <span className="mt-1 block text-xs text-slate-500">{qualificationSummary(app.effectiveSnapshot || app.snapshot)}</span>}
                                 </p>
                               </div>
                             </div>
@@ -637,7 +639,7 @@ function ApplicationView({ id, roleId }) {
                           </td>
 
                           <td className="px-6 py-4">
-                            {(app.snapshot?.resume?.key || (app.snapshot?.legacyIncomplete && app.student?.resume?.key)) ? (
+                            {((app.effectiveSnapshot || app.snapshot)?.resume?.key || ((app.effectiveSnapshot || app.snapshot)?.legacyIncomplete && app.student?.resume?.key)) ? (
                               <button
                                 type="button"
                                 onClick={() => handleViewResume(app)}
@@ -645,7 +647,7 @@ function ApplicationView({ id, roleId }) {
                                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 <IconFile className="h-4 w-4" />
-                                {app.snapshot?.legacyIncomplete ? "View current resume (legacy)" : "View submitted resume"}
+                                {(app.effectiveSnapshot || app.snapshot)?.legacyIncomplete ? "View current resume (legacy)" : "View submitted resume"}
                               </button>
                             ) : (
                               <span className="text-sm font-medium text-slate-500">
@@ -662,7 +664,7 @@ function ApplicationView({ id, roleId }) {
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
-                                onClick={() => updateStatus(app._id, "SELECTED")} disabled={isUpdating || !canUpdateApplications}
+                                onClick={() => updateStatus(app._id, "SELECTED")} disabled={isUpdating || !canUpdateApplications || app.status === "WITHDRAWN"}
                                 className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Shortlist
@@ -670,7 +672,7 @@ function ApplicationView({ id, roleId }) {
 
                               <button
                                 type="button"
-                                onClick={() => updateStatus(app._id, "REJECTED")} disabled={isUpdating || !canUpdateApplications}
+                                onClick={() => updateStatus(app._id, "REJECTED")} disabled={isUpdating || !canUpdateApplications || app.status === "WITHDRAWN"}
                                 className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Reject

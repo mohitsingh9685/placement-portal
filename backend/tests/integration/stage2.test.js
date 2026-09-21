@@ -158,7 +158,8 @@ test("simultaneous submissions for two roles create one application per drive", 
   const app = await Application.findOne({ student: fixture.studentId }); assert.equal(app.snapshot.resume.key, "synthetic/old.pdf"); assert.ok(app.snapshot.resume.versionId);
   assert.equal(app.snapshot.projects[0].title, "Submitted project"); assert.equal(app.snapshot.semesterCgpa[0].cgpa, 8);
   await Student.updateOne({ _id: fixture.studentId }, { $set: { cgpa: 10 } }); assert.equal((await Application.findById(app._id)).snapshot.cgpa, 8.2);
-  assert.equal((await request(`/api/application/${app._id}`, { cookie, method: "DELETE" })).status, 200); assert.equal((await Company.findById(fixture.companyId)).totalApplicants, 0);
+  assert.equal((await request(`/api/application/${app._id}`, { cookie, method: "DELETE" })).status, 405); assert.equal((await Company.findById(fixture.companyId)).totalApplicants, 1);
+  assert.ok(await Application.findById(app._id));
 });
 test("resume replacement preserves old versions and cleans up only failed replacement objects", async () => {
   await migrated(); const removed = []; let index = 0;

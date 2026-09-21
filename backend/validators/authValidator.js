@@ -34,7 +34,7 @@ export const profileUpdateSchema = z.preprocess((body) => {
 export const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid record ID");
 export const applySchema = z.object({ companyId: objectId.optional(), roleId: objectId.optional(), profileVersion: z.number().int().min(0).optional(), driveRevision: z.number().int().min(0).optional() }).strict().refine(data => Boolean(data.companyId) !== Boolean(data.roleId), "Provide one company or role ID");
 export const applicationRequestSchema = z.object({ kind: z.enum(["WITHDRAWAL", "CORRECTION"]), reason: z.string().trim().min(5).max(1000) }).strict();
-export const applicationRequestDecisionSchema = z.object({ decision: z.enum(["APPROVED", "REJECTED"]), response: z.string().trim().min(3).max(1000) }).strict();
+export const applicationRequestDecisionSchema = z.object({ decision: z.enum(["APPROVED", "REJECTED"]), response: z.string().trim().min(3, "Write at least 3 characters in your response, for example: Done.").max(1000, "Keep your response within 1,000 characters.") }).strict();
 export const statusSchema = z.object({
   status: z.string().trim().toUpperCase().pipe(z.enum(["APPLIED", "SELECTED", "REJECTED"])),
 });

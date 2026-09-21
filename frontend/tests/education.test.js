@@ -4,7 +4,7 @@ import { extraProfileState, profileExtrasPayload } from "../src/utils/profileFie
 import { schoolEligibilityReason, educationRequirement, supportsDiplomaEntry } from "../src/utils/education.js";
 import { checkRoleEligibility } from "../src/utils/eligibility.js";
 import { emptyDrive, editorFromGraph, drivePayload } from "../src/utils/driveEditor.js";
-const diploma = { profileCompleted: true, course: "B.Tech", branch: "CSE", cgpa: 8, activeBacklogs: 0, entryQualification: "DIPLOMA", tenthPercentage: 80, diplomaPercentage: 75 };
+const diploma = { profileCompleted: true, course: "B.Tech", branch: "CSE", cgpa: 8, activeBacklogs: 0, totalBacklogs: 0, entryQualification: "DIPLOMA", tenthPercentage: 80, diplomaPercentage: 75 };
 const criteria = { allowedBranches: ["CSE"], minCgpa: 8, educationRequirement: "TWELFTH_OR_DIPLOMA", minTenthPercentage: 80, minTwelfthPercentage: 90, minDiplomaPercentage: 75 };
 test("diploma profiles save diploma fields and no 12th fields; changing path removes stale data", () => {
   const form = { ...extraProfileState(diploma), twelfthPercentage: "95", twelfthStream: "Science", diplomaBranch: "CSE", diplomaPassingYear: "2024" };

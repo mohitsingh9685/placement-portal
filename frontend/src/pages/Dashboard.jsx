@@ -1,7 +1,9 @@
 import { isStaffRole } from "../utils/permissions.js";
 import { formatCompensation } from "../utils/compensation.js";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import useSavedOpportunities from "../hooks/useSavedOpportunities.js";
+import ProfileChecklist from "../components/ProfileChecklist.jsx";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
 import {
@@ -16,6 +18,11 @@ import useAuth from "../auth/useAuth.js";
 function Dashboard() {
   const { user } = useAuth();
   const [companies, setCompanies] = useState([]);
+  const savedDrives = useSavedOpportunities();
+  const [params, setParams] = useSearchParams();
+  const savedOnly = params.get("saved") === "1";
+  const [loadError, setLoadError] = useState("");
+  const [listLoading, setListLoading] = useState(true);
   const [applied, setApplied] = useState(() => isGuestUser(user) ? getGuestApplications().map((app) => app.company?._id) : []);
   const [searchTerm, setSearchTerm] = useState("");
 const [eligibilityFilter, setEligibilityFilter] = useState("all");
@@ -43,7 +50,7 @@ const [sortBy, setSortBy] = useState("latest");
 
       return applications.map((app) => app.company?._id);
     } catch (err) {
-      console.log(err);
+      setLoadError(err.response?.data?.message || "Could not load your application history. Refresh before applying.");
       return [];
     }
   }, [isGuest]);
@@ -89,8 +96,9 @@ const [sortBy, setSortBy] = useState("latest");
         const response = await API.get(isGuest ? "/company/guest" : "/company");
         if (!cancelled) setCompanies(response.data.companies || response.data);
       } catch (error) {
-        if (!cancelled) alert(error.response?.data?.message || "Failed to load companies");
+        if (!cancelled) setLoadError(error.response?.data?.message || "Failed to load companies");
       }
+      finally { if (!cancelled) setListLoading(false); }
     };
     loadCompanies();
     fetchApplied().then((ids) => { if (!cancelled) setApplied(ids); });
@@ -135,6 +143,7 @@ const filteredCompanies = [...companies]
 
 
     return (
+      (!savedOnly || savedDrives.saved.some(saved => saved.company === company._id)) &&
       matchesSearch &&
       matchesEligibility &&
       matchesApplication
@@ -331,6 +340,9 @@ const filteredCompanies = [...companies]
 
         </section>
 
+        {!isGuest && <div className="mb-6 space-y-4"><ProfileChecklist profile={user} /><label className="inline-flex items-center gap-2 text-slate-200"><input type="checkbox" checked={savedOnly} onChange={e => setParams(e.target.checked ? { saved: "1" } : {})} />Saved drives only ({savedDrives.saved.length})</label></div>}
+        {(loadError || savedDrives.error) && <p role="alert" className="mb-5 rounded-xl border border-red-400/30 p-4 text-red-300">{loadError || savedDrives.error}</p>}
+        {listLoading || (savedOnly && savedDrives.loading) ? <p role="status" className="py-10 text-slate-300">Loading drives…</p> : filteredCompanies.length === 0 && <p className="py-10 text-slate-300">{savedOnly ? "No saved drives match these filters." : "No drives match these filters."}</p>}
         <div className="grid grid-cols-1 gap-6 [grid-auto-rows:minmax(0,1fr)] sm:grid-cols-2 lg:gap-7 xl:grid-cols-3 2xl:grid-cols-4">
           {filteredCompanies.map((company) => {
             const eligibility = checkEligibility(company);
@@ -352,6 +364,7 @@ const filteredCompanies = [...companies]
                     <h3 className="text-xl font-bold leading-snug tracking-tight text-slate-900 transition-colors duration-300 group-hover:text-slate-950">
                       {company.companyName}
                     </h3>
+                    {!isGuest && <button type="button" disabled={savedDrives.busy || savedDrives.loading} aria-pressed={savedDrives.saved.some(saved => saved.company === company._id)} onClick={e => { e.stopPropagation(); savedDrives.save(company._id, !savedDrives.saved.some(saved => saved.company === company._id)); }} className="mt-3 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-sm text-cyan-500 disabled:opacity-40">{savedDrives.saved.some(saved => saved.company === company._id) ? "★ Saved" : "☆ Save drive"}</button>}
                     <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Open role
                     </p>

@@ -45,13 +45,19 @@ Accepted decisions: no staff academic verification; one role per student per dri
 
 Verification: **115 automated tests** (32 backend, 29 frontend, 54 MongoDB integration), clean lint/build, and synthetic browser checks of two-role publishing, shared uploads, descriptive pay, all five course/branch panels, qualification cutoffs, shared rounds and student applications. Admin role cards, role-scoped counts and updates, refresh/back navigation and read-only access were also checked. Role cards and applicant pages fit at 390 pixels. No new migration or Atlas edits were required. See [Stage 3 workflow and testing](STAGE_3_TESTING.md).
 
-## 4. Student applications — planned
+## 4. Student applications — implemented and verified locally
 
 - Explain eligibility; enforce deadlines, completed/valid academics, and configured resume requirements server-side.
 - Enforce the agreed policy: one role per student per drive, including simultaneous submissions.
 - Snapshot submitted details/resume versions; prevent duplicate applications safely.
 - Application timeline, saved opportunities, in-app notifications, calendar/reminders, profile checklist, withdrawal/correction requests.
 - Test invalid/missing academics, closed drives, duplicate races, and later profile changes.
+
+Implemented: a server-checked review/confirmation step, exact submitted details and resume versions, per-role resume requirement, profile checklist, saved-drive filter, downloadable calendar dates, notification bell/inbox with read state, and application history. Students can request withdrawal or submit their updated profile for a correction; staff with application-management permission approve or decline with a response. Original submissions remain available. Approved withdrawals retain the record and the one-role-per-drive restriction.
+
+Notifications use REST polling every 60 seconds while the portal is visible, plus refresh on focus and relevant actions. They cover newly published drives, submissions, result changes, request decisions and saved-drive deadlines within 24 hours. No Socket.IO, WebSocket, push subscription or email service is required. Round-by-round outcomes remain Stage 5; planned rounds are shown separately from actual timeline events.
+
+Verification: **142 automated tests** (32 backend, 33 frontend, 77 disposable MongoDB integration), clean lint/build, and synthetic browser checks of eligibility, review/confirmation, saving, notifications/read state, correction review, application links and mobile layout. The follow-up audit fixed blocked below-cutoff corrections, stale confirmation during refresh/role switching, and delayed reads overwriting newer application requests. Admin response validation was also verified. The additive Stage 4 collection/index setup was tested locally; it has not been applied to Atlas. See [Stage 4 usage, testing and rollout](STAGE_4_TESTING.md).
 
 ## 5. Recruiter exports, rounds, and offers — planned
 

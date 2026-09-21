@@ -34,6 +34,8 @@ try {
   const { applyStage2 } = await import("../migrations/stage2.js");
   const fixture = await seedLegacyFixture(mongoose.connection.db);
   await applyStage2(mongoose.connection);
+  const { setupStage4 } = await import("../migrations/stage4.js");
+  await setupStage4(mongoose.connection, { apply: true });
   const { default: Admin } = await import("../models/Admin.js");
   const { bootstrapSuperAdmin } = await import("../services/adminManagementService.js");
   await bootstrapSuperAdmin(fixture.admin.email, { apply: true });
@@ -43,6 +45,17 @@ try {
   const { default: ApprovedStudent } = await import("../models/ApprovedStudent.js");
   await ApprovedStudent.create({ email: "new-student@example.invalid", role: "student", isActive: true });
   const newStudent = await Student.create({ name: "Google Display Name", email: "new-student@example.invalid", role: "student", profileCompleted: false });
+  const { driveSchema } = await import("../validators/driveValidator.js");
+  const { createPublishing, changePublishingStatus } = await import("../services/publishingService.js");
+  const role = { title: "Software Engineer", description: "Build web applications with the team.", location: "Delhi / Remote", domain: "TECH", jobType: "Full-time", resumeRequired: true,
+    compensation: { mode: "TEXT", description: "6 LPA fixed + performance bonus", amount: null, currency: "INR", kind: "UNSPECIFIED", period: "UNSPECIFIED" },
+    eligibility: { minCgpa: 7, minTenthPercentage: 60, minTwelfthPercentage: 60, minDiplomaPercentage: 60, educationRequirement: "TWELFTH_OR_DIPLOMA", allowedBranches: ["CSE"], passingYears: [2027] } };
+  const companyId = await createPublishing(driveSchema.parse({ companyName: "Student Experience Demo", title: "Graduate Hiring 2027", description: "A disposable drive for testing applications and notifications.",
+    registrationDeadline: new Date(Date.now() + 3600000 * 12).toISOString(), driveDate: new Date(Date.now() + 86400000).toISOString(),
+    stages: [{ key: "applied", name: "Applied", kind: "APPLICATION" }, { key: "test", name: "Aptitude test", kind: "ASSESSMENT" }, { key: "interview", name: "Interview", kind: "INTERVIEW" }],
+    roles: [role, { ...role, title: "Research Engineer", eligibility: { ...role.eligibility, minCgpa: 9 } }],
+  }), fixture.adminId);
+  await changePublishingStatus(companyId, { status: "PUBLISHED", revision: 0 }, fixture.adminId);
   const { createSession } = await import("../services/authService.js");
   const { setAuthCookies } = await import("../config/cookie.js");
   const { createApp } = await import("../app.js");

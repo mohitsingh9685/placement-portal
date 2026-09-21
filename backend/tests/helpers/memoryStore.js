@@ -9,6 +9,8 @@ import ApprovedStudent from "../../models/ApprovedStudent.js";
 import AuthSession from "../../models/AuthSession.js";
 import Company from "../../models/Company.js";
 import Application from "../../models/Application.js";
+import ResumeVersion from "../../models/ResumeVersion.js";
+import Notification from "../../models/Notification.js";
 import { isStaffRole, PERMISSION_KEYS } from "../../config/permissions.js";
 
 // All test persistence is in memory. Never connect this fixture to a database.
@@ -35,7 +37,7 @@ export function installMemoryStore() {
     const user = doc(Model, {
       name: "Test Student", email: "student@example.invalid", googleId: "google-student", role: "student",
       profileCompleted: true, cgpa: 8, branch: "CSE", activeBacklogs: 0, totalBacklogs: 0,
-      semester: 6, passingYear: 2027, resume: { key: "test/resume.pdf", url: "https://example.invalid/resume.pdf" },
+      semester: 6, passingYear: 2027, resume: { key: "test/resume.pdf", versionId: new mongoose.Types.ObjectId(), url: "https://example.invalid/resume.pdf" },
       ...(isStaffRole(values.role) ? { permissions: PERMISSION_KEYS } : {}), ...values,
     }, records);
     records.set(String(user._id), user);
@@ -48,6 +50,9 @@ export function installMemoryStore() {
   replace(Admin, "findOne", async ({ email }) => [...admins.values()].find(user => user.email === email) || null);
   replace(mongoose.connection, "transaction", async (callback) => callback({}));
   replace(AuditLog, "create", async (docs) => docs);
+  replace(ResumeVersion, "exists", filter => query([...students.values()].some(user => String(user._id) === String(filter.student) && String(user.resume?.versionId) === String(filter._id) && user.resume?.key === filter.key) ? { _id: filter._id } : null));
+  replace(Notification, "updateOne", async () => ({ upsertedCount: 1 }));
+  replace(Notification, "deleteMany", async () => ({ deletedCount: 0 }));
   replace(Student, "findOne", async ({ email }) => [...students.values()].find((s) => s.email === email) || null);
   replace(Student, "create", async (values) => { const user = doc(Student, values, students); return user.save(); });
   replace(Student, "findByIdAndUpdate", async (id, update) => {

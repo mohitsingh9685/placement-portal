@@ -50,10 +50,10 @@ export async function getApplicationPreview(req, res, next) {
   try {
     const company = await getPublishing(req.params.companyId, req.user);
     let resumeError = "";
-    try { await validateResume(req.user, true); } catch (error) { resumeError = error.message; }
+    try { await validateResume(req.user, true); } catch (error) { if (error.statusCode !== 400) throw error; resumeError = error.message; }
     const application = await Application.findOne({ student: req.user._id, drive: company.drive._id });
     const open = company.drive.status === "PUBLISHED" && (!company.registrationDeadline || new Date(company.registrationDeadline) > new Date());
-    res.json({ profileVersion: req.user.profileVersion || 0, driveRevision: company.drive.revision, profile: applicationSnapshot(req.user), application: application ? publicApplication(application) : null,
+    res.json({ company, profileVersion: req.user.profileVersion || 0, driveRevision: company.drive.revision, profile: applicationSnapshot(req.user), application: application ? publicApplication(application) : null,
       roles: company.roles.map(role => {
         const checks = [
           { label: "Applications open", passed: open && role.isActive !== false, message: "Registration closed" },
@@ -163,16 +163,22 @@ export async function requestApplicationChange(req, res, next) {
       if (["WITHDRAWN", "REJECTED"].includes(application.status)) throw new ApiError(409, "This application is no longer active");
       if (application.requests.some(r => r.status === "PENDING")) throw new ApiError(409, "A request is already awaiting placement-team review");
       if (application.requests.length >= 20) throw new ApiError(409, "Please contact the placement team for further changes");
-      let proposedSnapshot;
+      let proposedSnapshot, eligibilityWarnings;
       if (req.body.kind === "CORRECTION") {
         const student = await Student.findByIdAndUpdate(req.user._id, { $inc: { applicationVersion: 1 } }, { returnDocument: "after", session });
         const role = await JobRole.findById(application.role).session(session);
         if (!student || !role) throw new ApiError(404, "Student or role is unavailable");
-        checkEligibility(student, role.eligibility); await validateResume(student, role.resumeRequired, session);
-        proposedSnapshot = { ...application.snapshot.toObject(), ...applicationSnapshot(student) };
-        if (!student.resume?.key) delete proposedSnapshot.resume;
+        const checks = eligibilityChecks(student, role.eligibility);
+        if (!checks[0].passed) throw new ApiError(400, "Complete a valid academic profile before requesting a correction");
+        await validateResume(student, role.resumeRequired, session);
+        // Capture honest corrections even when they reveal that a cutoff is not met.
+        // Staff review the warning separately from the application's selection status.
+        eligibilityWarnings = checks.filter(check => !check.passed).map(check => check.message);
+        const original = application.snapshot.toObject();
+        const roleFields = ["driveTitle", "roleTitle", "compensation", "experience", "positions", "documents", "recruitmentStages"];
+        proposedSnapshot = { ...applicationSnapshot(student), ...Object.fromEntries(roleFields.filter(key => original[key] !== undefined).map(key => [key, original[key]])) };
       }
-      application.requests.push({ ...req.body, proposedSnapshot });
+      application.requests.push({ ...req.body, proposedSnapshot, eligibilityWarnings });
       application.history.push({ title: `${req.body.kind === "CORRECTION" ? "Correction" : "Withdrawal"} requested`, message: req.body.reason, status: application.status });
       await application.save({ session });
       await notify({ key: `request:${application.requests.at(-1)._id}`, recipient: application.student, company: application.company, application: application._id, kind: "REQUEST", title: "Request sent", message: "Your placement team will review your request. Your application remains unchanged until they decide." }, session);
@@ -192,6 +198,7 @@ export async function resolveApplicationRequest(req, res, next) {
       if (req.body.decision === "APPROVED" && ["WITHDRAWN", "REJECTED"].includes(application.status)) throw new ApiError(409, "This application is no longer active. Decline this request with an explanation.");
       request.status = req.body.decision; request.response = req.body.response; request.resolvedAt = new Date(); request.resolvedBy = req.user._id;
       if (request.status === "APPROVED" && request.kind === "WITHDRAWAL") application.status = "WITHDRAWN";
+      if (request.status === "APPROVED" && request.kind === "CORRECTION" && request.eligibilityWarnings != null) application.isEligible = request.eligibilityWarnings.length === 0;
       application.history.push({ title: `${request.kind === "CORRECTION" ? "Correction" : "Withdrawal"} ${request.status.toLowerCase()}`, message: request.response, status: application.status });
       await application.save({ session });
       await AuditLog.create([{ actor: req.user._id, actorModel: "Admin", action: "APPLICATION_REQUEST_REVIEWED", target: String(application._id), details: { requestId: request._id, kind: request.kind, decision: request.status } }], { session });

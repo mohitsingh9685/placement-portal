@@ -4,7 +4,7 @@ import { academicPrograms, matchesAcademics } from "../config/academicPrograms.j
 import { profileUpdateSchema } from "../validators/authValidator.js";
 import { driveSchema } from "../validators/driveValidator.js";
 import { checkEligibility } from "../services/applicationService.js";
-const student = { profileCompleted: true, course: "B-Tech", branch: "CSE", cgpa: 8, activeBacklogs: 0 };
+const student = { profileCompleted: true, course: "B-Tech", branch: "CSE", cgpa: 8, activeBacklogs: 0, totalBacklogs: 0 };
 const criteria = { minCgpa: 7, maxActiveBacklogs: 0, allowedBranches: ["CSE", "FINANCE"], programs: [{ course: "B.Tech", branches: ["CSE"] }, { course: "MBA", branches: ["FINANCE"] }] };
 const draft = () => ({ companyName: "Example", title: "Hiring", stages: [{ key: "applied", name: "Applied", kind: "APPLICATION" }], roles: [{ title: "Trainee", compensation: { amount: 360000, currency: "INR", kind: "SALARY", period: "ANNUAL" }, eligibility: { allowedBranches: ["CSE"], passingYears: [] } }] });
 test("catalog includes the college engineering branches and management courses", () => {

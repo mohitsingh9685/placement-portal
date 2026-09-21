@@ -31,6 +31,7 @@ const schema = new mongoose.Schema({
     requestedAt: { type: Date, default: Date.now }, resolvedAt: Date, response: { type: String, maxlength: 1000 },
     resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
     proposedSnapshot: snapshot,
+    eligibilityWarnings: { type: [String], default: undefined },
   }],
   isEligible: { type: Boolean, default: false }, snapshot: { type: snapshot, required: true, immutable: true },
   appliedAt: { type: Date, default: Date.now }, schemaVersion: { type: Number, default: 2 },

@@ -39,14 +39,15 @@ export async function syncDeadlineReminders(student, now = new Date()) {
 
 export async function inbox(student, page = 1, now = new Date()) {
   await syncDeadlineReminders(student, now);
+  const asOf = new Date();
   const [result] = await Notification.aggregate([
-    { $match: audience(student, now) },
+    { $match: { ...audience(student, now), createdAt: { $lte: asOf } } },
     { $lookup: { from: "notificationreads", let: { receipt: { $concat: [String(student._id), ":", "$_id"] } }, pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$receipt"] } } }], as: "receipts" } },
     { $addFields: { read: { $gt: [{ $size: "$receipts" }, 0] } } },
     { $project: { receipts: 0, recipient: 0 } },
     { $facet: { items: [{ $sort: { createdAt: -1, _id: -1 } }, { $skip: (page - 1) * 20 }, { $limit: 20 }], total: [{ $count: "count" }], unread: [{ $match: { read: false } }, { $count: "count" }] } },
   ]);
-  return { items: result.items, total: result.total[0]?.count || 0, unreadCount: result.unread[0]?.count || 0, page, pages: Math.max(1, Math.ceil((result.total[0]?.count || 0) / 20)), asOf: now.toISOString() };
+  return { items: result.items, total: result.total[0]?.count || 0, unreadCount: result.unread[0]?.count || 0, page, pages: Math.max(1, Math.ceil((result.total[0]?.count || 0) / 20)), asOf: asOf.toISOString() };
 }
 
 export async function markNotificationsRead(student, { id, before }) {

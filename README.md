@@ -74,6 +74,10 @@ Access and refresh secrets must be different random strings of at least 32 chara
 
 Admins with company-management permission can create draft drives with multiple roles, eligibility rules, recruitment rounds, and shared or role-specific JD documents/images. Publishing exposes the drive to students; each student can apply to one eligible role. Closing preserves application history. See [Stage 3 workflow and testing](STAGE_3_TESTING.md). This stage requires no additional database migration beyond Stage 2.
 
+## Student applications and notifications
+
+Students can save drives, check role eligibility, review their submitted details/resume, confirm one application per drive and follow its timeline. The notification bell shows publication, application/result/request updates and saved-drive deadline reminders. Notifications refresh through the existing API while the portal is open; no sockets or extra service are needed. Withdrawal and correction requests are reviewed from the admin applicant page. See [Stage 4 usage and setup](STAGE_4_TESTING.md), including the additive collection/index setup to run before rollout.
+
 ## Run with Docker
 
 Requirements: Docker Desktop and Docker Compose.

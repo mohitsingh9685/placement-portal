@@ -22,7 +22,10 @@ function Inbox({ children, enabled }) {
       inFlight = true;
       try {
         const response = await API.get("/student/notifications", { params: { page }, signal: controller.signal });
-        if (!controller.signal.aborted && latest.current === generation) { setData(response.data); setError(""); }
+        if (!controller.signal.aborted && latest.current === generation) {
+          setData(response.data); setError("");
+          if (page > response.data.pages) setPage(response.data.pages);
+        }
       } catch (err) {
         if (!controller.signal.aborted) setError(err.response?.data?.message || "Notifications could not be refreshed. Try again.");
       } finally { if (!controller.signal.aborted) setLoading(false); inFlight = false; }
