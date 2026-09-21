@@ -71,6 +71,10 @@ export function installMemoryStore() {
   replace(Company, "find", () => query([...companies.values()]));
   replace(Company, "findById", (id) => query(companies.get(String(id)) || null));
   replace(Drive, "findById", (id) => query(drives.get(String(id)) || null));
+  replace(Drive, "find", () => query([...drives.values()]));
+  replace(Drive, "updateOne", async () => ({ modifiedCount: 1 }));
+  replace(JobRole, "find", ({ drive } = {}) => query([...roles.values()].filter(role => !drive || (drive.$in ? drive.$in.some(id => String(id) === String(role.drive)) : String(drive) === String(role.drive)))));
+  replace(JobRole, "countDocuments", ({ drive }) => query([...roles.values()].filter(role => String(role.drive) === String(drive) && role.isActive).length));
   replace(JobRole, "findById", (id) => query(roles.get(String(id)) || null));
   replace(Company, "updateOne", async (filter, update) => { const company = companies.get(String(filter._id)); if (company) company.totalApplicants = (company.totalApplicants || 0) + (update.$inc?.totalApplicants || 0); });
   replace(Company, "create", async (values) => { const c = doc(Company, values, companies); return c.save(); });

@@ -25,7 +25,7 @@ export async function listRoster(req, res, next) {
       ApprovedStudent.countDocuments(filter),
     ]);
     const students = await Student.find({ email: { $in: entries.map(entry => entry.email) } })
-      .select("name email enrollmentNo branch passingYear profileCompleted cgpa tenthPercentage twelfthPercentage activeBacklogs totalBacklogs profileVersion").lean();
+      .select("name email enrollmentNo course branch passingYear profileCompleted cgpa tenthPercentage twelfthPercentage entryQualification diplomaPercentage diplomaBranch diplomaCollege diplomaPassingYear activeBacklogs totalBacklogs profileVersion").lean();
     const byEmail = new Map(students.map(student => [student.email, student]));
     res.json({ entries: entries.map(entry => ({ ...entry, student: byEmail.get(entry.email) || null })), total, page, pages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error) { next(error); }

@@ -70,6 +70,10 @@ Never commit real credentials.
 
 Access and refresh secrets must be different random strings of at least 32 characters. Startup checks required settings before connecting. `CLIENT_URL` must be the frontend origin with no path; HTTPS is required in production. Specify the intended database in `MONGO_URI`. Redis may be omitted for local development.
 
+## Drive publishing
+
+Admins with company-management permission can create draft drives with multiple roles, eligibility rules, recruitment rounds, and shared or role-specific JD documents/images. Publishing exposes the drive to students; each student can apply to one eligible role. Closing preserves application history. See [Stage 3 workflow and testing](STAGE_3_TESTING.md). This stage requires no additional database migration beyond Stage 2.
+
 ## Run with Docker
 
 Requirements: Docker Desktop and Docker Compose.

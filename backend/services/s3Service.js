@@ -60,14 +60,15 @@ export const deleteFileFromS3 =
 
 // GENERATE SIGNED FILE URL
 export const generateSignedFileUrl = async (
-  key
+  key, { fileName, contentType } = {}
 ) => {
   if (!key) return null;
 
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: key,
-    ResponseContentDisposition: "inline",
+    ResponseContentDisposition: `${contentType?.includes("word") ? "attachment" : "inline"}${fileName ? `; filename*=UTF-8''${encodeURIComponent(fileName).replace(/[!'()*]/g, character => `%${character.charCodeAt(0).toString(16)}`)}` : ""}`,
+    ...(contentType ? { ResponseContentType: contentType } : {}),
   });
 
   const signedUrl = await getSignedUrl(

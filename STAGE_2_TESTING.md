@@ -8,7 +8,7 @@ Stage 2 is implemented locally. **The live `placement-portal` Atlas database was
 - Super Admin → Admins supports staff creation, permission grants/revocation and disable/restore access. Permission changes revoke staff sessions; every Super Admin account is protected from edits/removal in the account-management UI and API. Only ordinary admins have management actions. See [Super Admin setup and verification](SUPER_ADMIN_TESTING.md).
 - Admin → Students supports email lists/CSV, preview, invalid/duplicate reporting, import, search, branch/year/access filters, pagination and roster edits. Stale edits return a conflict. Disabling a student revokes their device sessions.
 - Students edit academics directly, with server validation and no staff approval. The profile includes school percentages, semester results, projects and portfolio links.
-- Company → Drive → JobRole → recruitment-stage schemas are in place. Existing company screens still publish one role; the full multi-role publishing UI belongs to stage 3.
+- Company → Drive → JobRole → recruitment-stage schemas are in place. Stage 3 now provides the full multi-role publishing editor; see [Stage 3 workflow and testing](STAGE_3_TESTING.md).
 - A unique `(student, drive)` index enforces **one role per student per drive**, including concurrent requests. New applications retain submitted profile data and the resume version. Profile edits do not rewrite applications.
 - New resume uploads retain older versions. Failed uploads clean up only an unreferenced replacement. An uncertain commit response never deletes a referenced resume.
 - Salary/stipend amounts carry a currency and annual/monthly period. Legacy amounts retain their numeric value with unspecified units; administrators must confirm those units. Applicant counts are maintained transactionally. `SELECTED` does not automatically mean `PLACED`.
@@ -61,7 +61,7 @@ Open either link:
 - Student: <http://localhost:9107/__fixture/student>
 - First-time student profile: <http://localhost:9107/__fixture/new-student>
 
-These create synthetic sessions and redirect to the preview frontend on port 5187. Google sign-in, cloud uploads and signed document downloads are disabled. Roster/profile/application interactions use only a disposable local database. Ctrl+C stops the preview and removes its database.
+These create synthetic sessions and redirect to the preview frontend on port 5187. Google sign-in and real cloud uploads/downloads are disabled. Stage 3 drive documents use temporary in-memory storage so their upload/view flow can be tested. Roster/profile/application interactions use only a disposable local database. Ctrl+C stops the preview and removes its database.
 
 Browser checks performed locally:
 

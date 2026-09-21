@@ -16,7 +16,7 @@ export async function saveResumeVersion(studentId, file, storage = { upload: upl
         fileName: file.originalname, contentType: file.mimetype, uploadedAt: new Date(),
       }], { session });
       resume = { key: version.key, url: version.url, fileName: version.fileName, contentType: version.contentType, uploadedAt: version.uploadedAt, versionId: version._id };
-      await Student.updateOne({ _id: studentId }, { $set: { resume } }, { session });
+      await Student.updateOne({ _id: studentId }, { $set: { resume }, $inc: { profileVersion: 1 } }, { session });
     });
     return { ...resume, signedUrl };
   } catch (error) {

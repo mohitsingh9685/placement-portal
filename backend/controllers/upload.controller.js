@@ -1,14 +1,14 @@
+import { getPublishing, loadPublishing, documentId } from "../services/publishingService.js";
+import { saveDriveDocument, signDriveDocument } from "../services/driveDocumentService.js";
+import ApiError from "../utils/ApiError.js";
 import Admin from "../models/Admin.js";
 import { isStaffRole } from "../config/permissions.js";
 import ResumeVersion from "../models/ResumeVersion.js";
 import { saveResumeVersion } from "../services/resumeService.js";
 import Student from "../models/Student.js";
-import Company from "../models/Company.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import cloudinary from "../config/cloudinary.js";
 import {
-  uploadFileToS3,
-  deleteFileFromS3,
   generateSignedFileUrl,
 } from "../services/s3Service.js";
 
@@ -160,111 +160,23 @@ export const getStudentResumeByAdminController = async (
   }
 };
 
-export const uploadJDController = async (
-  req,
-  res
-) => {
+// Compatibility for old single-JD clients; migrated drive editors use revisions.
+export const uploadJDController = async (req, res, next) => {
   try {
-    const { companyId } = req.params;
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "JD file required",
-      });
-    }
-
-    const company = await Company.findById(
-      companyId
-    );
-
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Company not found",
-      });
-    }
-
-    // DELETE OLD JD
-    if (company.jobDescription?.key) {
-      await deleteFileFromS3(
-        company.jobDescription.key
-      );
-    }
-
-    // UPLOAD NEW JD
-    const uploadedFile = await uploadFileToS3(
-      req.file,
-      `jds/${company._id}`
-    );
-
-    const signedJDUrl = await generateSignedFileUrl(
-      uploadedFile.key
-    );
-
-    company.jobDescription = {
-      key: uploadedFile.key,
-      url: uploadedFile.url,
-      fileName: req.file.originalname,
-      uploadedAt: new Date(),
-    };
-
-    await company.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "JD uploaded successfully",
-      jobDescription: {
-        ...company.jobDescription,
-        signedUrl: signedJDUrl,
-      },
-    });
-  } catch (error) {
-    console.error("JD upload error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "JD upload failed",
-    });
-  }
+    if (!req.file) throw new ApiError(400, "JD file required");
+    const { drive } = await loadPublishing(req.params.companyId);
+    if (drive.publishingVersion >= 3) throw new ApiError(409, "Upload documents through the drive editor");
+    const document = await saveDriveDocument(req.params.companyId, {
+      revision: drive.revision || 0, replaceId: drive.attachments[0] ? documentId(drive.attachments[0]) : undefined,
+    }, req.file, req.user._id);
+    res.json({ success: true, jobDescription: document });
+  } catch (error) { next(error); }
 };
-
-export const getSignedJDUrlController = async (
-  req,
-  res
-) => {
+export const getSignedJDUrlController = async (req, res, next) => {
   try {
-    const { companyId } = req.params;
-
-    const company = await Company.findById(
-      companyId
-    );
-
-    if (!company?.jobDescription?.key) {
-      return res.status(404).json({
-        success: false,
-        message: "JD not found",
-      });
-    }
-
-    const signedUrl =
-      await generateSignedFileUrl(
-        company.jobDescription.key
-      );
-
-    return res.status(200).json({
-      success: true,
-      signedUrl,
-    });
-  } catch (error) {
-    console.error(
-      "JD signed URL error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to generate JD URL",
-    });
-  }
+    const graph = await getPublishing(req.params.companyId, req.user);
+    const document = graph.drive.attachments[0];
+    if (!document) throw new ApiError(404, "JD not found");
+    res.json({ success: true, signedUrl: await signDriveDocument(req.params.companyId, document.id, req.user) });
+  } catch (error) { next(error); }
 };

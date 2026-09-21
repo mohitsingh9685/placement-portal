@@ -1,3 +1,4 @@
+import { CourseBranchFields } from "../components/AcademicFields.jsx";
 import { isStaffRole } from "../utils/permissions.js";
 import ProfileExtraFields from "../components/ProfileExtraFields.jsx";
 import ResumeHistory from "../components/ResumeHistory.jsx";
@@ -364,6 +365,7 @@ function Profile() {
     }
   };
   const handleUpdate = async () => {
+    if (!form.course || !form.branch) { alert("Choose your course and branch first."); return; }
     setSaving(true);
     try {
       const res = await API.put("/auth/update-profile", {
@@ -624,13 +626,7 @@ function Profile() {
                 disabled={!editMode}
                 onChange={(e) => setForm({ ...form, cgpa: e.target.value })}
               />
-              <FloatingField
-                id="profile-branch"
-                label="Branch"
-                value={form.branch}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, branch: e.target.value })}
-              />
+              <CourseBranchFields course={form.course} branch={form.branch} disabled={!editMode} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-slate-900 disabled:opacity-60" required onChange={patch => setForm(previous => ({ ...previous, ...patch }))} />
               <FloatingField
                 id="profile-backlogs"
                 label="Active backlogs"
@@ -664,13 +660,6 @@ function Profile() {
                 value={form.collegeName}
                 disabled={!editMode}
                 onChange={(e) => setForm({ ...form, collegeName: e.target.value })}
-              />
-              <FloatingField
-                id="profile-course"
-                label="Course"
-                value={form.course}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, course: e.target.value })}
               />
               <FloatingField
                 id="profile-semester"

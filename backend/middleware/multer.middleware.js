@@ -36,12 +36,13 @@ const jdFileFilter = (req, file, cb) => {
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg", "image/jpg", "image/png", "image/webp",
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only JD PDF/DOC/DOCX files are allowed"), false);
+    cb(new Error("Only PDF/DOC/DOCX and PNG/JPG/WEBP documents are allowed"), false);
   }
 };
 
@@ -65,6 +66,7 @@ export const uploadJDMiddleware = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024,
+    files: 1,
   },
   fileFilter: jdFileFilter,
 });

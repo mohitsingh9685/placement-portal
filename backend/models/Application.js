@@ -1,23 +1,37 @@
 import mongoose from "mongoose";
-import { documentSchema } from "./schemas/document.js";
+import { documentSchema, compensationSchema } from "./schemas/document.js";
+import { stageSchema } from "./schemas/recruitment.js";
 const snapshot = new mongoose.Schema({
   name: { type: String, required: true }, email: { type: String, required: true },
   enrollmentNo: String, collegeName: String, course: String, branch: String,
   semester: Number, passingYear: Number, cgpa: Number,
   tenthPercentage: Number, twelfthPercentage: Number, twelfthStream: String,
+  entryQualification: { type: String, enum: ["TWELFTH", "DIPLOMA"] },
+  diplomaPercentage: Number, diplomaBranch: String, diplomaCollege: String, diplomaPassingYear: Number,
   activeBacklogs: Number, totalBacklogs: Number, contactNo: String, whatsappNo: String,
   counselorGroup: String, skills: [String], githubUrl: String, linkedinUrl: String,
   semesterCgpa: [{ _id: false, sem: Number, cgpa: Number }],
   projects: [{ _id: false, title: String, description: String, projectUrl: String }],
   resume: documentSchema, resumeUrl: String, profileVersion: Number,
   legacyIncomplete: { type: Boolean, default: false },
+  driveTitle: String, roleTitle: String, documents: [documentSchema], recruitmentStages: [stageSchema],
+  compensation: compensationSchema,
+  experience: String, positions: Number,
 }, { _id: false });
 const schema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
   company: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
   drive: { type: mongoose.Schema.Types.ObjectId, ref: "Drive", required: true },
   role: { type: mongoose.Schema.Types.ObjectId, ref: "JobRole", required: true },
-  status: { type: String, enum: ["APPLIED", "SELECTED", "REJECTED"], default: "APPLIED" },
+  status: { type: String, enum: ["APPLIED", "SELECTED", "REJECTED", "WITHDRAWN"], default: "APPLIED" },
+  history: [{ at: { type: Date, default: Date.now }, title: String, message: String, status: String }],
+  requests: [{
+    kind: { type: String, enum: ["WITHDRAWAL", "CORRECTION"], required: true },
+    reason: { type: String, maxlength: 1000 }, status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    requestedAt: { type: Date, default: Date.now }, resolvedAt: Date, response: { type: String, maxlength: 1000 },
+    resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+    proposedSnapshot: snapshot,
+  }],
   isEligible: { type: Boolean, default: false }, snapshot: { type: snapshot, required: true, immutable: true },
   appliedAt: { type: Date, default: Date.now }, schemaVersion: { type: Number, default: 2 },
 }, { timestamps: true });

@@ -1,3 +1,4 @@
+import { academicDescription } from "../utils/academics.js";
 import { formatCompensation } from "../utils/compensation.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -151,9 +152,7 @@ function AdminDashboard() {
       ? company.companyName.toLowerCase()
       : "";
 
-    const role = company.role
-      ? company.role.toLowerCase()
-      : "";
+    const role = [company.role, ...(company.roles || []).map(item => item.title)].filter(Boolean).join(" ").toLowerCase();
 
     const branches = Array.isArray(
       company.allowedBranches
@@ -175,20 +174,11 @@ function AdminDashboard() {
       branchFilter === "all" ||
       branches.includes(branchFilter);
 
-    const companyCgpa = Number(
-      company.minCgpa || 0
-    );
-
-    const matchesCgpa =
-      cgpaFilter === "all" ||
-      (cgpaFilter === "6-7" &&
-        companyCgpa >= 6 &&
-        companyCgpa < 7) ||
-      (cgpaFilter === "7-8" &&
-        companyCgpa >= 7 &&
-        companyCgpa < 8) ||
-      (cgpaFilter === "8+" &&
-        companyCgpa >= 8);
+    const cgpas = company.roles?.length ? company.roles.filter(role => role.isActive !== false).map(role => Number(role.eligibility?.minCgpa || 0)) : [Number(company.minCgpa || 0)];
+    const matchesCgpa = cgpaFilter === "all" || cgpas.some(value =>
+      (cgpaFilter === "6-7" && value >= 6 && value < 7) ||
+      (cgpaFilter === "7-8" && value >= 7 && value < 8) ||
+      (cgpaFilter === "8+" && value >= 8));
 
     const matchesRole =
       roleFilter === "all" ||
@@ -231,7 +221,7 @@ function AdminDashboard() {
                 <div className="flex flex-col gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Dashboard overview</p>
                   <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Recruitment management</h1>
-                  <p className="text-sm text-slate-600">{canViewApplications ? "Select a company to view its applicants." : canManageCompanies ? "Select a company to edit its details." : "Browse the college's company listings."}</p>
+                  <p className="text-sm text-slate-600">{canViewApplications ? "Select a company, then choose a role to view its applicants." : canManageCompanies ? "Select a company to edit its details." : "Browse the college's company listings."}</p>
                 </div>
               </header>
 
@@ -370,14 +360,14 @@ function AdminDashboard() {
                     {filteredCompanies.map((c) => (
                       <article
                         key={c._id}
-                       onClick={() => { if (canViewApplications) navigate(`/admin/company/${c._id}/applications`); else if (canManageCompanies) navigate(`/admin/edit-company/${c._id}`); }}
+                       onClick={() => { if (canManageCompanies && c.drive?.status === "DRAFT") navigate(`/admin/edit-company/${c._id}`); else if (canViewApplications) navigate(`/admin/company/${c._id}/roles`); else if (canManageCompanies) navigate(`/admin/edit-company/${c._id}`); }}
                         className="group cursor-pointer rounded-2xl border border-slate-300 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg"
                         role={canViewApplications || canManageCompanies ? "button" : undefined}
                         tabIndex={canViewApplications || canManageCompanies ? 0 : undefined}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
+                          if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
                             e.preventDefault();
-                           if (canViewApplications) navigate(`/admin/company/${c._id}/applications`); else if (canManageCompanies) navigate(`/admin/edit-company/${c._id}`);
+                           if (canManageCompanies && c.drive?.status === "DRAFT") navigate(`/admin/edit-company/${c._id}`); else if (canViewApplications) navigate(`/admin/company/${c._id}/roles`); else if (canManageCompanies) navigate(`/admin/edit-company/${c._id}`);
                           }
                         }}
                       >
@@ -385,21 +375,22 @@ function AdminDashboard() {
                           {c.companyName}
                         </h3>
                         <p className="mt-1 text-sm font-medium text-slate-600">{c.role || "Role not specified"}</p>
+                        <div className="mt-4 flex flex-wrap justify-between gap-x-8 gap-y-3 items-center"><span className="text-xs text-cyan-600 font-semibold">{c.drive?.status || "PUBLISHED"}</span>{canManageCompanies && <button className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-sm font-medium text-cyan-600 hover:bg-cyan-400/10" onClick={e => { e.stopPropagation(); navigate(`/admin/edit-company/${c._id}`); }}>Edit drive</button>}</div>
 
                         <div className="mt-4 space-y-2 text-sm">
-                          <p className="text-slate-700">
+                          <p className="whitespace-pre-wrap break-words text-slate-700">
                             <span className="font-semibold text-slate-900">Compensation:</span>{" "}
                             {formatCompensation(c)}
                           </p>
                           <p className="text-slate-700">
-                            <span className="font-semibold text-slate-900">Min CGPA:</span> {c.minCgpa ?? "—"}
+                            <span className="font-semibold text-slate-900">Min CGPA:</span> {c.roles?.length > 1 ? "Varies by role" : c.minCgpa ?? "—"}
                           </p>
                         </div>
 
                         <div className="mt-4">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Allowed branches</p>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Courses & branches</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {Array.isArray(c.allowedBranches) && c.allowedBranches.length > 0 ? (
+                            {c.roles?.some(r => r.eligibility?.allCourses || r.eligibility?.programs?.length) ? c.roles.filter(r => r.isActive !== false).map(r => <p className="w-full text-sm text-slate-700" key={r._id}>{c.roles.length > 1 && <span className="font-semibold">{r.title}: </span>}{academicDescription(r.eligibility)}</p>) : Array.isArray(c.allowedBranches) && c.allowedBranches.length > 0 ? (
                               c.allowedBranches.map((branch, idx) => (
                                 <span
                                   key={`${c._id}-${branch}-${idx}`}

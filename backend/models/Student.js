@@ -57,6 +57,11 @@ const studentSchema = new mongoose.Schema(
     year: Number,
 
     tenthPercentage: Number,
+    entryQualification: { type: String, enum: ["TWELFTH", "DIPLOMA"], default: "TWELFTH" },
+    diplomaPercentage: { type: Number, min: 0, max: 100 },
+    diplomaBranch: String,
+    diplomaCollege: String,
+    diplomaPassingYear: Number,
     twelfthPercentage: Number,
     twelfthStream: String,
 
@@ -75,6 +80,7 @@ const studentSchema = new mongoose.Schema(
 
     resume: documentSchema,
     profileVersion: { type: Number, default: 0 },
+    applicationVersion: { type: Number, default: 0 },
 
     placementStatus: {
       type: String,

@@ -1,3 +1,5 @@
+import { validProgram } from "../config/academicPrograms.js";
+import { educationProfileUpdate } from "../services/educationService.js";
 import { OAuth2Client } from "google-auth-library";
 import Admin from "../models/Admin.js";
 import AuditLog from "../models/AuditLog.js";
@@ -76,7 +78,9 @@ export async function refreshAccessToken(req, res, next) {
 
 export async function updateProfile(req, res, next) {
   try {
-    const update = { ...req.body, ...(req.body.semester ? { year: Math.ceil(req.body.semester / 2) } : {}), hasActiveBacklog: req.body.activeBacklogs > 0, profileCompleted: true };
+    const course = req.body.course ?? req.user.course;
+    if (course && !validProgram(course, req.body.branch)) throw new ApiError(400, "Choose a valid course and branch combination");
+    const update = { ...req.body, ...educationProfileUpdate(req.body, req.user), ...(req.body.semester ? { year: Math.ceil(req.body.semester / 2) } : {}), hasActiveBacklog: req.body.activeBacklogs > 0, profileCompleted: true };
     let user;
     await mongoose.connection.transaction(async (session) => {
       user = await Student.findByIdAndUpdate(req.user._id, { $set: update, $inc: { profileVersion: 1 } }, { returnDocument: "after", runValidators: true, session });

@@ -39,6 +39,7 @@ try {
   await bootstrapSuperAdmin(fixture.admin.email, { apply: true });
   const limitedAdmin = await Admin.create({ name: "Read-only Admin", email: "reader@example.invalid", role: "admin", permissions: ["students.view", "applications.view"] });
   const { default: Student } = await import("../models/Student.js");
+  await Student.updateOne({ _id: fixture.studentId }, { $set: { course: "B.Tech", tenthPercentage: 80, twelfthPercentage: 75 } });
   const { default: ApprovedStudent } = await import("../models/ApprovedStudent.js");
   await ApprovedStudent.create({ email: "new-student@example.invalid", role: "student", isActive: true });
   const newStudent = await Student.create({ name: "Google Display Name", email: "new-student@example.invalid", role: "student", profileCompleted: false });
@@ -46,6 +47,17 @@ try {
   const { setAuthCookies } = await import("../config/cookie.js");
   const { createApp } = await import("../app.js");
   const app = express();
+  // Synthetic documents stay in memory; this preview never contacts S3.
+  const { documentStorage } = await import("../services/driveDocumentService.js");
+  const documents = new Map();
+  documentStorage.upload = async file => { const key = randomUUID(); documents.set(key, file); return { key }; };
+  documentStorage.remove = async key => { documents.delete(key); };
+  documentStorage.sign = async key => `http://localhost:9107/__documents/${encodeURIComponent(key)}`;
+  app.get("/__documents/:key", (req, res) => {
+    const file = documents.get(req.params.key);
+    if (!file) return res.status(404).send("Synthetic document not found");
+    res.type(file.mimetype).send(file.buffer);
+  });
   app.get("/__fixture/:kind", async (req, res) => {
     const user = req.params.kind === "admin" ? await Admin.findById(fixture.adminId)
       : req.params.kind === "limited-admin" ? await Admin.findById(limitedAdmin._id)

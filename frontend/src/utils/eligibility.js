@@ -1,4 +1,10 @@
+import { academicKey, matchesAcademics } from "./academics.js";
+import { schoolEligibilityReason } from "./education.js";
 export function checkCompanyEligibility(user, company) {
+  if (company.roles?.length) {
+    const results = company.roles.filter(role => role.isActive !== false).map(role => checkRoleEligibility(user, role, company.drive));
+    return results.find(result => result.eligible) || (results.length === 1 ? results[0] : { eligible: false, reason: company.drive?.status === "CLOSED" ? "Registration closed" : "No eligible role — view requirements" });
+  }
   if (!user) {
     return { eligible: null, reason: "" };
   }
@@ -19,13 +25,13 @@ export function checkCompanyEligibility(user, company) {
     return { eligible: false, reason: "Low CGPA" };
   }
 
-  const userBranch = String(user.branch || "").toUpperCase().trim();
+  const userBranch = academicKey(user.branch);
   const allowedBranches = (
     Array.isArray(company.allowedBranches)
       ? company.allowedBranches
       : String(company.allowedBranches || "").split(",")
   )
-    .map((branch) => String(branch || "").toUpperCase().trim())
+    .map(academicKey)
     .filter(Boolean);
 
   if (!allowedBranches.includes(userBranch)) {
@@ -41,4 +47,19 @@ export function checkCompanyEligibility(user, company) {
   }
 
   return { eligible: true, reason: "" };
+}
+
+export function checkRoleEligibility(user, role, drive) {
+  if (role.isActive === false || drive?.status !== "PUBLISHED") return { eligible: false, reason: "Registration closed" };
+  const eligibility = role.eligibility || {};
+  const basic = checkCompanyEligibility(user, { ...eligibility, allowedBranches: [user?.branch], registrationDeadline: drive.registrationDeadline, maxBacklogsAllowed: eligibility.maxActiveBacklogs });
+  if (!basic.eligible) return basic;
+  if (user.totalBacklogs == null || user.totalBacklogs === "" || !Number.isInteger(Number(user.totalBacklogs)) || Number(user.totalBacklogs) < Number(user.activeBacklogs)) return { eligible: false, reason: "Complete valid total backlog details" };
+  if (role.resumeRequired && !user.resume?.versionId) return { eligible: false, reason: "Upload your resume" };
+  if (!matchesAcademics(user, eligibility)) return { eligible: false, reason: "Course or branch not eligible" };
+  const schoolReason = schoolEligibilityReason(user, eligibility);
+  if (schoolReason) return { eligible: false, reason: schoolReason };
+  if (eligibility.maxTotalBacklogs != null && (user.totalBacklogs == null || user.totalBacklogs === "" || !Number.isInteger(Number(user.totalBacklogs)) || Number(user.totalBacklogs) < Number(user.activeBacklogs) || Number(user.totalBacklogs) > eligibility.maxTotalBacklogs)) return { eligible: false, reason: "Total backlog limit exceeded or details missing" };
+  if (eligibility.passingYears?.length && !eligibility.passingYears.includes(Number(user.passingYear))) return { eligible: false, reason: "Graduating year not eligible" };
+  return basic;
 }

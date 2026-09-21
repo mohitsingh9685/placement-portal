@@ -27,15 +27,23 @@ Local checks: automated API/frontend regressions, clean ESLint and Vite build, p
 
 Verification: 65 automated checks (21 backend, 15 frontend, 29 real-MongoDB integration), clean lint/build, and browser checks of roster management, academic editing and Super Admin permissions. A read-only copy rehearsal passed application-reference checks, repeated apply and exact-record rollback. On September 20, after suspending Render and verifying an independent backup restore, the live `placement-portal` migration completed. Admin identity, all 9 applications, historical snapshots/statuses, resume references and indexes passed verification. Four pre-existing unresolved company creator references are preserved and reported. Mohit imported the student CSV; read-only comparison confirmed all 788 addresses, with no missing or extra entries. After another verified backup, his existing administrator became the first Super Admin. Deployment and real Google/cloud checks remain pending. See [stage 2 preview, testing and coordinated rollout](STAGE_2_TESTING.md).
 
-Accepted decisions: no staff academic verification; one role per student per drive. Existing single-role company screens stay usable while stage 3 adds full publishing. Keep the old backend stopped and deploy the matching release before reopening the portal.
+Accepted decisions: no staff academic verification; one role per student per drive. Legacy single-role listings remain usable in the new Stage 3 publishing editor; missing job types and pay units must be confirmed before publishing edits. Keep the old backend stopped and deploy the matching release before reopening the portal.
 
-## 3. Admin drive publishing — planned
+## 3. Admin drive publishing — implemented and verified locally
 
 - Company description, application deadline, and an Add role action.
-- Per-role title, domain, location, employment type, salary/stipend with explicit units, and eligibility.
-- Multiple shared/per-role PDFs, Word documents, and images; shared or role-specific recruitment stages.
+- A switcher beside Add role displays one role box at a time; adding selects the new role, switching preserves edits, and saving includes all roles.
+- Admin dashboard company cards open a role-card page. Each role opens its own applicant list, counts and result actions; role links survive refresh, and Back to roles returns to the choices. Inactive roles remain reviewable by admins with application access.
+- Per-role title, domain, location, employment type, optional experience/vacancies, one multiline compensation-details field, and eligibility. Existing numeric salary/stipend values become editable text with their known units preserved.
+- Diploma lateral-entry profiles retain B.Tech as their current course and collect diploma details instead of 12th marks. The admin editor accepts 12th or diploma entry with all three school cutoff fields visible and no qualification restriction dropdown.
+- Shared five-course catalog: B.Tech, B.Com, M.Com, BBA and MBA. Admins select multiple courses with a visible branch panel for each (or all); students choose one course and its related branch. Eligibility keeps each course/branch pair separate. Labeled up/down round controls and separated Edit drive action.
+- Multiple shared/per-role PDFs, Word documents, and images; one shared recruitment-round editor. Existing conflicting applicant round plans remain protected and are identified at the shared editor.
 - Upload replacements before retiring old objects, retain application-referenced documents, correct content types, and invalidate cached JD metadata.
-- Test role isolation, deadline/time-zone boundaries, uploads, permissions, and failure recovery.
+- Draft → Publish → Close, reopening with a future deadline, revision conflict checks and protected applicant history.
+- Student role selection and saved role/pay/document/round snapshots support the publishing flow.
+- Tested role isolation, deadline/time-zone boundaries, uploads, permissions, document history, failure recovery and application/edit races.
+
+Verification: **115 automated tests** (32 backend, 29 frontend, 54 MongoDB integration), clean lint/build, and synthetic browser checks of two-role publishing, shared uploads, descriptive pay, all five course/branch panels, qualification cutoffs, shared rounds and student applications. Admin role cards, role-scoped counts and updates, refresh/back navigation and read-only access were also checked. Role cards and applicant pages fit at 390 pixels. No new migration or Atlas edits were required. See [Stage 3 workflow and testing](STAGE_3_TESTING.md).
 
 ## 4. Student applications — planned
 

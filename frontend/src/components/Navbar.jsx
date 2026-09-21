@@ -1,4 +1,5 @@
 import useAuth from "../auth/useAuth.js";
+import useNotifications from "../notifications/useNotifications.js";
 import { useNavigate, useLocation } from "react-router-dom";
 import API from "../api/axios";
 import { clearGuestSession, isGuestUser } from "../utils/guestSession";
@@ -9,6 +10,7 @@ function Navbar() {
   const location = useLocation();
 
   const { user, updateUser } = useAuth();
+  const inbox = useNotifications();
 
   if (!user) return null;
 
@@ -98,6 +100,7 @@ function Navbar() {
                   Guest demo
                 </span>
               )}
+              {!isGuest && <button aria-label={`Notifications${inbox?.unreadCount ? `, ${inbox.unreadCount} unread` : ''}`} onClick={() => navigate("/notifications")} className={navButtonClass("/notifications")}><span aria-hidden="true">🔔</span> Notifications {inbox?.unreadCount > 0 && <span className="ml-1 rounded-full bg-cyan-500 px-2 py-0.5 text-xs text-white">{inbox.unreadCount > 99 ? "99+" : inbox.unreadCount}</span>}</button>}
             </>
           )}
 

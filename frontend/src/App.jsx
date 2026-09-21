@@ -12,11 +12,14 @@ import EditCompany from "./pages/EditCompany";
 import CompleteProfile from "./pages/CompleteProfile";
 import StudentViewCompany from "./pages/StudentViewCompany";
 import AdminViewApplications from "./pages/AdminViewApplications";
+import AdminCompanyRoles from "./pages/AdminCompanyRoles.jsx";
+import Notifications from "./pages/Notifications.jsx";
+import NotificationProvider from "./notifications/NotificationProvider.jsx";
 import AuthProvider from "./auth/AuthProvider.jsx";
 import RequireSession from "./auth/RequireSession.jsx";
 
 export default function App() {
-  return <BrowserRouter><AuthProvider><Routes>
+  return <BrowserRouter><AuthProvider><NotificationProvider><Routes>
     <Route path="/" element={<Login />} />
     <Route element={<RequireSession role="student" allowGuest />}>
       <Route path="/dashboard" element={<Dashboard />} />
@@ -25,6 +28,7 @@ export default function App() {
     </Route>
     <Route element={<RequireSession role="student" />}>
       <Route path="/profile" element={<Profile />} />
+      <Route path="/notifications" element={<Notifications />} />
     </Route>
     <Route element={<RequireSession role="student" requireComplete={false} />}>
       <Route path="/complete-profile" element={<CompleteProfile />} />
@@ -44,8 +48,9 @@ export default function App() {
       <Route path="/admin/edit-company/:id" element={<EditCompany />} />
     </Route>
     <Route element={<RequireSession role="admin" permission="applications.view" />}>
+      <Route path="/admin/company/:id/roles" element={<AdminCompanyRoles />} />
       <Route path="/admin/company/:id/applications" element={<AdminViewApplications />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes></AuthProvider></BrowserRouter>;
+  </Routes></NotificationProvider></AuthProvider></BrowserRouter>;
 }

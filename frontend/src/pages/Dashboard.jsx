@@ -52,6 +52,10 @@ const [sortBy, setSortBy] = useState("latest");
     checkCompanyEligibility(user, company);
 
   const handleApply = async (companyId) => {
+    if (companies.find(company => company._id === companyId)?.roles?.length) {
+      navigate(`/student/company/${companyId}`);
+      return;
+    }
     if (isGuest) {
       const company = companies.find((item) => item._id === companyId);
       if (!company) return;
@@ -113,7 +117,7 @@ const filteredCompanies = [...companies]
         .includes(searchTerm.toLowerCase()) ||
       company.role
         ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
+        .includes(searchTerm.toLowerCase()) || company.roles?.some(role => role.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesEligibility =
       eligibilityFilter === "all" ||
@@ -357,22 +361,22 @@ const filteredCompanies = [...companies]
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
-                      CTC{" "}
-                      <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
+                    <span className="inline-flex max-w-full items-start rounded-xl border border-slate-200/70 bg-white/85 px-3 py-2 text-xs font-medium text-slate-700 shadow-sm">
+                      Compensation{" "}
+                      <span className="ml-1.5 min-w-0 whitespace-pre-wrap break-words font-semibold text-slate-900">
                         {formatCompensation(company)}
                       </span>
                     </span>
                     <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
                       Min CGPA{" "}
                       <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
-                        {company.minCgpa}
+                        {company.roles?.length > 1 ? "By role" : company.minCgpa}
                       </span>
                     </span>
                     <span className="inline-flex h-8 items-center rounded-xl border border-slate-200/70 bg-white/85 px-3 text-xs font-medium text-slate-700 shadow-sm">
                       Max backlogs{" "}
                       <span className="ml-1.5 tabular-nums font-semibold text-slate-900">
-                        {company.maxBacklogsAllowed}
+                        {company.roles?.length > 1 ? "By role" : company.maxBacklogsAllowed}
                       </span>
                     </span>
                   </div>
@@ -469,7 +473,7 @@ const filteredCompanies = [...companies]
                         className="mt-0 w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 py-3 text-center text-sm font-semibold leading-none text-white shadow-[0_12px_28px_-12px_rgba(79,70,229,0.7)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:from-blue-500 hover:via-indigo-500 hover:to-violet-500 hover:shadow-[0_18px_32px_-12px_rgba(99,102,241,0.78)] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 active:translate-y-0 active:scale-[0.985]"
                       >
                         <span className="inline-flex items-center gap-2">
-                          Apply now
+                          {company.roles?.length > 1 ? "Choose role" : "View & apply"}
                           <svg
                             viewBox="0 0 20 20"
                             fill="currentColor"

@@ -1,5 +1,6 @@
+import { qualificationSummary } from "../utils/education.js";
 import { createElement, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
 import useAuth from "../auth/useAuth.js";
@@ -118,6 +119,14 @@ function SummaryCard({ icon: Icon, label, value, className = "" }) {
 }
 
 function AdminViewApplications() {
+  const { id } = useParams();
+  const [params] = useSearchParams();
+  const roleId = params.get("roleId") || "";
+  // A different role gets fresh search, selection and loading state.
+  return <ApplicationView key={`${id}:${roleId}`} id={id} roleId={roleId} />;
+}
+
+function ApplicationView({ id, roleId }) {
   const { user } = useAuth();
   const canManageCompanies = hasPermission(user, "companies.manage");
   const canUpdateApplications = hasPermission(user, "applications.manage");
@@ -128,43 +137,55 @@ function AdminViewApplications() {
   const [cgpaSort, setCgpaSort] = useState("default");
   const [selectedApplications, setSelectedApplications] = useState([]);
   const [isDeletingCompany, setIsDeletingCompany] = useState(false);
-
-  const { id } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const navigate = useNavigate();
+  const selectedRole = company?.roles?.find(role => String(role._id) === roleId);
+  const backPath = roleId ? `/admin/company/${id}/roles` : "/admin";
+  const backLabel = roleId ? "Back to roles" : "Back to dashboard";
 
   const fetchApplications = async () => {
-    if (!id) return;
-
-    try {
-      const res = await API.get(`/application/admin/company/${id}`);
-      setApplications(res.data || []);
-    } catch (err) {
-      console.log(err);
-    }
+    const res = await API.get(`/application/admin/company/${id}`, { params: roleId ? { roleId } : {} });
+    setApplications(res.data || []);
   };
 
   const updateStatus = async (applicationId, status) => {
+    if (isUpdating || !canUpdateApplications || !applications.some(app => app._id === applicationId)) return;
+    setIsUpdating(true);
+    setActionError("");
     try {
       await API.put(`/application/admin/status/${applicationId}`, { status });
-      fetchApplications();
+      setSelectedApplications([]);
+      await fetchApplications();
     } catch (err) {
-      console.log(err);
+      setActionError(err.response?.data?.message || "Unable to update or reload this application. Try again.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
   const updateBulkStatus = async (status) => {
+    if (isUpdating || !canUpdateApplications) return;
+    const scopedIds = selectedApplications.filter(id => filteredApplications.some(app => app._id === id));
+    if (!scopedIds.length) return;
+    setIsUpdating(true);
+    setActionError("");
     try {
-      await Promise.all(
-        selectedApplications.map((applicationId) =>
+      const results = await Promise.allSettled(
+        scopedIds.map((applicationId) =>
           API.put(`/application/admin/status/${applicationId}`, { status }),
         ),
       );
-
       setSelectedApplications([]);
-      fetchApplications();
+      await fetchApplications();
+      if (results.some(result => result.status === "rejected")) setActionError("Some applications could not be updated. Review the current results before trying again.");
     } catch (err) {
-      console.log(err);
-      alert("Failed to update applications");
+      setActionError(err.response?.data?.message || "Unable to reload applications. Refresh before making another change.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -175,7 +196,7 @@ function AdminViewApplications() {
     }
 
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this company and all related applications?",
+      "Delete this drive? Drives with applications must be closed instead.",
     );
 
     if (!confirmDelete) return;
@@ -188,7 +209,7 @@ function AdminViewApplications() {
       navigate("/admin");
     } catch (err) {
       console.log(err);
-      alert("Failed to delete company");
+      alert(err.response?.data?.message || "Failed to delete company");
     } finally {
       setIsDeletingCompany(false);
     }
@@ -267,22 +288,35 @@ function AdminViewApplications() {
   };
 
   useEffect(() => {
-    const fetchCompany = async () => {
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError("");
       try {
-        const res = await API.get(`/company/${id}`);
-        setCompany(res.data);
+        const [companyResponse, applicationsResponse] = await Promise.all([
+          API.get(`/company/${id}`, { signal: controller.signal }),
+          API.get(`/application/admin/company/${id}`, { signal: controller.signal, params: roleId ? { roleId } : {} }),
+        ]);
+        if (roleId && !companyResponse.data.roles?.some(role => String(role._id) === roleId)) throw new Error("Role not found for this company.");
+        if (controller.signal.aborted) return;
+        setCompany(companyResponse.data);
+        setApplications(applicationsResponse.data || []);
       } catch (err) {
-        console.log(err);
+        if (!controller.signal.aborted) setError(err.response?.data?.message || "Unable to load applications for this page. Please try again.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
+    load();
+    return () => controller.abort();
+  }, [id, roleId, attempt]);
 
-    if (id) {
-      fetchCompany();
-      fetchApplications();
-    }
-    // fetchApplications is intentionally kept as the same local helper used by status updates.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  if (loading || error) return <div className="premium-shell min-h-screen bg-slate-100"><Navbar />
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      <button type="button" onClick={() => navigate(backPath)} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700">← {backLabel}</button>
+      {loading ? <p role="status" className="py-12 text-center text-slate-600">Loading applications…</p> : <div role="alert" className="rounded-2xl border border-red-300 bg-white p-6 text-slate-700"><p>{error}</p><button type="button" onClick={() => setAttempt(value => value + 1)} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white">Try again</button></div>}
+    </main>
+  </div>;
 
   return (
     <div className="premium-shell min-h-screen bg-slate-100">
@@ -292,24 +326,24 @@ function AdminViewApplications() {
         <div className="space-y-6">
           <button
             type="button"
-            onClick={() => navigate("/admin")}
+            onClick={() => navigate(backPath)}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
             <IconChevronLeft className="h-4 w-4" />
-            Back to dashboard
+            {backLabel}
           </button>
 
           <header className="rounded-3xl border border-slate-300 bg-white/85 px-6 py-6 shadow-xl shadow-slate-300/30 ring-1 ring-slate-200 backdrop-blur sm:px-8">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Company applications
+                  {selectedRole ? `${company.companyName} · Role applications` : "Company applications"}
                 </p>
                 <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                  {company?.companyName || "Applications"}
+                  {selectedRole?.title || company?.companyName || "Applications"}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {company?.role || "Review applicants, resumes, and hiring status for this role."}
+                  {selectedRole ? [selectedRole.jobType, selectedRole.location, selectedRole.isActive === false ? "Inactive role" : ""].filter(Boolean).join(" · ") : company?.role || "Review applicants, resumes, and hiring status for this role."}
                 </p>
               </div>
 
@@ -318,7 +352,7 @@ function AdminViewApplications() {
                   <span className="font-semibold text-slate-900">
                     {filteredApplications.length}
                   </span>{" "}
-                  showing from {applications.length} total
+                  showing from {applications.length} total{selectedRole ? " for this role" : ""}
                 </div>
 
                 <button
@@ -342,6 +376,8 @@ function AdminViewApplications() {
             </div>
           </header>
 
+          {actionError && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700">{actionError}</p>}
+
           <section className="grid gap-4 md:grid-cols-3">
             <SummaryCard icon={IconUsers} label="Total applications" value={stats.total} />
             <SummaryCard icon={IconClock} label="In review" value={stats.APPLIED} />
@@ -362,7 +398,7 @@ function AdminViewApplications() {
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => { setSearchTerm(e.target.value); setSelectedApplications([]); }}
                   placeholder="Search by name or email..."
                   className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all duration-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
                 />
@@ -384,11 +420,12 @@ function AdminViewApplications() {
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-300 pt-5">
+            {!roleId && company?.roles?.length > 1 && <label className="block mt-4 text-sm text-slate-600">Filter by role<select aria-label="Filter by role" value="" onChange={e => { if (e.target.value) navigate(`/admin/company/${id}/applications?roleId=${e.target.value}`); }} className="ml-3 rounded-xl border border-slate-300 bg-white p-2"><option value="">All roles</option>{company.roles.map(role => <option key={role._id} value={role._id}>{role.title}{role.isActive === false ? " (inactive)" : ""}</option>)}</select></label>}
+<div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-300 pt-5">
               <button
                 type="button"
                 onClick={() => updateBulkStatus("SELECTED")}
-                disabled={!canUpdateApplications || selectedApplications.length === 0}
+                disabled={isUpdating || !canUpdateApplications || selectedApplications.length === 0}
                 className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Shortlist selected ({selectedApplications.length})
@@ -397,7 +434,7 @@ function AdminViewApplications() {
               <button
                 type="button"
                 onClick={() => updateBulkStatus("REJECTED")}
-                disabled={!canUpdateApplications || selectedApplications.length === 0}
+                disabled={isUpdating || !canUpdateApplications || selectedApplications.length === 0}
                 className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reject selected ({selectedApplications.length})
@@ -406,7 +443,7 @@ function AdminViewApplications() {
               <button
                 type="button"
                 onClick={() => setSelectedApplications([])}
-                disabled={!canUpdateApplications || selectedApplications.length === 0}
+                disabled={isUpdating || !canUpdateApplications || selectedApplications.length === 0}
                 className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Clear selection
@@ -427,7 +464,7 @@ function AdminViewApplications() {
 
               <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 md:hidden">
                 <input
-                  type="checkbox" disabled={!canUpdateApplications}
+                  type="checkbox" disabled={isUpdating || !canUpdateApplications}
                   checked={allSelected}
                   onChange={(e) => {
                     setSelectedApplications(
@@ -447,7 +484,7 @@ function AdminViewApplications() {
                     No applications found
                   </p>
                   <p className="mt-2 text-sm text-slate-600">
-                    Try adjusting your search or CGPA sorting.
+                    {searchTerm ? "Try a different name or email." : (roleId ? "No students have applied to this role yet." : "No students have applied to this company yet.")}
                   </p>
                 </div>
               </div>
@@ -465,11 +502,11 @@ function AdminViewApplications() {
                             {studentName(app)}
                           </p>
                           <p className="mt-1 truncate text-sm text-slate-600">
-                            {studentEmail(app)}
+                            {studentEmail(app)}<br /><span className="text-xs text-cyan-600">{app.snapshot?.roleTitle || app.role?.title || "Legacy role"}</span>{app.snapshot?.entryQualification && <span className="mt-1 block text-xs text-slate-500">{qualificationSummary(app.snapshot)}</span>}
                           </p>
                         </div>
                         <input
-                          type="checkbox" disabled={!canUpdateApplications}
+                          type="checkbox" disabled={isUpdating || !canUpdateApplications}
                           checked={selectedApplications.includes(app._id)}
                           onChange={(e) => toggleSelected(app._id, e.target.checked)}
                           className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -511,7 +548,7 @@ function AdminViewApplications() {
 
                         <button
                           type="button"
-                          onClick={() => updateStatus(app._id, "SELECTED")} disabled={!canUpdateApplications}
+                          onClick={() => updateStatus(app._id, "SELECTED")} disabled={isUpdating || !canUpdateApplications}
                           className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Shortlist
@@ -519,7 +556,7 @@ function AdminViewApplications() {
 
                         <button
                           type="button"
-                          onClick={() => updateStatus(app._id, "REJECTED")} disabled={!canUpdateApplications}
+                          onClick={() => updateStatus(app._id, "REJECTED")} disabled={isUpdating || !canUpdateApplications}
                           className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Reject
@@ -535,7 +572,7 @@ function AdminViewApplications() {
                       <tr className="border-b border-slate-300 bg-slate-50">
                         <th className="px-6 py-3">
                           <input
-                            type="checkbox" disabled={!canUpdateApplications}
+                            type="checkbox" disabled={isUpdating || !canUpdateApplications}
                             checked={allSelected}
                             onChange={(e) => {
                               setSelectedApplications(
@@ -571,7 +608,7 @@ function AdminViewApplications() {
                         <tr key={app._id} className="bg-white transition hover:bg-slate-50">
                           <td className="px-6 py-4">
                             <input
-                              type="checkbox" disabled={!canUpdateApplications}
+                              type="checkbox" disabled={isUpdating || !canUpdateApplications}
                               checked={selectedApplications.includes(app._id)}
                               onChange={(e) => toggleSelected(app._id, e.target.checked)}
                               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -589,7 +626,7 @@ function AdminViewApplications() {
                                   {studentName(app)}
                                 </p>
                                 <p className="mt-0.5 truncate text-xs text-slate-500">
-                                  {studentEmail(app)}
+                                  {studentEmail(app)}<br /><span className="text-xs text-cyan-600">{app.snapshot?.roleTitle || app.role?.title || "Legacy role"}</span>{app.snapshot?.entryQualification && <p className="mt-1 text-xs text-slate-500">{qualificationSummary(app.snapshot)}</p>}
                                 </p>
                               </div>
                             </div>
@@ -625,7 +662,7 @@ function AdminViewApplications() {
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
-                                onClick={() => updateStatus(app._id, "SELECTED")} disabled={!canUpdateApplications}
+                                onClick={() => updateStatus(app._id, "SELECTED")} disabled={isUpdating || !canUpdateApplications}
                                 className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Shortlist
@@ -633,7 +670,7 @@ function AdminViewApplications() {
 
                               <button
                                 type="button"
-                                onClick={() => updateStatus(app._id, "REJECTED")} disabled={!canUpdateApplications}
+                                onClick={() => updateStatus(app._id, "REJECTED")} disabled={isUpdating || !canUpdateApplications}
                                 className="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Reject

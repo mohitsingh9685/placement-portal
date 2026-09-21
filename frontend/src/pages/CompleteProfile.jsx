@@ -1,3 +1,4 @@
+import { CourseBranchFields } from "../components/AcademicFields.jsx";
 import { isStaffRole } from "../utils/permissions.js";
 import ProfileExtraFields from "../components/ProfileExtraFields.jsx";
 import { extraProfileState, profileExtrasPayload } from "../utils/profileFields.js";
@@ -56,6 +57,7 @@ function CompleteProfile() {
   };
 
   const handleSubmit = async () => {
+    if (!form.course || !form.branch) { alert("Choose your course and branch first."); return; }
     try {
       setLoading(true);
 
@@ -130,35 +132,7 @@ function CompleteProfile() {
             />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium">
-              Course
-            </label>
-
-            <input
-              className={inputClass}
-              placeholder="B.Tech"
-              value={form.course}
-              onChange={(e) =>
-                handleChange("course", e.target.value)
-              }
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium">
-              Branch
-            </label>
-
-            <input
-              className={inputClass}
-              placeholder="Computer Science"
-              value={form.branch}
-              onChange={(e) =>
-                handleChange("branch", e.target.value)
-              }
-            />
-          </div>
+          <CourseBranchFields course={form.course} branch={form.branch} className={inputClass} required onChange={patch => setForm(previous => ({ ...previous, ...patch }))} />
 
           <div>
             <label className="mb-2 block text-sm font-medium">

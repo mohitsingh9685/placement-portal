@@ -1,7 +1,10 @@
+import { qualificationSummary } from "../utils/education.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
+import DriveDocuments from "../components/DriveDocuments";
+import { formatCompensation } from "../utils/compensation";
 import {
   getGuestApplications,
   isGuestUser,
@@ -188,11 +191,11 @@ function companyName(app) {
 }
 
 function companyRole(app) {
-  return app.company?.role ?? "Role details pending";
+  return app.snapshot?.roleTitle || app.role?.title || app.company?.role || "Role details pending";
 }
 
 function companyCtc(app) {
-  return app.company?.ctc ? `${app.company.ctc} LPA` : "Not disclosed";
+  return formatCompensation(app.snapshot?.compensation ? app.snapshot : app.company);
 }
 
 function SummaryCard({ icon: Icon, label, value, className = "" }) {
@@ -474,9 +477,11 @@ function MyApplications() {
                               <p className="truncate text-base font-bold text-slate-950">
                                 {companyName(app)}
                               </p>
-                              <p className="mt-1 truncate text-sm text-slate-600">
+                              <div className="mt-1 text-sm text-slate-600">
                                 {companyRole(app)}
-                              </p>
+                                {app.snapshot?.entryQualification && <p className="text-sm text-slate-500">Qualification when applied: {qualificationSummary(app.snapshot)}</p>}
+                                {app.snapshot?.documents?.length > 0 && <DriveDocuments companyId={app.company?._id} documents={app.snapshot.documents} title="Documents when you applied" />}
+                              </div>
                             </div>
                             <StatusBadge status={app.status} />
                           </div>
@@ -494,7 +499,7 @@ function MyApplications() {
                               <dt className="text-xs font-medium text-slate-500">
                                 Package
                               </dt>
-                              <dd className="mt-1 font-semibold text-slate-900">
+                              <dd className="mt-1 whitespace-pre-wrap break-words font-semibold text-slate-900">
                                 {companyCtc(app)}
                               </dd>
                             </div>
@@ -555,14 +560,16 @@ function MyApplications() {
                                   <p className="truncate font-semibold text-slate-950">
                                     {companyName(app)}
                                   </p>
-                                  <p className="mt-0.5 text-xs text-slate-500">
-                                    CTC {companyCtc(app)}
+                                  <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-slate-500">
+                                    Compensation: {companyCtc(app)}
                                   </p>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-slate-700">
                               {companyRole(app)}
+                                {app.snapshot?.entryQualification && <p className="text-sm text-slate-500">Qualification when applied: {qualificationSummary(app.snapshot)}</p>}
+                                {app.snapshot?.documents?.length > 0 && <DriveDocuments companyId={app.company?._id} documents={app.snapshot.documents} title="Documents when you applied" />}
                             </td>
                             <td className="px-6 py-4 tabular-nums text-slate-600">
                               <time dateTime={app.appliedAt}>
