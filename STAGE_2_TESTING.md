@@ -6,7 +6,8 @@ Stage 2 is implemented locally. **The live `placement-portal` Atlas database was
 
 - `admins` is a collection inside `placement-portal`. Staff authentication uses that collection; student access uses `approvedstudents` plus `students`. An import cannot create an administrator.
 - Super Admin → Admins supports staff creation, permission grants/revocation and disable/restore access. Permission changes revoke staff sessions; every Super Admin account is protected from edits/removal in the account-management UI and API. Only ordinary admins have management actions. See [Super Admin setup and verification](SUPER_ADMIN_TESTING.md).
-- Admin → Students supports email lists/CSV, preview, invalid/duplicate reporting, import, search, branch/year/access filters, pagination and roster edits. Stale edits return a conflict. Disabling a student revokes their device sessions.
+- Admin → Students supports email lists/CSV, preview, invalid/duplicate reporting, import, search, branch/year/access filters and pagination. Disabling a student revokes their device sessions. The Roster batch column and Edit roster controls were removed on September 23; students still submit their own profile details.
+- Branch and graduating-year filters now use current student profile fields, joined to the approved email list before counting and pagination. They do not use old CSV academic metadata. Name/roll-number search follows the displayed profile details, with imported identity details as a fallback. Email-only entries without the requested profile details remain visible with academic filters cleared. No migration is required.
 - Students edit academics directly, with server validation and no staff approval. The profile includes school percentages, semester results, projects and portfolio links.
 - Company → Drive → JobRole → recruitment-stage schemas are in place. Stage 3 now provides the full multi-role publishing editor; see [Stage 3 workflow and testing](STAGE_3_TESTING.md).
 - A unique `(student, drive)` index enforces **one role per student per drive**, including concurrent requests. New applications retain submitted profile data and the resume version. Profile edits do not rewrite applications.
@@ -46,6 +47,8 @@ TEST_MONGO_URI='mongodb://127.0.0.1:27028/?replicaSet=rs0' npm run test:integrat
 
 The original 15 real-MongoDB integration tests cover migration/rollback/idempotency, interrupted index installation, admin authentication, roster permissions, a 1,000-row import, pagination, concurrent roster edits, session revocation, academic validation, compensation, simultaneous role applications, snapshots and resume failure recovery. Another 14 integration checks cover Super Admin bootstrap, permissions, privilege escalation, revoked sessions and concurrent access changes, bringing the suite to 29 integration tests. CI runs the same checks against its own disposable replica set. A 1,000-row import is **not** a test of 1,000 simultaneous logins; capacity testing remains stage 6.
 
+September 23 filter regression: three additional integration tests cover email-only approvals, outdated CSV metadata, current profile search, updates, unregistered accounts, private-field exclusion and combined branch/year/access filters across multiple pages. All 32 Stage 2/admin-permission integration tests passed, together with the backend/frontend checks, lint and build. These checks used disposable local databases; Atlas was unchanged.
+
 ## Inspect the screens without changing Atlas
 
 With the local MongoDB container running:
@@ -66,7 +69,7 @@ These create synthetic sessions and redirect to the preview frontend on port 518
 Browser checks performed locally:
 
 1. Import preview shows duplicate/invalid rows and disables confirmation until errors are fixed.
-2. A valid import appears in the roster; branch edits and access disabling persist.
+2. A valid import appears in the student list; enabling/disabling access persists. The table shows student/email, submitted profile, access and actions, without a Roster batch column or Edit roster controls.
 3. Students save school marks, semester results and a project directly, then reload and see the saved values.
 4. Resume history shows the retained current version.
 

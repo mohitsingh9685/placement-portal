@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { emptyDrive, newRole, editorFromGraph, drivePayload, fromIndiaInput, toIndiaInput, moveRound } from "../src/utils/driveEditor.js";
 import { checkCompanyEligibility, checkRoleEligibility } from "../src/utils/eligibility.js";
 import { formatCompensation } from "../src/utils/compensation.js";
-import { selectedPrograms, selectCourses, selectCourseBranches } from "../src/utils/academics.js";
+import { selectedPrograms, selectCourses, selectCourseBranches, selectableBranches } from "../src/utils/academics.js";
+import { driveSchema } from "../../backend/validators/driveValidator.js";
 import { academicPrograms } from "../../backend/config/academicPrograms.js";
 const student = { profileCompleted: true, cgpa: 8, branch: "CSE", activeBacklogs: 0, totalBacklogs: 1, passingYear: 2027, tenthPercentage: 80, twelfthPercentage: 75 };
 const drive = { status: "PUBLISHED", registrationDeadline: new Date(Date.now() + 86400000).toISOString() };
@@ -14,6 +15,10 @@ test("rounds move both ways without displacing Applied or Offer", () => {
   assert.deepEqual(moveRound(moveRound(stages, 1, 1), 1, 1), stages);
   assert.deepEqual(moveRound(stages, 2, -1), moveRound(stages, 1, 1));
   for (const [index, direction] of [[0, 1], [1, -1], [2, 1], [3, -1]]) assert.equal(moveRound(stages, index, direction), stages);
+  const withNewRounds = [...stages.slice(0, 3), { key: "hr", kind: "INTERVIEW" }, { key: "final", kind: "INTERVIEW" }];
+  assert.equal(moveRound(withNewRounds, 3, -1, 3), withNewRounds);
+  assert.equal(moveRound(withNewRounds, 2, 1, 3), withNewRounds);
+  assert.deepEqual(moveRound(withNewRounds, 4, -1, 3).map(s => s.key), ["applied", "test", "interview", "final", "hr"]);
 });
 test("salary text, experience and positions survive edit/save without numeric interpretation", () => {
   const description = "3.60 LPA Fixed + 1.20 LPA Variable\nStipend during training: ₹20,000/month";
@@ -53,25 +58,61 @@ test("every selected course retains its own branches, including narrowing All co
   assert.equal(criteria.programs.find(p => p.course === "M.Com").allBranches, false);
   assert.equal(criteria.programs.find(p => p.course === "BBA").allBranches, false);
 });
-test("one round editor adopts common legacy rounds and retains conflicting applicant rounds", () => {
+test("retired saved branches stay out of selections and drive payloads", () => {
+  const form = emptyDrive(); form.companyName = "Example"; form.title = "Hiring"; form.roles[0].title = "Engineer";
+  form.roles[0].eligibility.programs = [
+    { course: "B.Tech", allBranches: false, branches: ["CSE", "CST", "CSE-AIML", "CSE-DS", "CSE-AI", "CIVIL", "EE", "OTHER", "ME"] },
+    { course: "MBA", allBranches: false, branches: ["FINANCE", "OTHER"] },
+  ];
+  const before = structuredClone(form);
+  assert.deepEqual(selectedPrograms(form.roles[0].eligibility, academicPrograms).map(p => p.branches), [["CSE", "MECHANICAL"], ["FINANCE", "OTHER"]]);
+  const payload = drivePayload(form, undefined, academicPrograms);
+  assert.deepEqual(driveSchema.parse(payload).roles[0].eligibility.allowedBranches, ["CSE", "MECHANICAL", "FINANCE", "OTHER"]);
+  assert.deepEqual(form, before);
+  form.roles[0].eligibility.programs = [{ course: "B.Tech", allBranches: false, branches: ["CST"] }];
+  const emptySelection = drivePayload(form, undefined, academicPrograms);
+  assert.equal(emptySelection.roles[0].eligibility.programs[0].allBranches, false);
+  assert.equal(driveSchema.safeParse(emptySelection).success, false);
+  form.roles[0].eligibility = { ...form.roles[0].eligibility, allCourses: true };
+  assert.deepEqual(drivePayload(form, undefined, academicPrograms).roles[0].eligibility.programs, []);
+});
+test("legacy branch selections use the current catalog without reintroducing removed values", () => {
+  const form = emptyDrive();
+  form.roles[0].eligibility.branches = "CST, cse, CSE-AIML, CSE-DS, CSE-AI, CIVIL, EE, ME, MECHANICAL, IT";
+  assert.deepEqual(drivePayload(form, undefined, academicPrograms).roles[0].eligibility.allowedBranches, ["CSE", "MECHANICAL", "IT"]);
+  assert.deepEqual(selectableBranches(["ME", "OTHER", "FINANCE", "CST"], academicPrograms, "B.Tech"), ["MECHANICAL"]);
+});
+test("each role edits its own rounds, preserving legacy defaults and applicant plans", () => {
   const shared = [{ key: "applied", name: "Applied", kind: "APPLICATION" }, { key: "test", name: "Test", kind: "ASSESSMENT" }];
   const custom = [shared[0], { key: "interview", name: "Interview", kind: "INTERVIEW" }];
   const graph = { companyName: "Example", drive: { stages: shared }, roles: [
     { ...newRole(), _id: "one", stages: custom, hasApplications: true },
-    { ...newRole(), _id: "two", stages: custom },
+    { ...newRole(), _id: "two", stages: [] },
+    { ...newRole(), _id: "three", stages: [] },
   ] };
-  let form = editorFromGraph(graph);
-  assert.deepEqual(form.stages, custom);
-  assert.ok(form.roles.every(role => role.stages.length === 0));
-  graph.roles[1].stages = [];
-  form = editorFromGraph(graph);
+  const form = editorFromGraph(graph);
   assert.deepEqual(form.stages, shared);
   assert.deepEqual(form.roles[0].stages, custom);
-  assert.equal(form.roles[0].retainsPreviousRounds, true);
-  assert.deepEqual(form.roles[1].stages, []);
-  graph.roles[0].hasApplications = false;
-  form = editorFromGraph(graph);
-  assert.ok(drivePayload(form).roles.every(role => role.stages.length === 0));
+  assert.equal(form.roles[0].lockedStageCount, 2);
+  assert.equal(form.roles[1].lockedStageCount, 0);
+  assert.deepEqual(form.roles[1].stages, shared);
+  form.roles[1].stages[1].name = "Sales assessment";
+  form.roles[1].stages.push({ key: "sales", name: "Sales interview", kind: "INTERVIEW" });
+  assert.deepEqual(form.roles[2].stages, shared);
+  assert.deepEqual(graph.drive.stages, shared);
+  const payload = drivePayload(form);
+  assert.equal(payload.roles[0].lockedStageCount, undefined);
+  const reloaded = editorFromGraph({ ...payload, drive: payload });
+  assert.deepEqual(reloaded.roles.map(role => role.stages), form.roles.map(role => role.stages));
+});
+test("new roles start independently with Applied and drive date is removed on save", () => {
+  const form = emptyDrive(); form.roles.push(newRole());
+  form.roles[0].stages.push({ key: "test", name: "Test", kind: "ASSESSMENT" });
+  assert.deepEqual(form.roles[1].stages, [{ key: "applied", name: "Applied", kind: "APPLICATION" }]);
+  const graph = { ...drivePayload(form), driveDate: "2026-12-01T18:30:00.000Z", drive: { stages: form.stages } };
+  const loaded = editorFromGraph(graph);
+  assert.equal(loaded.driveDate, undefined);
+  assert.equal(drivePayload(loaded).driveDate, null);
 });
 test("India deadline input round-trips independently of the browser time zone", () => {
   assert.equal(fromIndiaInput("2026-12-01T23:59"), "2026-12-01T18:29:00.000Z");

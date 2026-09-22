@@ -1,5 +1,4 @@
 import Company from "../models/Company.js";
-import Application from "../models/Application.js";
 import ResumeVersion from "../models/ResumeVersion.js";
 import ApiError from "../utils/ApiError.js";
 import { hasPermission } from "../config/permissions.js";
@@ -84,10 +83,15 @@ export async function pagedCompanies(user, rawQuery) {
       total: [{ $match: filter }, { $count: "count" }], items: [{ $match: filter },
         { $sort: query.sort === "a-z" ? { companyName: 1, _id: 1 } : query.sort === "deadline" ? { "drive.registrationDeadline": 1, _id: 1 } : { createdAt: -1, _id: -1 } },
         { $skip: (query.page - 1) * query.limit }, { $limit: query.limit }, { $unset: ["matchingRoles", "eligibleRoles"] },
+        ...(reviewer ? [
+          { $lookup: { from: "applications", localField: "_id", foreignField: "company", pipeline: [{ $count: "count" }], as: "applicationTotals" } },
+          { $set: { applicationCount: { $ifNull: [{ $arrayElemAt: ["$applicationTotals.count", 0] }, 0] } } },
+          { $unset: "applicationTotals" },
+        ] : []),
       ],
     } },
   ];
-  const [[result], applicationCount] = await Promise.all([Company.aggregate(pipeline), reviewer ? Application.countDocuments({}) : Promise.resolve(null)]);
+  const [result] = await Company.aggregate(pipeline);
   return { success: true, companies: result.items.map(({ drive, roles, applied, saved, eligible, ...company }) => ({ ...visibleGraph(company, drive, roles, user), applied: Boolean(applied?.length), saved: Boolean(saved?.length), ...(student ? { eligible } : {}) })),
-    summary: { ...(result.summary[0] || { companies: 0, eligible: 0 }), applications: applicationCount }, ...pageMeta(result.total[0]?.count || 0, query) };
+    summary: result.summary[0] || { companies: 0, eligible: 0 }, ...pageMeta(result.total[0]?.count || 0, query) };
 }

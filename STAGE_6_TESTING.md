@@ -32,7 +32,7 @@ Branch and year summaries use the student's current profile. Missing details hav
 
 ### Dashboards and applications
 
-1. Browse the admin dashboard: companies load 12 per page, with company/application totals calculated by the database. Search and course/branch, role, CGPA and drive-status filters apply before pagination.
+1. Browse the admin dashboard: companies load 12 per page. Each company card shows its total applications across all roles and statuses for staff with View applications permission, including zero when nobody has applied. Counts are calculated by the database only for companies on the requested page. Search and course/branch, role, CGPA and drive-status filters apply before pagination. **Reset** clears all filters, restores Newest first and returns to page one.
 2. Open a company, then a role. Applicants load 20 per page. Search by name, email, roll number, role or company; filter status/round and sort by date, name or CGPA. Approved academic corrections are used for search and CGPA ordering.
 3. Switch pages after selecting applicants. The selection must clear. Bulk actions apply only to the currently selected applicants; they do not silently select other pages.
 4. Check **Student requests**. It has separate pending/history filters and pages, so a request does not disappear just because its application is on another page or excluded by applicant search.
@@ -40,6 +40,8 @@ Branch and year summaries use the student's current profile. Missing details hav
 6. Open **My applications**, search for a company on a later page, and change status filters. Counts show the student's complete history, not just the visible page. A notification link can still open its specific application even if it is not on page one.
 
 Changing filters resets to page one. Lists show loading/error/retry states; outdated requests cannot overwrite a newer filter result. Company lists omit large descriptions, document bodies and application records. Applicant lists include the snapshots/history needed for review, but only for the requested page. Private lists and reports are marked `Cache-Control: no-store`.
+
+Check **Reset** in each multi-filter group: both dashboards (including Saved), Students, applicant lists, My applications, and Reports. It restores defaults and page one; applicant resets also clear selections. The top Reports reset clears its nested filters too. Single-filter sections and data-entry forms have no reset.
 
 Recruiter exports remain scoped to the selected drive/role/round and are not truncated to the current applicant page. The existing export size limit and permissions still apply.
 
@@ -80,7 +82,7 @@ Application list endpoints now return an object rather than an unbounded array:
 }
 ```
 
-`total` reflects the search/filters. `totalApplications`, `counts` and `requestCount` describe the whole authorized student/company/role scope. Company endpoints retain `companies` and add pagination plus `summary`. Page size is capped at 50; invalid limits, unknown query fields and malformed filters are rejected. The updated frontend understands these envelopes; deploy matching versions when ready.
+`total` reflects the search/filters. `totalApplications`, `counts` and `requestCount` describe the whole authorized student/company/role scope. Company endpoints retain `companies` and add pagination plus `summary`. Each company includes `applicationCount` for staff with View applications permission; the company-list summary no longer includes a global application total. Page size is capped at 50; invalid limits, unknown query fields and malformed filters are rejected. The updated frontend understands these envelopes; deploy matching versions when ready.
 
 New report endpoints, all protected by `reports.view`:
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeCourse, normalizeBranch, validProgram } from "../config/academicPrograms.js";
+import { normalizeCourse, normalizeBranch, validBranch, validProgram } from "../config/academicPrograms.js";
 const number = (schema) => z.preprocess((value) =>
   typeof value === "string" && value.trim() !== "" ? Number(value) : value, schema);
 const text = z.string().trim().max(200);
@@ -10,7 +10,7 @@ export const profileUpdateSchema = z.preprocess((body) => {
 }, z.object({
   name: text.min(1, "Full name is required").optional(),
   cgpa: number(z.number().min(0).max(10)),
-  branch: text.min(1, "Branch is required").transform(normalizeBranch),
+  branch: text.min(1, "Branch is required").transform(normalizeBranch).refine(validBranch, "Choose a listed branch"),
   activeBacklogs: number(z.number().int().min(0)),
   totalBacklogs: number(z.number().int().min(0)),
   enrollmentNo: text.optional(), collegeName: text.optional(), course: text.transform(normalizeCourse).optional(),
@@ -19,7 +19,7 @@ export const profileUpdateSchema = z.preprocess((body) => {
   tenthPercentage: number(z.number().min(0).max(100).nullable()).optional(),
   entryQualification: z.enum(["TWELFTH", "DIPLOMA"]).optional(),
   diplomaPercentage: number(z.number().min(0).max(100).nullable()).optional(),
-  diplomaBranch: text.transform(normalizeBranch).optional(), diplomaCollege: text.optional(),
+  diplomaBranch: text.transform(normalizeBranch).refine(branch => !branch || validProgram("B.Tech", branch), "Choose a listed diploma branch").optional(), diplomaCollege: text.optional(),
   diplomaPassingYear: number(z.number().int().min(1980).max(2100).nullable()).optional(),
   twelfthPercentage: number(z.number().min(0).max(100).nullable()).optional(), twelfthStream: text.optional(),
   githubUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).optional(),
@@ -44,7 +44,7 @@ const companyFields = z.object({
   ctc: number(z.number().min(0)), minCgpa: number(z.number().min(0).max(10)),
   maxBacklogsAllowed: number(z.number().int().min(0)), allowActiveBacklogs: z.boolean().optional(),
   allowedBranches: z.preprocess((value) => typeof value === "string" ? value.split(",") : value,
-    z.array(text.transform((value) => value.toUpperCase())).transform((values) => [...new Set(values.filter(Boolean))])
+    z.array(text.transform(normalizeBranch).refine(value => !value || validBranch(value), "Choose a listed branch")).transform((values) => [...new Set(values.filter(Boolean))])
       .refine((values) => values.length > 0, "At least one branch is required")),
   registrationDeadline: z.string().datetime({ offset: true }).optional(),
 });

@@ -15,19 +15,33 @@ export async function listRoster(req, res, next) {
     const page = Math.max(1, Math.min(10000, Math.floor(Number(req.query.page)) || 1));
     const limit = Math.max(1, Math.min(100, Math.floor(Number(req.query.limit)) || 30));
     const filter = { role: "student" };
-    if (req.query.search) filter.$or = ["email", "name", "enrollmentNo"].map(key => ({ [key]: { $regex: escapeRegex(String(req.query.search).slice(0,100)), $options: "i" } }));
-    if (req.query.branch) filter.branch = String(req.query.branch).toUpperCase().slice(0,100);
-    if (req.query.passingYear) filter.passingYear = Number(req.query.passingYear);
     if (req.query.active === "true") filter.isActive = { $ne: false };
     if (req.query.active === "false") filter.isActive = false;
-    const [entries, total] = await Promise.all([
-      ApprovedStudent.find(filter).sort({ email: 1 }).skip((page - 1) * limit).limit(limit).lean(),
-      ApprovedStudent.countDocuments(filter),
+    const profileFilter = {};
+    if (req.query.search) profileFilter.$or = ["email", "displayName", "displayEnrollmentNo"].map(key => ({ [key]: { $regex: escapeRegex(String(req.query.search).trim().slice(0,100)), $options: "i" } }));
+    if (req.query.branch) profileFilter["student.branch"] = { $regex: `^${escapeRegex(String(req.query.branch).trim().slice(0,100))}$`, $options: "i" };
+    if (req.query.passingYear) {
+      const year = Number(req.query.passingYear);
+      if (!Number.isInteger(year)) throw new ApiError(400, "Enter a valid graduating year");
+      profileFilter["student.passingYear"] = year;
+    }
+    const profileFields = Object.fromEntries("name email enrollmentNo course branch passingYear profileCompleted cgpa tenthPercentage twelfthPercentage entryQualification diplomaPercentage diplomaBranch diplomaCollege diplomaPassingYear activeBacklogs totalBacklogs profileVersion".split(" ").map(key => [key, 1]));
+    const displayed = field => ({ $cond: [{ $in: [{ $ifNull: [`$student.${field}`, ""] }, [""]] }, `$${field}`, `$student.${field}`] });
+    // Email approval controls access; current profiles control academic filters.
+    // Join and filter before pagination so matches on later pages are included.
+    const [result] = await ApprovedStudent.aggregate([
+      { $match: filter },
+      { $lookup: { from: Student.collection.name, localField: "email", foreignField: "email", pipeline: [{ $match: { role: "student" } }, { $project: profileFields }], as: "student" } },
+      { $set: { student: { $ifNull: [{ $arrayElemAt: ["$student", 0] }, null] } } },
+      { $set: { displayName: displayed("name"), displayEnrollmentNo: displayed("enrollmentNo") } },
+      { $match: profileFilter },
+      { $facet: {
+        total: [{ $count: "count" }],
+        entries: [{ $sort: { email: 1, _id: 1 } }, { $skip: (page - 1) * limit }, { $limit: limit }, { $unset: ["displayName", "displayEnrollmentNo"] }],
+      } },
     ]);
-    const students = await Student.find({ email: { $in: entries.map(entry => entry.email) } })
-      .select("name email enrollmentNo course branch passingYear profileCompleted cgpa tenthPercentage twelfthPercentage entryQualification diplomaPercentage diplomaBranch diplomaCollege diplomaPassingYear activeBacklogs totalBacklogs profileVersion").lean();
-    const byEmail = new Map(students.map(student => [student.email, student]));
-    res.json({ entries: entries.map(entry => ({ ...entry, student: byEmail.get(entry.email) || null })), total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+    const total = result.total[0]?.count || 0;
+    res.set("Cache-Control", "no-store").json({ entries: result.entries, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error) { next(error); }
 }
 export async function previewRoster(req, res, next) {
@@ -86,7 +100,7 @@ export async function updateRosterEntry(req, res, next) {
         const student = await Student.findOne({ email: entry.email }).select("_id").session(session);
         if (student) await AuthSession.deleteMany({ user: student._id, userModel: "Student" }, { session });
       }
-      await AuditLog.create([{ actor: req.user._id, actorModel: "Admin", action: "ROSTER_UPDATED", target: String(entry._id), details: { fields: Object.keys(changes), isActive: entry.isActive } }], { session });
+      await AuditLog.create([{ actor: req.user._id, actorModel: "Admin", action: "ROSTER_UPDATED", target: String(entry._id), details: { email: entry.email, fields: Object.keys(changes), isActive: entry.isActive } }], { session });
     });
     res.json({ success: true, entry });
   } catch (error) { next(error); }

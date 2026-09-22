@@ -99,7 +99,7 @@ export async function createPublishing(input, actor) {
     const [drive] = await Drive.create([{ ...fields, company: company._id, createdBy: actor, status: "DRAFT", publishingVersion: 3 }], { session });
     const roles = await JobRole.create(roleInputs.map((role, order) => ({ ...role, drive: drive._id, order })), { session, ordered: true });
     await syncCompanySummary(company, drive, roles, session);
-    await audit(actor, "DRIVE_CREATED", drive, session);
+    await audit(actor, "DRIVE_CREATED", drive, session, { companyName: company.companyName });
   });
   await companyCache.invalidate(); return companyId;
 }
@@ -134,7 +134,7 @@ export async function updatePublishing(companyId, input, actor) {
     for (const role of roles) await role.save({ session });
     company.companyName = companyName;
     await syncCompanySummary(company, drive, roles, session);
-    await audit(actor, "DRIVE_UPDATED", drive, session);
+    await audit(actor, "DRIVE_UPDATED", drive, session, { companyName: company.companyName });
   });
   await companyCache.invalidate();
 }
@@ -149,7 +149,7 @@ export async function changePublishingStatus(companyId, input, actor) {
     if (input.status === "PUBLISHED") drive.publishedAt ||= new Date();
     await drive.save({ session }); await syncCompanySummary(company, drive, roles, session);
     if (input.status === "PUBLISHED" && before !== "PUBLISHED") await notify({ key: `published:${drive._id}`, kind: "DRIVE_PUBLISHED", company: company._id, title: "New placement drive", message: `${company.companyName} — ${drive.title}. View roles and check your eligibility.` }, session);
-    await audit(actor, "DRIVE_STATUS_CHANGED", drive, session, { before, status: drive.status });
+    await audit(actor, "DRIVE_STATUS_CHANGED", drive, session, { companyName: company.companyName, before, status: drive.status });
   });
   await companyCache.invalidate();
 }

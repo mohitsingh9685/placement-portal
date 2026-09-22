@@ -117,8 +117,45 @@ test("1,000-row import is repeatable and paginated without re-enabling existing 
   const path = `/api/admin/roster/imports/${preview.body.id}/commit`;
   assert.equal((await request(path, { cookie, method: "POST" })).body.inserted, 1000); assert.equal((await request(path, { cookie, method: "POST" })).body.alreadyCommitted, true);
   assert.equal(await ApprovedStudent.countDocuments(), 1001); assert.equal((await ApprovedStudent.findOne({ email: fixture.student.email })).isActive, false);
-  const page = await request("/api/admin/roster?passingYear=2028&limit=30&page=2", { cookie });
+  const page = await request("/api/admin/roster?active=true&limit=30&page=2", { cookie });
   assert.equal(page.body.entries.length, 30); assert.equal(page.body.total, 1000); assert.equal(page.body.pages, 34);
+  // Imported academics are not a submitted profile; these students have not signed in.
+  assert.equal((await request("/api/admin/roster?passingYear=2028", { cookie })).body.total, 0);
+});
+test("student filters find submitted branch/year when the approved list contains only emails", async () => {
+  await migrated(); const cookie = await cookieFor("admin");
+  await ApprovedStudent.updateOne({ email: fixture.student.email }, { $unset: { branch: 1, passingYear: 1 } });
+  for (const query of ["branch=CSE", "passingYear=2027", "branch=cse&passingYear=2027&active=true"]) {
+    const response = await request(`/api/admin/roster?${query}`, { cookie });
+    assert.equal(response.status, 200); assert.equal(response.body.total, 1); assert.equal(response.body.entries[0].email, fixture.student.email);
+    const student = response.body.entries[0].student;
+    assert.equal(student.branch, "CSE"); assert.equal(student.passingYear, 2027);
+    for (const field of ["googleId", "refreshToken", "resume", "password"]) assert.equal(student[field], undefined);
+  }
+});
+test("student filters and search follow current displayed details instead of outdated import metadata", async () => {
+  await migrated(); const cookie = await cookieFor("admin");
+  await ApprovedStudent.updateOne({ email: fixture.student.email }, { $set: { branch: "ECE", passingYear: 2030, name: "Old Imported Name", enrollmentNo: "OLD001" } });
+  await Student.updateOne({ _id: fixture.studentId }, { $set: { name: "Current Student Name", enrollmentNo: "CURRENT001" } });
+  await ApprovedStudent.create({ email: "unsigned@example.invalid", branch: "CSE", passingYear: 2027 });
+  for (const query of ["branch=ECE", "passingYear=2030", "search=Old%20Imported", "search=OLD001", "search=%5Binvalid%5D"]) assert.equal((await request(`/api/admin/roster?${query}`, { cookie })).body.total, 0, query);
+  for (const query of ["search=Current%20Student", "search=CURRENT001", "branch=CSE&passingYear=2027"]) assert.equal((await request(`/api/admin/roster?${query}`, { cookie })).body.total, 1, query);
+  const unfiltered = await request("/api/admin/roster", { cookie }); assert.equal(unfiltered.body.total, 2); assert.equal(unfiltered.body.entries.find(e => e.email === "unsigned@example.invalid").student, null);
+  await Student.updateOne({ _id: fixture.studentId }, { $set: { branch: "ECE", passingYear: 2028 } });
+  assert.equal((await request("/api/admin/roster?branch=CSE&passingYear=2027", { cookie })).body.total, 0);
+  assert.equal((await request("/api/admin/roster?branch=ECE&passingYear=2028", { cookie })).body.total, 1);
+});
+test("student academic filters run before pagination and combine with search and access status", async () => {
+  await migrated(); const cookie = await cookieFor("admin");
+  await ApprovedStudent.insertMany(Array.from({ length: 70 }, (_, i) => ({ email: `roster-${String(i).padStart(2, "0")}@example.invalid`, isActive: i !== 69 })));
+  await Student.collection.insertMany(Array.from({ length: 34 }, (_, i) => ({ ...fixture.student, _id: new mongoose.Types.ObjectId(), name: `Profile Candidate ${i + 36}`, enrollmentNo: `ROLL${i + 36}`, email: `roster-${i + 36}@example.invalid` })));
+  const path = "/api/admin/roster?branch=CSE&passingYear=2027&active=true&limit=10";
+  const first = await request(path, { cookie }), second = await request(`${path}&page=2`, { cookie }), last = await request(`${path}&page=4`, { cookie });
+  assert.equal(first.status, 200); assert.equal(first.body.total, 34); assert.equal(first.body.pages, 4); assert.equal(first.body.entries.length, 10); assert.equal(second.body.entries.length, 10); assert.equal(last.body.entries.length, 4);
+  assert.ok(!first.body.entries.some(a => second.body.entries.some(b => b._id === a._id)));
+  const found = await request(`${path}&search=ROLL67`, { cookie }); assert.equal(found.body.total, 1); assert.equal(found.body.entries[0].student.name, "Profile Candidate 67");
+  assert.equal((await request("/api/admin/roster?branch=CSE&passingYear=2027&active=false", { cookie })).body.total, 1);
+  assert.equal((await request("/api/admin/roster?passingYear=not-a-year", { cookie })).status, 400);
 });
 test("roster revisions prevent stale edits and disabling revokes every student session", async () => {
   await migrated(); const cookie = await cookieFor("admin"), studentCookie = await cookieFor(); await cookieFor();

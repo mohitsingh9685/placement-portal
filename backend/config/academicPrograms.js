@@ -1,5 +1,5 @@
 // The public academic-options endpoint is the single catalog used by all forms.
-const engineering = ["CSE", "CST", "ECE", "IT", "CSE-AIML", "CSE-DS", "CSE-AI", "MECHANICAL", "EEE", "CIVIL", "EE", "OTHER"];
+const engineering = ["CSE", "IT", "ECE", "MECHANICAL", "EEE"];
 const management = ["GENERAL", "FINANCE", "MARKETING", "HR", "OPERATIONS", "BUSINESS ANALYTICS", "INTERNATIONAL BUSINESS", "OTHER"];
 const commerce = ["GENERAL", "ACCOUNTING", "FINANCE", "BANKING", "OTHER"];
 export const academicPrograms = [
@@ -13,6 +13,7 @@ export const academicKey = value => {
 };
 export const normalizeCourse = value => academicPrograms.find(p => academicKey(p.course) === academicKey(value))?.course || String(value || "").trim();
 export const normalizeBranch = value => academicPrograms.flatMap(p => p.branches).find(b => academicKey(b) === academicKey(value)) || String(value || "").trim().toUpperCase();
+export const validBranch = value => academicPrograms.some(p => p.branches.includes(normalizeBranch(value)));
 export const validProgram = (course, branch) => academicPrograms.some(p => p.course === normalizeCourse(course) && p.branches.includes(normalizeBranch(branch)));
 export function matchesAcademics(student, criteria) {
   if (!String(student?.branch || "").trim()) return false;

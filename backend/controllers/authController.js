@@ -11,9 +11,21 @@ import { createSession, requireApprovedUser, serializeUser } from "../services/a
 import { generateAccessToken, hashToken, verifyToken, isTokenError } from "../services/tokenService.js";
 import { clearAuthCookies, setAuthCookies } from "../config/cookie.js";
 import ApiError from "../utils/ApiError.js";
+import { PERMISSIONS, hasPermission, isStaffRole } from "../config/permissions.js";
+import { recentAdminActivity } from "../services/adminActivityService.js";
 
 const googleClient = new OAuth2Client();
-export const getProfile = (req, res) => res.json({ success: true, user: serializeUser(req.user) });
+export const getProfile = (req, res) => res.json({
+  success: true,
+  user: serializeUser(req.user),
+  ...(isStaffRole(req.user.role) ? { allowedPermissions: PERMISSIONS.filter(permission => hasPermission(req.user, permission.key)).map(({ key, label }) => ({ key, label })) } : {}),
+});
+
+export async function getRecentActivity(req, res, next) {
+  try {
+    res.set("Cache-Control", "no-store").json({ activities: await recentAdminActivity(req.user._id) });
+  } catch (error) { next(error); }
+}
 
 export async function googleAuth(req, res, next) {
   try {

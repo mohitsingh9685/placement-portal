@@ -3,9 +3,9 @@ import useNotifications from "../notifications/useNotifications.js";
 import { useNavigate, useLocation } from "react-router-dom";
 import API from "../api/axios";
 import { clearGuestSession, isGuestUser } from "../utils/guestSession";
-import { hasPermission, isStaffRole, roleLabel } from "../utils/permissions.js";
+import { hasPermission, isStaffRole } from "../utils/permissions.js";
 
-function Navbar() {
+function Navbar({ wide = false }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -44,8 +44,8 @@ function Navbar() {
     }`;
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-2xl sm:px-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-2xl shadow-black/30 ring-1 ring-cyan-300/10">
+    <nav className={`sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-2xl sm:px-6 ${wide ? "lg:px-8" : ""}`}>
+      <div className={`mx-auto flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-2xl shadow-black/30 ring-1 ring-cyan-300/10 ${wide ? "" : "max-w-7xl"}`}>
         <h1
           onClick={() => navigate(isStaffRole(user?.role) ? "/admin" : "/dashboard")}
           className="cursor-pointer bg-gradient-to-r from-white via-cyan-100 to-indigo-200 bg-clip-text text-xl font-bold tracking-tight text-transparent transition-all duration-300 hover:opacity-85 sm:text-2xl"
@@ -77,7 +77,6 @@ function Navbar() {
               >
                 Profile
               </button>
-              <span className="self-center text-xs text-slate-300">{roleLabel(user.role)}</span>
             </>
           ) : (
             /* STUDENT NAV */

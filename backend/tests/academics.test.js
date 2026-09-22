@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { academicPrograms, matchesAcademics } from "../config/academicPrograms.js";
-import { profileUpdateSchema } from "../validators/authValidator.js";
+import { profileUpdateSchema, updateCompanySchema } from "../validators/authValidator.js";
 import { driveSchema } from "../validators/driveValidator.js";
 import { checkEligibility } from "../services/applicationService.js";
 const student = { profileCompleted: true, course: "B-Tech", branch: "CSE", cgpa: 8, activeBacklogs: 0, totalBacklogs: 0 };
@@ -9,11 +9,31 @@ const criteria = { minCgpa: 7, maxActiveBacklogs: 0, allowedBranches: ["CSE", "F
 const draft = () => ({ companyName: "Example", title: "Hiring", stages: [{ key: "applied", name: "Applied", kind: "APPLICATION" }], roles: [{ title: "Trainee", compensation: { amount: 360000, currency: "INR", kind: "SALARY", period: "ANNUAL" }, eligibility: { allowedBranches: ["CSE"], passingYears: [] } }] });
 test("catalog includes the college engineering branches and management courses", () => {
   const engineering = academicPrograms.find(p => p.course === "B.Tech").branches;
-  for (const branch of ["CSE", "CST", "ECE", "IT", "CSE-AIML", "CSE-DS", "CSE-AI", "MECHANICAL", "EEE", "OTHER"]) assert.ok(engineering.includes(branch));
+  assert.deepEqual(engineering, ["CSE", "IT", "ECE", "MECHANICAL", "EEE"]);
   assert.ok(academicPrograms.find(p => p.course === "MBA").branches.includes("FINANCE"));
   assert.ok(academicPrograms.find(p => p.course === "BBA"));
   assert.deepEqual(academicPrograms.map(p => p.course), ["B.Tech", "B.Com", "M.Com", "BBA", "MBA"]);
   for (const course of ["B.Com", "M.Com"]) assert.ok(academicPrograms.find(p => p.course === course).branches.includes("ACCOUNTING"));
+});
+test("retired engineering branches cannot be saved through profile or company APIs", () => {
+  for (const branch of ["CST", "CSE-AIML", "CSE-DS", "CSE-AI", "CIVIL", "EE"]) {
+    assert.equal(profileUpdateSchema.safeParse({ ...student, branch }).success, false, branch);
+    assert.equal(profileUpdateSchema.safeParse({ ...student, course: undefined, branch }).success, false, branch);
+    assert.equal(profileUpdateSchema.safeParse({ ...student, diplomaBranch: branch }).success, false, branch);
+    assert.equal(updateCompanySchema.safeParse({ allowedBranches: [branch] }).success, false, branch);
+    const body = draft(); body.roles[0].eligibility.allowedBranches = [branch];
+    assert.equal(driveSchema.safeParse(body).success, false, branch);
+    body.roles[0].eligibility.programs = [{ course: "B.Tech", branches: [branch] }];
+    assert.equal(driveSchema.safeParse(body).success, false, branch);
+  }
+  assert.equal(profileUpdateSchema.safeParse({ ...student, branch: "OTHER" }).success, false);
+  assert.equal(profileUpdateSchema.safeParse({ ...student, course: "MBA", branch: "OTHER" }).success, true);
+  assert.equal(profileUpdateSchema.safeParse({ ...student, diplomaBranch: "" }).success, true);
+});
+test("all B.Tech branches expands to only the five supported branches", () => {
+  const body = draft();
+  body.roles[0].eligibility.programs = [{ course: "B.Tech", allBranches: true, branches: [] }];
+  assert.deepEqual(driveSchema.parse(body).roles[0].eligibility.allowedBranches, ["CSE", "IT", "ECE", "MECHANICAL", "EEE"]);
 });
 test("eligibility checks course and branch pairs instead of their cross-product", () => {
   assert.doesNotThrow(() => checkEligibility(student, criteria));

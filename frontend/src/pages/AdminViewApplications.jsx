@@ -4,6 +4,7 @@ import API from "../api/axios.js";
 import usePagedQuery from "../hooks/usePagedQuery.js";
 import useDebouncedValue from "../hooks/useDebouncedValue.js";
 import Pagination from "../components/Pagination.jsx";
+import ResetFiltersButton from "../components/ResetFiltersButton.jsx";
 import Navbar from "../components/Navbar.jsx";
 import AdminApplicationRequests from "../components/AdminApplicationRequests.jsx";
 import ApplicationSnapshot from "../components/ApplicationSnapshot.jsx";
@@ -30,6 +31,7 @@ function ApplicationView({ id, roleId }) {
   const companyQuery = usePagedQuery(`/company/${id}`), company = companyQuery.data;
   const apps = list.data?.applications || [], selected = selection.key === list.key && term === search ? selection.ids : [];
   function setSelected(ids) { setSelection({ key: list.key, ids }); }
+  function resetFilters() { setSearch(""); setSort("latest"); setStage(""); setStatus("ALL"); setPage(1); setSelection({}); }
   const role = company?.roles.find(row => String(row._id) === roleId);
   const stages = role?.stages?.length ? role.stages : company?.drive?.stages || [];
   const canCompanies = hasPermission(user, "companies.manage"), canResumes = hasPermission(user, "resumes.view"), canRounds = hasPermission(user, "rounds.manage");
@@ -54,8 +56,8 @@ function ApplicationView({ id, roleId }) {
         <Pagination data={requests.data} page={requestPage} onPage={setRequestPage} loading={requests.loading} label="applications with requests" />
       </section>
       <RecruitmentWorkspace company={company} role={role} user={user} selectedEmails={apps.filter(app => selected.includes(app._id)).map(app => details(app).email)} onUpdated={reload} />
-      <section className={panel}><h2 className="text-xl font-semibold">Applicant list</h2><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label>Search applicants<input className={field} placeholder="Name, email or roll number" value={search} maxLength={100} onChange={e => { setSearch(e.target.value); setPage(1); setSelected([]); }} /></label><label>Sort applicants<select className={field} value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}><option value="latest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option><option value="high">Highest CGPA first</option><option value="low">Lowest CGPA first</option></select></label><label>Current round<select className={field} value={stage} onChange={e => { setStage(e.target.value); setPage(1); setSelected([]); }}><option value="">All rounds</option>{stages.map(row => <option key={row.key} value={row.key}>{row.name}</option>)}</select></label><label>Status<select className={field} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>{["ALL", "APPLIED", "SHORTLISTED", "INTERVIEW", "SELECTED", "OFFERED", "PLACED", "REJECTED", "WITHDRAWN"].map(s => <option key={s} value={s}>{s === "ALL" ? "All statuses" : applicationStatus(s)}</option>)}</select></label></div>
-        {canRounds && role && <p className="mt-4 text-sm text-slate-400">Select applicants on this page to use their emails in the result preview. {selected.length} selected. <button className="ml-3 text-cyan-300" onClick={() => setSelected([])}>Clear selection</button></p>}
+      <section className={panel}><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">Applicant list</h2><ResetFiltersButton onClick={resetFilters} /></div><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label>Search applicants<input className={field} placeholder="Name, email or roll number" value={search} maxLength={100} onChange={e => { setSearch(e.target.value); setPage(1); setSelected([]); }} /></label><label>Sort applicants<select className={field} value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}><option value="latest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option><option value="high">Highest CGPA first</option><option value="low">Lowest CGPA first</option></select></label><label>Current round<select className={field} value={stage} onChange={e => { setStage(e.target.value); setPage(1); setSelected([]); }}><option value="">All rounds</option>{stages.map(row => <option key={row.key} value={row.key}>{row.name}</option>)}</select></label><label>Status<select className={field} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>{["ALL", "APPLIED", "SHORTLISTED", "INTERVIEW", "SELECTED", "OFFERED", "PLACED", "REJECTED", "WITHDRAWN"].map(s => <option key={s} value={s}>{s === "ALL" ? "All statuses" : applicationStatus(s)}</option>)}</select></label></div>
+        {canRounds && role && <p className="mt-4 text-sm text-slate-400">{selected.length} selected. <button className="ml-3 text-cyan-300" onClick={() => setSelected([])}>Clear selection</button></p>}
         {!listLoading && !list.error && !apps.length && <p className="py-10 text-slate-400">No applications found.</p>}
         {list.error && <p role="alert" className="mt-4 text-red-300">{list.error} <button onClick={list.refresh} className="underline">Retry</button></p>}
         {listLoading && <p role="status" className="py-10">Loading applicants…</p>}

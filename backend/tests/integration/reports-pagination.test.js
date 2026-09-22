@@ -50,6 +50,15 @@ test("reports count unique placed students, current offer states, incomplete pro
   const filtered = await get("/api/reports/overview?course=MBA&branch=FINANCE&passingYear=2028"); assert.equal(filtered.students, 1); assert.equal(filtered.placed, 1); assert.equal(filtered.recordedOffers, 1);
   const empty = await get("/api/reports/overview?passingYear=2099"); assert.equal(empty.students, 0); assert.equal(empty.placementRate, 0); assert.equal(empty.recordedOffers, 0);
 });
+test("academic and report options exclude retired branches without changing saved students or report totals", async () => {
+  const catalog = await get("/api/academics", null);
+  assert.deepEqual(catalog.programs.find(p => p.course === "B.Tech").branches, ["CSE", "IT", "ECE", "MECHANICAL", "EEE"]);
+  await Student.updateOne({ _id: students[0]._id }, { $set: { branch: "CST" } });
+  const options = await get("/api/reports/options");
+  assert.deepEqual(options.branches, ["CSE", "FINANCE"]);
+  assert.equal((await Student.findById(students[0]._id)).branch, "CST");
+  assert.equal((await get("/api/reports/overview")).students, 26);
+});
 test("branch/year totals reconcile and company summaries separate multiple offers from unique placements", async () => {
   const branch = await get("/api/reports/groups?group=branch"); assert.equal(branch.groups.reduce((n, r) => n + r.students, 0), 26); assert.equal(branch.groups.reduce((n, r) => n + r.recordedOffers, 0), 6); assert.ok(branch.groups.some(r => r._id.branch === "Not supplied"));
   const year = await get("/api/reports/groups?group=year"); assert.equal(year.groups.find(r => r._id.year === 2027).students, 24);
@@ -97,7 +106,11 @@ test("student history paginates with global counts, supports notification links,
   assert.equal((await get("/api/application/my?search=Company%2023", studentCookie)).total, 1);
 });
 test("company lists are bounded, searchable and summaries do not send application records or large descriptions", async () => {
-  const first = await get("/api/company"), second = await get("/api/company?page=2"); assert.equal(first.companies.length, 20); assert.equal(second.companies.length, 4); assert.equal(first.summary.companies, 24); assert.equal(first.summary.applications, 49);
+  const first = await get("/api/company"), second = await get("/api/company?page=2"); assert.equal(first.companies.length, 20); assert.equal(second.companies.length, 4); assert.equal(first.summary.companies, 24); assert.equal(first.summary.applications, undefined);
+  const cards = [...first.companies, ...second.companies];
+  assert.equal(cards.find(c => c._id === String(companies[0]._id)).applicationCount, 26);
+  assert.ok(cards.filter(c => c._id !== String(companies[0]._id)).every(c => c.applicationCount === 1));
+  assert.equal(cards.reduce((total, c) => total + c.applicationCount, 0), 49);
   assert.ok(!first.companies.some(c => second.companies.some(d => c._id === d._id))); assert.ok(!JSON.stringify(first).includes("LARGE")); assert.equal(first.applications, undefined);
   assert.equal((await get("/api/company?search=Company%2023")).total, 1);
   assert.equal((await get("/api/company?course=MBA&branch=FINANCE&role=Finance")).total, 24);
@@ -107,19 +120,34 @@ test("company lists are bounded, searchable and summaries do not send applicatio
   await JobRole.collection.updateOne({ _id: roles[0]._id }, { $set: { eligibility: { minCgpa: 7, allowedBranches: ["CSE"] } } });
   assert.equal((await get("/api/company?course=B.Tech&branch=CSE")).total, 24); // Legacy listings never restricted courses.
 });
+test("company cards count all roles and statuses, show zero without applicants, and respect application permissions", async () => {
+  const filtered = await get("/api/company?search=Company%2000&role=Finance");
+  assert.equal(filtered.companies[0].applicationCount, 26);
+  await Application.deleteMany({ company: companies[23]._id });
+  const empty = await get("/api/company?search=Company%2023");
+  assert.equal(empty.companies[0].applicationCount, 0);
+  const staff = await Admin.create({ name: "Publisher", email: "publisher@example.invalid", permissions: ["companies.manage"] });
+  for (const cookie of [await cookieFor(staff), studentCookie, null]) {
+    const list = await get(cookie ? "/api/company" : "/api/company/guest", cookie);
+    assert.ok(list.companies.length > 0);
+    assert.ok(list.companies.every(c => c.applicationCount === undefined && c.applicationTotals === undefined));
+  }
+  assert.equal(filtered.companies[0].applicationTotals, undefined);
+  assert.ok(!JSON.stringify(filtered).includes("candidate0@example.invalid"));
+});
 test("student company filters enforce draft privacy, saved/applied scope, deadlines and placement policy", async () => {
   await Drive.updateOne({ _id: companies[23].defaultDrive }, { $set: { status: "DRAFT" } });
   await Drive.updateOne({ _id: companies[22].defaultDrive }, { $set: { registrationDeadline: new Date("2020-01-01") } });
   await SavedOpportunity.create({ _id: `saved:${students[0]._id}:${companies[5]._id}`, student: students[0]._id, company: companies[5]._id, drive: companies[5].defaultDrive });
   const saved = await get("/api/company?saved=true", studentCookie); assert.equal(saved.total, 1); assert.equal(saved.companies[0]._id, String(companies[5]._id));
-  const eligible = await get("/api/company?eligibility=true", studentCookie); assert.equal(eligible.total, 0); assert.equal(eligible.summary.applications, null);
+  const eligible = await get("/api/company?eligibility=true", studentCookie); assert.equal(eligible.total, 0); assert.equal(eligible.summary.applications, undefined);
   assert.equal((await get("/api/company?applied=true", studentCookie)).total, 23); assert.equal((await get("/api/company?applied=false", studentCookie)).total, 0);
   const secondCookie = await cookieFor(await Student.findById(students[1]._id));
   assert.equal((await get("/api/company?eligibility=true", secondCookie)).total, 21);
   await Student.updateOne({ _id: students[1]._id }, { $set: { resume: { key: "synthetic/missing.pdf", versionId: oid() } } });
   assert.equal((await get("/api/company?eligibility=true", secondCookie)).total, 0);
   await PlacementPolicy.create({ _id: "college", placedOn: "ACCEPTED", furtherApplications: "BLOCK" }); assert.equal((await get("/api/company?eligibility=true", studentCookie)).total, 0);
-  const guest = await get("/api/company/guest", null); assert.equal(guest.total, 23); assert.equal(guest.summary.applications, null);
+  const guest = await get("/api/company/guest", null); assert.equal(guest.total, 23); assert.equal(guest.summary.applications, undefined);
 });
 test("eligibility query agrees with academic evaluation for legacy aliases, diploma marks, backlogs and mixed courses", async () => {
   const criteria = [

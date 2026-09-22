@@ -68,7 +68,7 @@ export async function updateAdminAccount(actorId, targetId, input) {
     const after = accessState(admin);
     const accessChanged = JSON.stringify(before) !== JSON.stringify(after);
     if (accessChanged) await AuthSession.deleteMany({ user: admin._id, userModel: "Admin" }, { session });
-    await audit(actorId, "ADMIN_UPDATED", admin._id, { before, after, sessionsRevoked: accessChanged }, session);
+    await audit(actorId, "ADMIN_UPDATED", admin._id, { email: admin.email, before, after, sessionsRevoked: accessChanged }, session);
   });
   return admin;
 }

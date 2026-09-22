@@ -47,7 +47,7 @@ export default function AdminAccounts() {
       await (editing
         ? API.patch(`/admin/accounts/${editing._id}`, { ...body, revision: editing.revision || 0 })
         : API.post("/admin/accounts", { ...body, email: form.email }));
-      setNotice(editing ? "Admin updated. Changes to access end the affected admin's existing sessions." : "Admin added. They can sign in with their Google account using this email.");
+      setNotice(editing ? "Admin updated." : "Admin added.");
       setEditing(null); setForm(emptyForm()); setRevision(value => value + 1);
     } catch (failure) { setError(failure.response?.data?.message || "Unable to save admin"); }
     finally { setBusy(false); }
@@ -66,7 +66,7 @@ export default function AdminAccounts() {
     finally { setBusy(false); }
   }
   return <div className="premium-shell min-h-screen text-slate-100"><Navbar /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8">
-    <header><h1 className="text-3xl font-bold">Admins & permissions</h1><p className="mt-2 text-slate-300">Super Admins have full administrative access. Other admins can use only the permissions you assign.</p></header>
+    <header><h1 className="text-3xl font-bold">Admins & permissions</h1></header>
     {error && <p role="alert" className="rounded-xl border border-red-400/40 bg-red-950/60 p-4 text-red-100">{error}</p>}
     {notice && <p role="status" className="rounded-xl border border-emerald-400/30 bg-emerald-950/60 p-4 text-emerald-100">{notice}</p>}
     <form id="admin-account-form" onSubmit={save} className="space-y-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
@@ -76,13 +76,13 @@ export default function AdminAccounts() {
         <label className="text-sm">Google account email<input className={input} type="email" required maxLength={254} value={form.email} disabled={Boolean(editing) || busy} onChange={event => setForm({ ...form, email: event.target.value })} /></label>
         <label className="text-sm">Role<select className={input} value={form.role} disabled={busy} onChange={event => setForm({ ...form, role: event.target.value })}><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select></label>
       </div>
-      {form.role === "super_admin" ? <p className="rounded-xl bg-cyan-950/70 p-4 text-cyan-100">Full access, including adding admins and managing ordinary admins' permissions. Super Admin accounts are protected and cannot be edited or have their access removed here.</p> : <fieldset><legend className="mb-3 font-medium">Permissions</legend><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {data.permissions.map(permission => <label key={permission.key} className="flex items-start gap-3 rounded-xl border border-slate-700 p-3"><input type="checkbox" className="mt-1 accent-cyan-500" checked={form.permissions.includes(permission.key)} disabled={busy} onChange={event => togglePermission(permission.key, event.target.checked)} /><span><span className="block font-medium">{permission.label}</span><span className="mt-1 block text-sm text-slate-400">{permission.description}</span></span></label>)}
-      </div><p className="mt-3 text-sm text-slate-400">With no permissions, an admin can sign in and view their profile and company listings. Student emails cannot be used for admin accounts.</p></fieldset>}
+      {form.role === "super_admin" ? <p className="rounded-xl bg-cyan-950/70 p-4 text-cyan-100">Full access. Super Admin accounts cannot be edited or removed here.</p> : <fieldset><legend className="mb-3 font-medium">Permissions</legend><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {data.permissions.map(permission => <label key={permission.key} className="flex items-start gap-3 rounded-xl border border-slate-700 p-3"><input type="checkbox" className="mt-1 accent-cyan-500" checked={form.permissions.includes(permission.key)} disabled={busy} onChange={event => togglePermission(permission.key, event.target.checked)} /><span className="font-medium">{permission.label}</span></label>)}
+      </div><p className="mt-3 text-sm text-slate-400">No permissions: profile and company listings only.</p></fieldset>}
       <div className="flex gap-3"><button className={button} disabled={busy || !data.permissions.length}>{busy ? "Saving…" : editing ? "Save permissions" : "Add admin"}</button>{editing && <button type="button" disabled={busy} onClick={() => { setEditing(null); setForm(emptyForm()); }}>Cancel</button>}</div>
     </form>
     <section className="space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Administrator accounts</h2><p className="text-sm text-slate-400">{data.total} accounts. Removing access keeps their company and activity history.</p></div><label className="text-sm">Search admins<input className={input} value={search} placeholder="Name or email" onChange={event => { setSearch(event.target.value); setPage(1); }} /></label></div>
+      <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Administrator accounts</h2><p className="text-sm text-slate-400">{data.total} accounts</p></div><label className="text-sm">Search admins<input className={input} value={search} placeholder="Name or email" onChange={event => { setSearch(event.target.value); setPage(1); }} /></label></div>
       <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-slate-300"><tr><th className="p-3">Admin</th><th className="p-3">Role</th><th className="p-3">Permissions</th><th className="p-3">Access</th><th className="p-3">Actions</th></tr></thead><tbody>{data.admins.map(admin => <tr key={admin._id} className="border-t border-slate-700 align-top">
         <td className="p-3"><p className="font-medium">{admin.name}{String(admin._id) === String(user._id) ? " (you)" : ""}</p><p className="text-slate-400">{admin.email}</p></td><td className="p-3 whitespace-nowrap">{roleLabel(admin.role)}</td><td className="p-3">{admin.role === "super_admin" ? "All capabilities" : admin.permissions?.length ? admin.permissions.map(key => data.permissions.find(permission => permission.key === key)?.label || key).join(", ") : "No permissions assigned"}</td><td className="p-3">{admin.isActive === false ? "Disabled" : "Active"}</td><td className="p-3">{canManageAdminAccount(user, admin) ? <div className="flex flex-wrap gap-3"><button disabled={busy} className="text-cyan-300" onClick={() => edit(admin)}>Edit permissions</button><button disabled={busy} className={admin.isActive === false ? "text-emerald-300" : "text-red-300"} onClick={() => setAccess(admin)}>{admin.isActive === false ? "Restore access" : "Remove access"}</button></div> : <span className="text-slate-400">Protected account</span>}</td>
       </tr>)}</tbody></table>{!data.admins.length && <p className="py-6 text-slate-400">No admins match your search.</p>}</div>

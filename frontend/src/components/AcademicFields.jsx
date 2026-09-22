@@ -1,5 +1,5 @@
 import useAcademicPrograms from "../hooks/useAcademicPrograms.js";
-import { academicKey, branchLabel, selectedPrograms, selectCourses, selectCourseBranches } from "../utils/academics.js";
+import { academicKey, branchLabel, selectedPrograms, selectCourses, selectCourseBranches, selectableBranches } from "../utils/academics.js";
 import { supportsDiplomaEntry } from "../utils/education.js";
 const input = "mt-1 w-full rounded-xl border border-white/15 bg-slate-950/70 px-3 py-2 text-slate-100 focus:ring-2 focus:ring-cyan-400 disabled:opacity-60";
 function OptionsError({ error, retry }) {
@@ -17,10 +17,9 @@ export function CourseBranchFields({ course, branch, onChange, disabled, classNa
       {course && !selected && <option value={course}>{course} (choose a listed course)</option>}
       {programs.map(p => <option key={p.course} value={p.course}>{p.course}</option>)}
     </select><OptionsError error={error} retry={retry} /></label>
-    <label className="block text-sm font-medium">Branch / specialization<select className={className} value={selectedBranch || branch || ""} disabled={disabled || !selected} required={required}
+    <label className="block text-sm font-medium">Branch / specialization<select className={className} value={selectedBranch || ""} disabled={disabled || !selected} required={required}
       onChange={e => onChange({ branch: e.target.value })}>
       <option value="">{selected ? "Choose branch / specialization" : "Choose a course first"}</option>
-      {branch && !selectedBranch && <option value={branch}>{branch} (choose a listed branch)</option>}
       {branches.map(b => <option key={b} value={b}>{branchLabel(b)}</option>)}
     </select></label>
   </>;
@@ -45,7 +44,7 @@ export function AcademicEligibilityFields({ value, onChange }) {
   const selections = selectedPrograms(value, programs);
   const unavailable = selections.filter(p => !programs.some(item => item.course === p.course));
   const setSelections = courses => onChange(selectCourses(value, courses, programs));
-  const legacyBranches = (value.branches || "").split(",").map(b => b.trim()).filter(Boolean);
+  const legacyBranches = selectableBranches((value.branches || "").split(","), programs);
   return <div className="space-y-3">
     <h4 className="text-sm font-semibold">Eligible courses & branches</h4>
     <OptionsError error={error} retry={retry} />
@@ -54,16 +53,13 @@ export function AcademicEligibilityFields({ value, onChange }) {
       <MultiSelect label="Courses" options={programs.map(p => ({ value: p.course, label: p.course }))} selected={selections.map(p => p.course)} all={value.allCourses || false}
         onAll={allCourses => onChange({ ...value, allCourses, programs: [], branches: "" })} onChange={setSelections} />
       {unavailable.length > 0 && <p role="alert" className="text-sm text-amber-200">Previously selected courses are no longer offered: {unavailable.map(p => p.course).join(", ")}. <button type="button" className="underline" onClick={() => setSelections(selections.map(p => p.course))}>Remove unavailable courses</button></p>}
-      {selections.length > 0 && <p className="text-xs text-slate-400">Each selected course has its own branch choices below. Select individual branches or all branches for that course.</p>}
       <div className="grid gap-4 sm:grid-cols-2 items-start">{selections.filter(p => !unavailable.includes(p)).map(p => <MultiSelect key={p.course} expanded label={`${p.course} branches`} options={(programs.find(item => item.course === p.course)?.branches || []).map(b => ({ value: b, label: branchLabel(b) }))}
         selected={p.branches} all={p.allBranches} onAll={allBranches => onChange(selectCourseBranches(value, p.course, [], allBranches, programs))}
         onChange={branches => onChange(selectCourseBranches(value, p.course, branches, false, programs))} />)}</div>
-      {!value.allCourses && !selections.length && legacyBranches.length > 0 && <>
-        <p className="text-xs text-slate-400">This drive currently accepts these branches from any course. Select courses above to narrow eligibility.</p>
-        <MultiSelect label="Eligible branches (any course)" options={[...new Set([...programs.flatMap(p => p.branches), ...legacyBranches])].map(b => ({ value: b, label: branchLabel(b) }))} selected={legacyBranches} all={false}
+      {!value.allCourses && !selections.length && value.branches && <>
+        <MultiSelect label="Eligible branches (any course)" options={[...new Set(programs.flatMap(p => p.branches))].map(b => ({ value: b, label: branchLabel(b) }))} selected={legacyBranches} all={false}
           onAll={all => onChange({ ...value, allCourses: all, branches: all ? "" : value.branches })} onChange={branches => onChange({ ...value, branches: branches.join(", ") })} />
       </>}
-      {value.allCourses && <p className="text-xs text-slate-400">Students from every course and branch can apply if they meet the other criteria.</p>}
     </>}
   </div>;
 }

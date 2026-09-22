@@ -66,6 +66,32 @@ async function upload(graph, options = {}, file = pdf, cookie = adminCookie) {
   return request(`/api/company/${graph._id}/drive/documents?${new URLSearchParams({ revision: graph.drive.revision, ...options })}`, { cookie, method: "POST", form });
 }
 
+test("company activity keeps names after edits and deletion and ignores failed writes", async () => {
+  let graph = await create();
+  const changed = await edit(graph, { ...editInput(graph), companyName: "Renamed Company" });
+  assert.equal(changed.status, 200); graph = await publish(changed.body);
+  assert.equal((await request(`/api/company/${graph._id}`, { method: "DELETE" })).status, 200);
+  assert.equal(await Drive.findById(graph.drive._id), null);
+  const history = await request("/api/auth/activity");
+  assert.equal(history.status, 200);
+  assert.deepEqual(history.body.activities.map(item => item.description), [
+    "Deleted Renamed Company", "Published Renamed Company", "Updated Renamed Company", "Added Synthetic Multi-role Co",
+  ]);
+  assert.equal((await request(`/api/company/${fixture.companyId}`, { method: "DELETE" })).status, 409);
+  assert.deepEqual((await request("/api/auth/activity")).body, history.body);
+});
+
+test("legacy company writes also appear in personal activity", async () => {
+  const created = await request("/api/company", { method: "POST", body: { companyName: "Legacy Company", role: "Engineer", description: "Synthetic legacy listing", ctc: 600000, minCgpa: 7, maxBacklogsAllowed: 0, allowedBranches: ["CSE"] } });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const path = `/api/company/${created.body._id}`;
+  assert.equal((await request(path, { method: "PUT", body: { companyName: "Updated Legacy Company" } })).status, 200);
+  assert.equal((await request(path, { method: "DELETE" })).status, 200);
+  assert.deepEqual((await request("/api/auth/activity")).body.activities.map(item => item.description), [
+    "Deleted Updated Legacy Company", "Updated Updated Legacy Company", "Added Legacy Company",
+  ]);
+});
+
 test("drafts are private across lists, detail, old/new JD endpoints and applications", async () => {
   const graph = await create(); const uploaded = await upload(graph); assert.equal(uploaded.status, 201); const doc = uploaded.body.drive.attachments[0];
   for (const cookie of [studentCookie, null]) {
@@ -193,7 +219,7 @@ test("rounds already used by applicants cannot be rewritten; appending is allowe
   assert.equal((await Application.findOne({ drive: graph.drive._id })).snapshot.recruitmentStages.length, 3);
 });
 
-test("shared editor replaces matching role overrides without changing applicant round history", async () => {
+test("role editor changes only the selected role and preserves applicant round history", async () => {
   const body = input(); const common = body.roles[1].stages;
   body.roles.forEach(role => { role.stages = common; });
   let graph = await publish(await create(body));
@@ -201,27 +227,56 @@ test("shared editor replaces matching role overrides without changing applicant 
   graph = await get(graph);
   assert.equal(graph.roles[0].hasApplications, true);
   const before = (await Application.findOne({ drive: graph.drive._id })).snapshot.toObject();
-  const result = await edit(graph, drivePayload(editorFromGraph(graph), graph.drive.revision));
+  const form = editorFromGraph(graph);
+  form.roles[1].stages.push(stage("SalesFinal", "INTERVIEW"));
+  const result = await edit(graph, drivePayload(form, graph.drive.revision));
   assert.equal(result.status, 200, JSON.stringify(result.body));
-  assert.deepEqual(result.body.drive.stages, common);
-  assert.ok(result.body.roles.every(role => role.stages.length === 0));
+  assert.deepEqual(result.body.drive.stages, body.stages);
+  assert.deepEqual(result.body.roles[0].stages, common);
+  assert.deepEqual(result.body.roles[1].stages, form.roles[1].stages);
   assert.deepEqual((await Application.findOne({ drive: graph.drive._id })).snapshot.toObject(), before);
   const studentGraph = (await request(`/api/company/${graph._id}`, { cookie: studentCookie })).body;
   assert.equal(studentGraph.roles[0].hasApplications, undefined);
+  assert.deepEqual(studentGraph.roles.map(role => role.stages), form.roles.map(role => role.stages));
 });
 
-test("saving shared rounds retains a different existing applicant plan and still blocks unsafe edits", async () => {
+test("role editor materializes inherited rounds and still blocks unsafe applicant changes", async () => {
   let graph = await publish(await create());
   assert.equal((await apply(graph.roles[1])).status, 201);
   graph = await get(graph);
   const form = editorFromGraph(graph);
-  assert.equal(form.roles[1].retainsPreviousRounds, true);
+  assert.equal(form.roles[1].lockedStageCount, graph.roles[1].stages.length);
+  assert.deepEqual(form.roles[0].stages, graph.drive.stages);
   const result = await edit(graph, drivePayload(form, graph.drive.revision));
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.deepEqual(result.body.roles[1].stages, graph.roles[1].stages);
+  assert.deepEqual(result.body.roles[0].stages, graph.drive.stages);
   const unsafe = drivePayload(editorFromGraph(result.body), result.body.drive.revision);
   unsafe.roles[1].stages = [];
   assert.equal((await edit(result.body, unsafe)).status, 409);
+  const appended = drivePayload(editorFromGraph(result.body), result.body.drive.revision);
+  appended.roles[1].stages.push(stage("SalesOffer", "OFFER"));
+  const updated = await edit(result.body, appended);
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+  assert.deepEqual(updated.body.roles[0].stages, graph.drive.stages);
+  assert.deepEqual(updated.body.roles[1].stages, appended.roles[1].stages);
+});
+
+test("editor creates independent role rounds and saves without the retired drive date", async () => {
+  const body = input();
+  const form = editorFromGraph({ ...body, drive: body });
+  form.roles[0].stages.push(stage("EngineeringOffer", "OFFER"));
+  let graph = await publish(await create(drivePayload(form)));
+  assert.deepEqual(graph.roles.map(role => role.stages), form.roles.map(role => role.stages));
+  assert.equal((await apply(graph.roles[1])).status, 201);
+  const snapshot = (await Application.findOne({ drive: graph.drive._id })).snapshot;
+  assert.deepEqual(snapshot.recruitmentStages.map(s => s.key), form.roles[1].stages.map(s => s.key));
+  // An old date must not block a later deadline once the field has been removed.
+  await Drive.updateOne({ _id: graph.drive._id }, { $set: { driveDate: new Date() } });
+  graph = await get(graph);
+  const result = await edit(graph, drivePayload(editorFromGraph(graph), graph.drive.revision));
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.driveDate, null);
 });
 
 test("document replacements preserve applicant versions without disclosing storage keys", async () => {

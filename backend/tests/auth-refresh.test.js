@@ -58,6 +58,25 @@ test("invalid Google tokens and unverified emails do not create sessions", async
   assert.equal(store.sessions.size, 0);
 });
 
+test("staff profiles return only current allowed permissions; super admins receive all", async () => {
+  const { PERMISSIONS } = await import("../config/permissions.js");
+  admin.permissions = ["students.view", "companies.manage"];
+  const cookie = await login(admin.email);
+  let result = await request("/api/auth/profile", { cookie });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.allowedPermissions, PERMISSIONS.filter(permission => admin.permissions.includes(permission.key)).map(({ key, label }) => ({ key, label })));
+  admin.permissions = [];
+  result = await request("/api/auth/profile", { cookie });
+  assert.deepEqual(result.body.allowedPermissions, []);
+  const owner = store.seedStudent({ name: "Test Owner", email: "owner@example.invalid", googleId: "google-owner", role: "super_admin", permissions: [] });
+  result = await request("/api/auth/profile", { cookie: await login(owner.email) });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.allowedPermissions, PERMISSIONS.map(({ key, label }) => ({ key, label })));
+  assert.equal(result.body.user.googleId, undefined);
+  const studentProfile = await request("/api/auth/profile", { cookie: await login() });
+  assert.equal(studentProfile.body.allowedPermissions, undefined);
+});
+
 test("Google identity binding prevents a different Google subject from claiming an existing account", async () => {
   store.credentials.set("wrong-subject", { email: student.email, sub: "another-id", email_verified: true });
   assert.equal((await request("/api/auth/google", { method: "POST", body: { token: "wrong-subject" } })).status, 401);

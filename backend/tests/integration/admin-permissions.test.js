@@ -49,7 +49,7 @@ beforeEach(async () => {
 async function request(path, { cookie, method = "GET", body } = {}) {
   const response = await fetch(base + path, { method, headers: { Origin: process.env.CLIENT_URL,
     ...(cookie ? { Cookie: cookie } : {}), ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
-  return { status: response.status, body: await response.json(), cookies: response.headers.getSetCookie() };
+  return { status: response.status, body: await response.json(), cookies: response.headers.getSetCookie(), cacheControl: response.headers.get("cache-control") };
 }
 async function cookieFor(account) {
   const tokens = await createSession(account);
@@ -65,6 +65,81 @@ async function add(cookie, input = {}) {
 }
 const accountPath = id => `/api/admin/accounts/${id}`;
 const edit = (cookie, account, body) => request(accountPath(account._id), { cookie, method: "PATCH", body: { revision: account.revision || 0, ...body } });
+
+test("recent activity returns only the current admin's latest five persisted actions", async () => {
+  const cookie = await owner();
+  const createdAt = new Date("2030-01-01T00:00:00Z");
+  const logs = await AuditLog.insertMany(Array.from({ length: 8 }, (_, index) => ({
+    actor: fixture.adminId, actorModel: "Admin", action: "COMPANY_CREATED", createdAt,
+    details: { companyName: `Company ${index}`, privateData: "never expose raw audit details" },
+  })));
+  await AuditLog.insertMany([
+    { actor: new mongoose.Types.ObjectId(), actorModel: "Admin", action: "ADMIN_CREATED", createdAt, details: { email: "other-admins-action@example.invalid" } },
+    { actor: fixture.adminId, actorModel: "Student", action: "PROFILE_UPDATED", createdAt },
+  ]);
+  const expected = logs.slice(-5).reverse().map(log => String(log._id));
+  const count = await AuditLog.countDocuments();
+  for (const suffix of ["", `?actor=${new mongoose.Types.ObjectId()}&limit=100`]) {
+    const result = await request(`/api/auth/activity${suffix}`, { cookie });
+    assert.equal(result.status, 200); assert.equal(result.cacheControl, "no-store");
+    assert.deepEqual(result.body.activities.map(item => item.id), expected);
+    assert.equal(result.body.activities[0].description, "Added Company 7");
+    for (const item of result.body.activities) {
+      assert.deepEqual(Object.keys(item).sort(), ["createdAt", "description", "id"]);
+      assert.equal(item.createdAt, createdAt.toISOString());
+    }
+  }
+  assert.equal(await AuditLog.countDocuments(), count); // Reading five does not erase audit history.
+});
+
+test("activity is available to ordinary admins without grants, but requires an active staff session", async () => {
+  const staff = await Admin.create({ name: "New staff", email: "new-staff@example.invalid", permissions: [] });
+  const cookie = await cookieFor(staff);
+  assert.deepEqual((await request("/api/auth/activity", { cookie })).body, { activities: [] });
+  assert.equal((await request("/api/auth/activity")).status, 401);
+  const studentCookie = await cookieFor(await Student.findById(fixture.studentId));
+  assert.equal((await request("/api/auth/activity", { cookie: studentCookie })).status, 403);
+  await AuditLog.create({ actor: staff._id, actorModel: "Admin", action: "ROSTER_IMPORTED", details: { inserted: 12 } });
+  assert.equal((await request("/api/auth/activity", { cookie })).body.activities[0].description, "Imported 12 student emails");
+  await Admin.updateOne({ _id: staff._id }, { $set: { isActive: false } });
+  assert.equal((await request("/api/auth/activity", { cookie })).status, 403);
+});
+
+test("admin activity records successful account and permission changes with the target email", async () => {
+  const cookie = await owner(); const staff = await add(cookie);
+  const granted = await edit(cookie, staff, { permissions: ["students.view"] });
+  assert.equal(granted.status, 200);
+  const disabled = await edit(cookie, granted.body.admin, { isActive: false });
+  assert.equal(disabled.status, 200);
+  assert.equal((await edit(cookie, disabled.body.admin, { isActive: true })).status, 200);
+  const history = await request("/api/auth/activity", { cookie });
+  assert.deepEqual(history.body.activities.map(item => item.description), [
+    "Restored admin access for staff@example.invalid", "Removed admin access for staff@example.invalid",
+    "Updated permissions for staff@example.invalid", "Added staff@example.invalid as admin", "Set up your Super Admin account",
+  ]);
+  assert.equal((await AuditLog.findOne({ action: "ADMIN_UPDATED", target: staff._id })).details.email, staff.email);
+  assert.equal((await edit(cookie, staff, { name: "Stale change" })).status, 409);
+  assert.deepEqual((await request("/api/auth/activity", { cookie })).body, history.body);
+});
+
+test("activity resolves older names and survives missing or unknown historical targets", async () => {
+  const cookie = await owner(); const staff = await add(cookie);
+  const company = await Company.findById(fixture.companyId);
+  await AuditLog.deleteMany({});
+  await AuditLog.insertMany([
+    { actor: fixture.adminId, actorModel: "Admin", action: "DRIVE_CREATED", target: String(company.defaultDrive) },
+    { actor: fixture.adminId, actorModel: "Admin", action: "ADMIN_UPDATED", target: staff._id, details: { before: { permissions: [] }, after: { permissions: ["students.view"] } } },
+    { actor: fixture.adminId, actorModel: "Admin", action: "COMPANY_DELETED", target: String(new mongoose.Types.ObjectId()), details: { companyName: "Deleted Company" } },
+    { actor: fixture.adminId, actorModel: "Admin", action: "DRIVE_UPDATED", target: "old-missing-id" },
+    { actor: fixture.adminId, actorModel: "Admin", action: "FUTURE_ACTION", details: { secret: "not for display" } },
+  ]);
+  const result = await request("/api/auth/activity", { cookie });
+  assert.equal(result.status, 200);
+  assert.deepEqual(new Set(result.body.activities.map(item => item.description)), new Set([
+    `Added ${company.companyName}`, "Updated permissions for staff@example.invalid", "Deleted Deleted Company",
+    "Updated a company", "Completed an administrative action",
+  ]));
+});
 
 test("bootstrap is read-only by default, preserves identity, revokes sessions and is idempotent", async () => {
   const before = await db.collection("admins").findOne({ _id: fixture.adminId });

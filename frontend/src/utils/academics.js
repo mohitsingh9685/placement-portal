@@ -15,9 +15,14 @@ export function academicDescription(criteria = {}) {
 }
 export const branchLabel = value => ({ MECHANICAL: "Mechanical", OTHER: "Other", GENERAL: "General", HR: "Human Resources (HR)" })[value] || value;
 
+export function selectableBranches(values, catalog, course) {
+  const options = catalog.filter(p => !course || academicKey(p.course) === academicKey(course)).flatMap(p => p.branches);
+  return [...new Set(values.map(value => options.find(branch => academicKey(branch) === academicKey(value))).filter(Boolean))];
+}
 export function selectedPrograms(criteria, catalog) {
   if (criteria.allCourses) return catalog.map(p => ({ course: p.course, allBranches: true, branches: [] }));
-  return (criteria.programs || []).map(p => ({ ...p, course: catalog.find(item => academicKey(item.course) === academicKey(p.course))?.course || p.course }));
+  return (criteria.programs || []).map(p => ({ ...p, course: catalog.find(item => academicKey(item.course) === academicKey(p.course))?.course || p.course,
+    branches: p.allBranches ? [] : selectableBranches(p.branches || [], catalog, p.course) }));
 }
 export function selectCourses(criteria, courses, catalog) {
   const previous = selectedPrograms(criteria, catalog);

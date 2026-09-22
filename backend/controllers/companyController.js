@@ -3,11 +3,16 @@ import Company from "../models/Company.js";
 import Application from "../models/Application.js";
 import Drive from "../models/Drive.js";
 import JobRole from "../models/JobRole.js";
+import AuditLog from "../models/AuditLog.js";
 import companyCache from "../services/companyCache.js";
 import { syncLegacyDrive } from "../services/driveService.js";
 import ApiError from "../utils/ApiError.js";
 import { getPublishing } from "../services/publishingService.js";
 import { pagedCompanies } from "../services/companyListService.js";
+
+const recordCompanyActivity = (actor, action, company, session) => AuditLog.create([
+  { actor, actorModel: "Admin", action, target: String(company._id), details: { companyName: company.companyName } },
+], { session });
 
 export async function addCompany(req, res, next) {
   try {
@@ -15,6 +20,7 @@ export async function addCompany(req, res, next) {
     await mongoose.connection.transaction(async (session) => {
       [company] = await Company.create([{ ...req.body, createdBy: req.user._id }], { session });
       await syncLegacyDrive(company, session);
+      await recordCompanyActivity(req.user._id, "COMPANY_CREATED", company, session);
     });
     await companyCache.invalidate(); res.status(201).json(company);
   } catch (error) { next(error); }
@@ -42,6 +48,7 @@ export async function updateCompany(req, res, next) {
       if (req.body.compensation) company.ctc = req.body.compensation.amount;
       else if (req.body.ctc !== undefined && company.compensation) company.compensation.amount = req.body.ctc;
       await syncLegacyDrive(company, session);
+      await recordCompanyActivity(req.user._id, "COMPANY_UPDATED", company, session);
     });
     await companyCache.invalidate(); res.json(company);
   } catch (error) { next(error); }
@@ -56,6 +63,7 @@ export async function deleteCompany(req, res, next) {
       await Application.deleteMany({ company: company._id }, { session });
       await JobRole.deleteMany({ drive: { $in: drives.map(drive => drive._id) } }, { session });
       await Drive.deleteMany({ company: company._id }, { session });
+      await recordCompanyActivity(req.user._id, "COMPANY_DELETED", company, session);
     });
     await companyCache.invalidate(); res.json({ message: "Company deleted successfully" });
   } catch (error) { next(error); }

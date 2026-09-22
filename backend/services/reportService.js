@@ -2,6 +2,7 @@ import Student from "../models/Student.js";
 import Application from "../models/Application.js";
 import Company from "../models/Company.js";
 import { reportSchema, escapeRegex, pageMeta } from "../validators/listValidator.js";
+import { validBranch } from "../config/academicPrograms.js";
 
 export const offerStates = ["ISSUED", "ACCEPTED", "JOINED", "DECLINED", "REVOKED"];
 export const activeOffers = ["ISSUED", "ACCEPTED", "JOINED"];
@@ -33,7 +34,7 @@ export async function reportOverview(rawQuery) {
 }
 export async function reportOptions() {
   const [result] = await Student.aggregate([{ $match: { role: "student" } }, { $group: { _id: null, courses: { $addToSet: "$course" }, branches: { $addToSet: "$branch" }, years: { $addToSet: "$passingYear" } } }]);
-  return { courses: (result?.courses || []).filter(Boolean).sort(), branches: (result?.branches || []).filter(Boolean).sort(), years: (result?.years || []).filter(Number.isFinite).sort((a, b) => b - a) };
+  return { courses: (result?.courses || []).filter(Boolean).sort(), branches: (result?.branches || []).filter(branch => branch && validBranch(branch)).sort(), years: (result?.years || []).filter(Number.isFinite).sort((a, b) => b - a) };
 }
 export async function reportStudents(rawQuery) {
   const query = reportSchema.parse(rawQuery), filter = studentFilter(query);

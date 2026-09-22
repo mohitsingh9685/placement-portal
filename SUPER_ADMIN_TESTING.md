@@ -12,12 +12,16 @@ Implemented as part of stage 2. Both `admin` and `super_admin` accounts live in 
 
 Every Super Admin row, including the signed-in account, shows **Protected account** instead of edit/remove/restore controls. The management API rejects all edits to a Super Admin with HTTP 403, even when several Super Admins exist or requests arrive concurrently. Ordinary admin edits still use revision checks; stale forms cannot change an account that has since been promoted.
 
+**Profile** shows name, email, role, account status, available account/sign-in dates and allowed permissions. Super Admins see full access, including admin management and placement rules. Ordinary admins see only their assigned permissions. These details are read-only and load from the authenticated profile endpoint; **Refresh** reloads them. The navigation no longer shows a role label beside Logout.
+
+**Recent activity** shows the signed-in admin's latest five saved actions, newest first, with timestamps. The wider desktop profile places account details and permissions on the left and activity on the right; smaller screens stack the panels. Company changes, admin access changes, imports, exports and recruitment actions use the existing audit history. The server limits the response to five and never returns another admin's activity or raw audit details. Company names and admin emails are saved with new management actions so later edits/deletions keep the history readable. Refresh reloads both profile and activity; older audit records remain available internally. No database setup is needed.
+
 ## Permissions
 
 | Permission | Allows |
 | --- | --- |
 | View students | Read the approved email roster and submitted profile summary |
-| Manage student access | Import emails, edit roster metadata, enable/disable students; includes View students |
+| Manage student access | Import emails and enable/disable students; includes View students |
 | Manage companies | Create/edit/delete companies and upload job descriptions |
 | View applications | Read applicants and submitted application details |
 | Update application results | Change results; includes View applications |

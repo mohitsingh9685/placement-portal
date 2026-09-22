@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { objectId } from "./authValidator.js";
 import { programCriteriaSchema, branchSummary } from "./academicValidator.js";
-import { normalizeBranch } from "../config/academicPrograms.js";
+import { normalizeBranch, validBranch } from "../config/academicPrograms.js";
 const text = z.string().trim().max(200);
 const description = z.string().trim().max(20000).default("");
 export const stagesSchema = z.array(z.object({
@@ -35,7 +35,8 @@ const role = z.object({
     passingYears: z.array(z.number().int().min(2000).max(2100)).max(20).transform(values => [...new Set(values)]),
   }).strict().refine(value => value.maxTotalBacklogs == null || value.maxTotalBacklogs >= value.maxActiveBacklogs, "Total backlog limit cannot be below the active backlog limit")
     .refine(value => !value.allCourses || value.programs.length === 0, "Select all courses or individual courses")
-    .transform(value => ({ ...value, allowedBranches: branchSummary(value) })),
+    .transform(value => ({ ...value, allowedBranches: branchSummary(value) }))
+    .refine(value => value.allowedBranches.every(validBranch), "Choose listed branches"),
   stages: z.union([z.array(z.never()).length(0), stagesSchema]).default([]),
   isActive: z.boolean().default(true),
 }).strict();
