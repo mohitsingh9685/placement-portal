@@ -81,6 +81,8 @@ const studentSchema = new mongoose.Schema(
     resume: documentSchema,
     profileVersion: { type: Number, default: 0 },
     applicationVersion: { type: Number, default: 0 },
+    legacyPlacementRecorded: Boolean,
+    placementTrackingVersion: Number,
 
     placementStatus: {
       type: String,

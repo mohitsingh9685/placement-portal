@@ -23,7 +23,16 @@ const schema = new mongoose.Schema({
   company: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
   drive: { type: mongoose.Schema.Types.ObjectId, ref: "Drive", required: true },
   role: { type: mongoose.Schema.Types.ObjectId, ref: "JobRole", required: true },
-  status: { type: String, enum: ["APPLIED", "SELECTED", "REJECTED", "WITHDRAWN"], default: "APPLIED" },
+  status: { type: String, enum: ["APPLIED", "SHORTLISTED", "INTERVIEW", "SELECTED", "OFFERED", "PLACED", "REJECTED", "WITHDRAWN"], default: "APPLIED" },
+  currentStageKey: { type: String, default: "applied" },
+  currentStageName: { type: String, default: "Applied" },
+  workflowVersion: { type: Number, default: 0 },
+  recruitmentRevision: { type: Number, default: 0 },
+  offer: {
+    status: { type: String, enum: ["ISSUED", "ACCEPTED", "DECLINED", "REVOKED", "JOINED"] },
+    compensationDetails: String, reference: String,
+    issuedAt: Date, acceptedAt: Date, joinedAt: Date, updatedAt: Date,
+  },
   history: [{ at: { type: Date, default: Date.now }, title: String, message: String, status: String }],
   requests: [{
     kind: { type: String, enum: ["WITHDRAWAL", "CORRECTION"], required: true },
@@ -39,4 +48,5 @@ const schema = new mongoose.Schema({
 // One role per student per drive, including concurrent submissions.
 schema.index({ student: 1, drive: 1 }, { unique: true, name: "student_drive_unique", partialFilterExpression: { drive: { $type: "objectId" } } });
 schema.index({ drive: 1, role: 1, status: 1 });
+schema.index({ student: 1, "offer.status": 1 });
 export default mongoose.model("Application", schema);

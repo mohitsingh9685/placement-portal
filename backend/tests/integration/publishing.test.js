@@ -92,7 +92,7 @@ test("admin applicant queries isolate roles while old company links retain all a
   const sales = await request(`${path}?roleId=${graph.roles[1]._id}`);
   assert.equal(sales.status, 200); assert.deepEqual(sales.body.map(a => a._id), [String(second._id)]);
   const manager = await Admin.create({ name: "Results Admin", email: "results@example.invalid", permissions: ["applications.view", "applications.manage"] });
-  assert.equal((await request(`/api/application/admin/status/${engineering.body[0]._id}`, { cookie: await cookieFor(manager), method: "PUT", body: { status: "REJECTED" } })).status, 200);
+  assert.equal((await request(`/api/application/admin/status/${engineering.body[0]._id}`, { cookie: await cookieFor(manager), method: "PUT", body: { status: "REJECTED" } })).status, 409); // Modern applications require a reviewed round result.
   assert.equal((await Application.findById(second._id)).status, "SELECTED");
   const empty = await publish(await create());
   assert.deepEqual((await request(`/api/application/admin/company/${empty._id}?roleId=${empty.roles[0]._id}`)).body, []);

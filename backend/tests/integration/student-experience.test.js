@@ -197,8 +197,9 @@ test("expired personal notifications are hidden and cannot be marked read", asyn
   assert.equal((await feed()).body.total, 0);
   assert.equal((await request("/api/student/notifications/read", { method: "POST", body: { id } })).status, 404);
 });
-test("result updates append real history and notify once; repeating the same status is a no-op", async () => {
+test("legacy result updates append real history and notify once; repeating the same status is a no-op", async () => {
   const graph = await create(); const application = await submit(graph);
+  await Application.updateOne({ _id: application._id }, { $set: { workflowVersion: 0 } }); // Exercise the retained legacy endpoint; Stage 5 workflows use previews.
   const update = () => request(`/api/application/admin/status/${application._id}`, { cookie: adminCookie, method: "PUT", body: { status: "SELECTED" } });
   assert.equal((await update()).status, 200); assert.equal((await update()).status, 200);
   assert.equal((await Application.findById(application._id)).history.length, 2);
@@ -297,7 +298,7 @@ test("request decisions explain short responses and accept a trimmed valid respo
 });
 test("a rejected application cannot gain an approved correction or withdrawal through a pending request", async () => {
   const app = (await changeRequest(await submit(await create()), "CORRECTION")).body.application;
-  await request(`/api/application/admin/status/${app._id}`, { cookie: adminCookie, method: "PUT", body: { status: "REJECTED" } });
+  await Application.updateOne({ _id: app._id }, { $set: { status: "REJECTED" }, $inc: { recruitmentRevision: 1 } }); // Arrange a terminal application to verify request-review guards.
   assert.equal((await decide(app)).status, 409); assert.equal((await decide(app, "REJECTED")).status, 200);
   assert.equal((await changeRequest(app)).status, 409);
 });

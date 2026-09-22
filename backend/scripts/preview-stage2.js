@@ -36,6 +36,8 @@ try {
   await applyStage2(mongoose.connection);
   const { setupStage4 } = await import("../migrations/stage4.js");
   await setupStage4(mongoose.connection, { apply: true });
+  const { setupStage5 } = await import("../migrations/stage5.js");
+  await setupStage5(mongoose.connection, { apply: true });
   const { default: Admin } = await import("../models/Admin.js");
   const { bootstrapSuperAdmin } = await import("../services/adminManagementService.js");
   await bootstrapSuperAdmin(fixture.admin.email, { apply: true });
@@ -52,10 +54,24 @@ try {
     eligibility: { minCgpa: 7, minTenthPercentage: 60, minTwelfthPercentage: 60, minDiplomaPercentage: 60, educationRequirement: "TWELFTH_OR_DIPLOMA", allowedBranches: ["CSE"], passingYears: [2027] } };
   const companyId = await createPublishing(driveSchema.parse({ companyName: "Student Experience Demo", title: "Graduate Hiring 2027", description: "A disposable drive for testing applications and notifications.",
     registrationDeadline: new Date(Date.now() + 3600000 * 12).toISOString(), driveDate: new Date(Date.now() + 86400000).toISOString(),
-    stages: [{ key: "applied", name: "Applied", kind: "APPLICATION" }, { key: "test", name: "Aptitude test", kind: "ASSESSMENT" }, { key: "interview", name: "Interview", kind: "INTERVIEW" }],
+    stages: [{ key: "applied", name: "Applied", kind: "APPLICATION" }, { key: "test", name: "Aptitude test", kind: "ASSESSMENT" }, { key: "interview", name: "Interview", kind: "INTERVIEW" }, { key: "offer", name: "Offer", kind: "OFFER" }],
     roles: [role, { ...role, title: "Research Engineer", eligibility: { ...role.eligibility, minCgpa: 9 } }],
   }), fixture.adminId);
   await changePublishingStatus(companyId, { status: "PUBLISHED", revision: 0 }, fixture.adminId);
+  const { default: Application } = await import("../models/Application.js");
+  const { default: JobRole } = await import("../models/JobRole.js");
+  const { default: Company } = await import("../models/Company.js");
+  const { getPublishing } = await import("../services/publishingService.js");
+  const { applicationSnapshot } = await import("../services/applicationService.js");
+  const demo = await getPublishing(companyId, await Admin.findById(fixture.adminId));
+  for (let index = 0; index < 4; index++) {
+    const student = index === 0 ? await Student.findById(fixture.studentId) : await Student.create({ ...fixture.student, _id: new mongoose.Types.ObjectId(), name: `Demo Candidate ${index}`, email: `talent${index}@example.invalid`, course: "B.Tech", resume: undefined });
+    if (index) await ApprovedStudent.create({ email: student.email, isActive: true });
+    const selectedRole = await JobRole.findById(demo.roles[index === 3 ? 1 : 0]._id);
+    await Application.create({ student: student._id, company: companyId, drive: demo.drive._id, role: selectedRole._id, workflowVersion: 5, isEligible: true,
+      snapshot: { ...applicationSnapshot(student), roleTitle: selectedRole.title, driveTitle: demo.drive.title, compensation: selectedRole.compensation, recruitmentStages: demo.drive.stages }, history: [{ title: "Application submitted", message: "Synthetic preview application", status: "APPLIED" }] });
+  }
+  await Company.updateOne({ _id: companyId }, { $set: { totalApplicants: 4 } });
   const { createSession } = await import("../services/authService.js");
   const { setAuthCookies } = await import("../config/cookie.js");
   const { createApp } = await import("../app.js");

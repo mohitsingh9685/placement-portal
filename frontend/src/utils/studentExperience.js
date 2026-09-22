@@ -1,5 +1,5 @@
 export const formatPortalDate = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "Not recorded";
-export const applicationStatus = status => ({ APPLIED: "In review", SELECTED: "Selected", REJECTED: "Rejected", WITHDRAWN: "Withdrawn" })[status] || status;
+export const applicationStatus = status => ({ APPLIED: "In review", SHORTLISTED: "Shortlisted", INTERVIEW: "Interview", OFFERED: "Offered", PLACED: "Placed", SELECTED: "Selected", REJECTED: "Rejected", WITHDRAWN: "Withdrawn" })[status] || status;
 // A background read can finish after a request/decision response. Keep the newer record.
 export function mergeApplicationUpdates(previous, incoming) {
   const existing = new Map(previous.map(application => [application._id, application]));

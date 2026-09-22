@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   domain: { type: String, enum: ["TECH", "SALES", "FINANCE", "OPERATIONS", "OTHER"], default: "OTHER" },
   jobType: { type: String, enum: ["Internship", "Full-time", "Internship + PPO"] },
   resumeRequired: { type: Boolean, default: false },
+  finalizedStages: { type: [String], default: [] },
   compensation: compensationSchema,
   eligibility: {
     allCourses: { type: Boolean, default: false },

@@ -30,6 +30,7 @@ function RoleFields({ role, change }) {
   const eligibility = (key, value) => change({ eligibility: { ...role.eligibility, [key]: value } });
   const compensation = (key, value) => change({ compensation: { ...role.compensation, [key]: value } });
   return <>
+    {role.finalizedStages?.includes("applied") && <p className="text-sm text-amber-200">The application round is finalized. Use the published result history to undo that decision before accepting more applications.</p>}
     <div className="grid sm:grid-cols-2 gap-4"><Field label="Role title" required maxLength={200} value={role.title} onChange={title => change({ title })} /><Field label="Location" maxLength={200} placeholder="Bengaluru / Remote" value={role.location} onChange={location => change({ location })} />
       <Field label="Job domain" value={role.domain} onChange={domain => change({ domain })} options={["TECH", "SALES", "FINANCE", "OPERATIONS", "OTHER"].map(v => [v, v])} />
       <Field label="Job type" value={role.jobType} onChange={jobType => change({ jobType })} options={[["", "Choose job type"], ...["Full-time", "Internship", "Internship + PPO"].map(v => [v, v])]} /></div>
@@ -114,6 +115,7 @@ export default function DriveEditor({ id }) {
     <form onSubmit={save} noValidate className="space-y-6"><fieldset disabled={busy} className="space-y-6 disabled:opacity-70">
       <section className={panel}><div className="flex justify-between"><h2 className="text-xl font-semibold">Company & drive</h2><span className="rounded-full bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">{graph?.drive.status || "DRAFT"}</span></div>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Company name" required maxLength={200} value={form.companyName} onChange={companyName => change({ companyName })} /><Field label="Drive title" required maxLength={200} placeholder="Graduate hiring 2027" value={form.title} onChange={title => change({ title })} /></div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(form.dreamOpportunity)} onChange={e => change({ dreamOpportunity: e.target.checked })} />Dream opportunity (available to placed students when college policy allows)</label>
         <Field label="Company and drive description" multiline value={form.description} onChange={description => change({ description })} />
         <div className="grid gap-4 sm:grid-cols-2">{[["registrationDeadline", "Application deadline (India time)"], ["driveDate", "Drive date (optional, India time)"]].map(([key, label]) => <Field key={key} label={label} type="datetime-local" value={form[key]} onChange={v => change({ [key]: v })} />)}</div>
       </section>

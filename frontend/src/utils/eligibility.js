@@ -50,7 +50,7 @@ export function checkCompanyEligibility(user, company) {
 }
 
 export function checkRoleEligibility(user, role, drive) {
-  if (role.isActive === false || drive?.status !== "PUBLISHED") return { eligible: false, reason: "Registration closed" };
+  if (role.finalizedStages?.includes("applied") || role.isActive === false || drive?.status !== "PUBLISHED") return { eligible: false, reason: "Registration closed" };
   const eligibility = role.eligibility || {};
   const basic = checkCompanyEligibility(user, { ...eligibility, allowedBranches: [user?.branch], registrationDeadline: drive.registrationDeadline, maxBacklogsAllowed: eligibility.maxActiveBacklogs });
   if (!basic.eligible) return basic;

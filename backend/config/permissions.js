@@ -3,7 +3,10 @@ export const PERMISSIONS = [
   { key: "students.manage", label: "Manage student access", description: "Import emails, edit college-list details, and enable or disable students.", requires: ["students.view"] },
   { key: "companies.manage", label: "Manage companies", description: "Create, edit and delete companies, and upload job descriptions." },
   { key: "applications.view", label: "View applications", description: "View applicants and the details submitted with their applications." },
-  { key: "applications.manage", label: "Update application results", description: "Change applicants' selection or rejection status.", requires: ["applications.view"] },
+  { key: "applications.manage", label: "Review student requests", description: "Approve or decline student correction and withdrawal requests.", requires: ["applications.view"] },
+  { key: "applications.export", label: "Export applicants", description: "Download submitted applicant details as Excel or CSV.", requires: ["applications.view"] },
+  { key: "rounds.manage", label: "Manage recruitment rounds", description: "Preview, publish and correct recruiter shortlist results.", requires: ["applications.view"] },
+  { key: "offers.manage", label: "Manage offers and placement", description: "Record offers, acceptance, joining, declines and revocations.", requires: ["applications.view"] },
   { key: "resumes.view", label: "View student resumes", description: "Open student resumes and application resume versions.", requires: ["applications.view"] },
 ];
 export const PERMISSION_KEYS = PERMISSIONS.map(permission => permission.key);

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
 import NotificationRead from "../models/NotificationRead.js";
 import SavedOpportunity from "../models/SavedOpportunity.js";
+import JobRole from "../models/JobRole.js";
 import Drive from "../models/Drive.js";
 import Company from "../models/Company.js";
 import Application from "../models/Application.js";
@@ -27,7 +28,8 @@ export async function syncDeadlineReminders(student, now = new Date()) {
   const saved = await SavedOpportunity.find({ student: student._id, remind: true }).select("company").lean();
   const drives = await Drive.find({ company: { $in: saved.map(s => s.company) }, status: "PUBLISHED", registrationDeadline: { $gt: now, $lte: new Date(now.getTime() + 86400000) } }).select("company title registrationDeadline").lean();
   const applied = new Set((await Application.distinct("drive", { student: student._id, drive: { $in: drives.map(d => d._id) } })).map(String));
-  const due = drives.filter(d => !applied.has(String(d._id)));
+  const open = new Set((await JobRole.distinct("drive", { drive: { $in: drives.map(d => d._id) }, isActive: true, finalizedStages: { $ne: "applied" } })).map(String));
+  const due = drives.filter(d => open.has(String(d._id)) && !applied.has(String(d._id)));
   // Suppress outdated reminders when a drive closes, its deadline changes, or the student applies.
   await Notification.deleteMany({ recipient: student._id, kind: "DEADLINE", company: { $nin: due.map(d => d.company) } });
   const companies = new Map((await Company.find({ _id: { $in: due.map(d => d.company) } }).select("companyName").lean()).map(c => [String(c._id), c]));

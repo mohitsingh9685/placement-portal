@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import compression from "compression";
+import recruitmentRoutes from "./routes/recruitmentRoutes.js";
 import rosterRoutes from "./routes/rosterRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -20,11 +21,13 @@ import { serializeUser } from "./services/authService.js";
 
 export function createApp({ rateLimit = true } = {}) {
   const app = express();
+  app.locals.rateLimitEnabled = rateLimit;
   app.set("trust proxy", 1);
   app.use(helmet(), compression(), cors(corsOptions()), cookieParser());
   app.use(csrfProtection);
   app.use("/api/admin/roster/imports", express.json({ limit: "2mb" }));
   app.use("/api/company", express.json({ limit: "1mb" }));
+  app.use("/api/recruitment", express.json({ limit: "300kb" }));
   app.use(express.json({ limit: "100kb" }), express.urlencoded({ extended: false, limit: "100kb" }));
   if (rateLimit) app.use(rateLimiter);
   app.get("/health", (req, res) => res.json({ success: true, message: "Server is healthy" }));
@@ -34,6 +37,7 @@ export function createApp({ rateLimit = true } = {}) {
   app.use("/api/admin/roster", rosterRoutes);
   app.use("/api/admin/accounts", adminRoutes);
   app.use("/api/company", companyRoutes);
+  app.use("/api/recruitment", recruitmentRoutes);
   app.use("/api/application", applicationRoutes);
   app.use("/api/student", studentExperienceRoutes);
   app.use("/api/v1/upload", uploadRoutes);

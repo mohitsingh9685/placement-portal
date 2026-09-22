@@ -40,6 +40,7 @@ const role = z.object({
   isActive: z.boolean().default(true),
 }).strict();
 export const driveSchema = z.object({
+  dreamOpportunity: z.boolean().default(false),
   companyName: text.min(1, "Company name is required"), title: text.min(1, "Drive title is required"), description,
   registrationDeadline: z.string().datetime({ offset: true }).nullable().default(null),
   driveDate: z.string().datetime({ offset: true }).nullable().default(null),

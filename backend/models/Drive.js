@@ -7,6 +7,7 @@ const schema = new mongoose.Schema({
   status: { type: String, enum: ["DRAFT", "PUBLISHED", "CLOSED"], default: "DRAFT" },
   registrationDeadline: Date, driveDate: Date,
   rolePolicy: { type: String, enum: ["ONE_ROLE"], default: "ONE_ROLE" },
+  dreamOpportunity: { type: Boolean, default: false },
   stages: { type: [stageSchema], validate: { validator: (value) => new Set(value.map(s => s.key)).size === value.length, message: "Stage keys must be unique" } },
   attachments: [documentSchema],
   retiredAttachments: [documentSchema],

@@ -119,3 +119,7 @@ test("a multi-role drive is eligible when at least one open role matches", () =>
   assert.equal(formatCompensation(company), "Varies by role");
   assert.equal(formatCompensation({ compensation: { amount: 20000, kind: "STIPEND", period: "MONTHLY" } }), "₹20,000 / month");
 });
+test("finalized application rounds are closed in student eligibility displays", () => {
+  const result = checkRoleEligibility(student, { ...role, finalizedStages: ["applied"] }, drive);
+  assert.equal(result.eligible, false); assert.equal(result.reason, "Registration closed");
+});

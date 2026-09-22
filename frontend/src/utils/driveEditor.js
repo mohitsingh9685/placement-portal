@@ -8,7 +8,7 @@ export function newRole() {
     compensation: { mode: "TEXT", description: "", amount: null, currency: "INR", kind: "UNSPECIFIED", period: "UNSPECIFIED" },
     eligibility: { allCourses: false, programs: [], educationRequirement: "TWELFTH_OR_DIPLOMA", minCgpa: 0, minTenthPercentage: "", minTwelfthPercentage: "", minDiplomaPercentage: "", maxActiveBacklogs: 0, maxTotalBacklogs: "", allowActiveBacklogs: false, branches: "", years: "" }, stages: [] };
 }
-export function emptyDrive() { return { companyName: "", title: "", description: "", registrationDeadline: "", driveDate: "", stages: [appliedStage()], roles: [newRole()] }; }
+export function emptyDrive() { return { dreamOpportunity: false, companyName: "", title: "", description: "", registrationDeadline: "", driveDate: "", stages: [appliedStage()], roles: [newRole()] }; }
 function editableCompensation(compensation = {}) {
   compensation ??= {};
   let description = compensation.description || "";
@@ -25,7 +25,7 @@ export function editorFromGraph(company) {
   const activeRoles = company.roles.filter(role => role.isActive !== false);
   // Promote a common former role plan into the single shared editor.
   const sharedStages = activeRoles.length && activeRoles.every(role => sameRounds(effectiveStages(role), effectiveStages(activeRoles[0]))) ? effectiveStages(activeRoles[0]) : originalStages;
-  return { companyName: company.companyName, title: company.drive.title, description: company.description || "",
+  return { dreamOpportunity: company.drive.dreamOpportunity || false, companyName: company.companyName, title: company.drive.title, description: company.description || "",
     registrationDeadline: toIndiaInput(company.registrationDeadline), driveDate: toIndiaInput(company.driveDate),
     stages: sharedStages,
     roles: company.roles.map(role => ({ ...newRole(), ...role, resumeRequired: Boolean(role.resumeRequired), location: role.location || "", jobType: role.jobType || "", experience: role.experience || "", positions: role.positions ?? "", compensation: editableCompensation(role.compensation),
@@ -36,7 +36,7 @@ export function editorFromGraph(company) {
 const sameRounds = (left, right) => left.length === right.length && left.every((stage, index) => stage.key === right[index]?.key && stage.name === right[index]?.name && stage.kind === right[index]?.kind);
 const optionalNumber = value => value == null || value === "" ? null : Number(value);
 export function drivePayload(form, revision) {
-  return { companyName: form.companyName, title: form.title, description: form.description,
+  return { dreamOpportunity: Boolean(form.dreamOpportunity), companyName: form.companyName, title: form.title, description: form.description,
     registrationDeadline: fromIndiaInput(form.registrationDeadline), driveDate: fromIndiaInput(form.driveDate), stages: form.stages,
     ...(revision == null ? {} : { revision }), roles: form.roles.map(role => ({
       ...(role._id ? { _id: role._id } : {}), title: role.title, description: role.description, location: role.location, domain: role.domain,

@@ -1,3 +1,4 @@
+import PlacementPolicyEditor from "../components/PlacementPolicyEditor.jsx";
 import { useEffect, useState } from "react";
 import API from "../api/axios.js";
 import Navbar from "../components/Navbar.jsx";
@@ -87,5 +88,6 @@ export default function AdminAccounts() {
       </tr>)}</tbody></table>{!data.admins.length && <p className="py-6 text-slate-400">No admins match your search.</p>}</div>
       <div className="flex justify-between"><button className={button} disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Previous</button><span>Page {page} of {data.pages}</span><button className={button} disabled={page >= data.pages} onClick={() => setPage(value => value + 1)}>Next</button></div>
     </section>
+    {user.role === "super_admin" && <PlacementPolicyEditor />}
   </main></div>;
 }

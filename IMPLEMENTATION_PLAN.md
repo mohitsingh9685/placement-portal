@@ -55,11 +55,11 @@ Verification: **115 automated tests** (32 backend, 29 frontend, 54 MongoDB integ
 
 Implemented: a server-checked review/confirmation step, exact submitted details and resume versions, per-role resume requirement, profile checklist, saved-drive filter, downloadable calendar dates, notification bell/inbox with read state, and application history. Students can request withdrawal or submit their updated profile for a correction; staff with application-management permission approve or decline with a response. Original submissions remain available. Approved withdrawals retain the record and the one-role-per-drive restriction.
 
-Notifications use REST polling every 60 seconds while the portal is visible, plus refresh on focus and relevant actions. They cover newly published drives, submissions, result changes, request decisions and saved-drive deadlines within 24 hours. No Socket.IO, WebSocket, push subscription or email service is required. Round-by-round outcomes remain Stage 5; planned rounds are shown separately from actual timeline events.
+Notifications use REST polling every 60 seconds while the portal is visible, plus refresh on focus and relevant actions. They cover newly published drives, submissions, result changes, request decisions and saved-drive deadlines within 24 hours. No Socket.IO, WebSocket, push subscription or email service is required. Stage 5 adds round-by-round outcomes; planned rounds are shown separately from actual timeline events.
 
 Verification: **142 automated tests** (32 backend, 33 frontend, 77 disposable MongoDB integration), clean lint/build, and synthetic browser checks of eligibility, review/confirmation, saving, notifications/read state, correction review, application links and mobile layout. The follow-up audit fixed blocked below-cutoff corrections, stale confirmation during refresh/role switching, and delayed reads overwriting newer application requests. Admin response validation was also verified. The additive Stage 4 collection/index setup was tested locally; it has not been applied to Atlas. See [Stage 4 usage, testing and rollout](STAGE_4_TESTING.md).
 
-## 5. Recruiter exports, rounds, and offers — planned
+## 5. Recruiter exports, rounds, and offers — implemented; database setup applied
 
 - Excel/CSV exports scoped to drive, role and round, including name, email, enrolment number and selected academic columns.
 - Paste/import recruiter emails, normalize/deduplicate, flag unmatched candidates, and preview outcomes.
@@ -67,6 +67,10 @@ Verification: **142 automated tests** (32 backend, 33 frontend, 77 disposable Mo
 - Distinguish Applied/Pending, shortlist rounds, interviews, Selected, Offered, and Placed.
 - Idempotent imports, concurrent-admin safety, audit history, controlled corrections, export/round permissions extending stage 2 staff permissions, offers and configurable college placement policies.
 - Test repeated imports, unmatched emails, multiple roles, partial failures, and exported data.
+
+Implemented: ExcelJS exports with selectable columns, XLSX/CSV/paste imports, email diagnostics and previews, partial/final role-scoped results, finalized registration, stale-preview conflicts, atomic publication, repeat-safe actions, controlled batch undo and audit history. Offers track issuance, acceptance, joining, decline and revocation separately. Super Admin placement rules default to acceptance and allowing further applications, with joining/block/dream-only alternatives. Existing placement flags and historical Selected records are preserved. Staff exports, round results and offer changes have separate permissions. In-app notifications and student timelines reflect actual results and offers.
+
+Verification: **169 automated tests** (38 backend, 34 frontend, 97 MongoDB integration), including targeted reruns after the final edge-case fixes, clean frontend lint/build and a synthetic browser workflow from Excel download through shortlist upload, interview selection and accepted offer. Read-only staff controls and student/admin screens were checked at 390 pixels. On September 22, Mohit supplied successful dry-run and apply output for the Stage 5 setup on `placement-portal` and then confirmed that round processing works. Deployment and live cloud checks remain separate; no deployment or git push was performed by the agent. See [Stage 5 usage, setup and testing](STAGE_5_TESTING.md).
 
 ## 6. Reports, capacity, and launch — planned
 
@@ -78,8 +82,8 @@ Verification: **142 automated tests** (32 backend, 33 frontend, 77 disposable Mo
 
 ## Open decisions
 
-- Definition of Placed; offer/dream-company policies.
-- Staging resources, recruiter export columns, email provider, launch date.
+- Confirm the college's preferred placement settings before launch (configurable; current defaults are acceptance and allowing further applications).
+- Staging resources, email provider if needed, launch date. Recruiter export columns are selectable per download.
 - Guest demo: real public listings/JDs or synthetic data.
 - Define how historical SELECTED records should map to future offer states; migration preserved them without assuming accepted offers.
 

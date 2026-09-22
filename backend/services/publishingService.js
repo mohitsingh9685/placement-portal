@@ -13,7 +13,7 @@ import { notify } from "./notificationService.js";
 const plain = value => value?.toObject ? value.toObject() : value;
 export const documentId = document => document.id || createHash("sha256").update(document.key).digest("hex").slice(0, 24);
 export const publicDocument = document => ({ id: documentId(document), fileName: document.fileName || "Job description", contentType: document.contentType, uploadedAt: document.uploadedAt });
-export const roundsFor = (drive, role) => role.stages?.length ? role.stages : drive.stages;
+export const roundsFor = (drive, role) => role?.stages?.length ? role.stages : drive.stages;
 export function assertRevision(drive, revision) {
   if ((drive.revision || 0) !== revision) throw new ApiError(409, "This drive changed. Reload before saving or uploading again.");
 }
@@ -32,7 +32,7 @@ export function visibleGraph(company, drive, roles, user) {
   const documents = (drive.attachments || []).filter(document => document.key).map(publicDocument);
   const output = { ...plain(company), description: drive.description, registrationDeadline: drive.registrationDeadline,
     driveDate: drive.driveDate, drive: { _id: drive._id, title: drive.title, status: drive.status, revision: drive.revision || 0,
-      stages: drive.stages, rolePolicy: drive.rolePolicy, attachments: documents, registrationDeadline: drive.registrationDeadline },
+      dreamOpportunity: drive.dreamOpportunity || false, stages: drive.stages, rolePolicy: drive.rolePolicy, attachments: documents, registrationDeadline: drive.registrationDeadline },
     // Applicant reviewers must still be able to open closed roles and their history.
     roles: (publisher || hasPermission(user, "applications.view") ? roles : activeRoles).map(role => {
       const { retiredAttachments, attachments, ...record } = plain(role);

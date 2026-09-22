@@ -10,6 +10,7 @@ import AuthSession from "../../models/AuthSession.js";
 import Company from "../../models/Company.js";
 import Application from "../../models/Application.js";
 import ResumeVersion from "../../models/ResumeVersion.js";
+import PlacementPolicy from "../../models/PlacementPolicy.js";
 import Notification from "../../models/Notification.js";
 import { isStaffRole, PERMISSION_KEYS } from "../../config/permissions.js";
 
@@ -45,6 +46,7 @@ export function installMemoryStore() {
     credentials.set(user.email, { email: user.email, sub: user.googleId, name: user.name, email_verified: true, picture: "https://example.invalid/photo.png" });
     return user;
   }
+  replace(PlacementPolicy, "findById", () => query(null));
   replace(Student, "findById", (id) => query(students.get(String(id)) || null));
   replace(Admin, "findById", (id) => query(admins.get(String(id)) || null));
   replace(Admin, "findOne", async ({ email }) => [...admins.values()].find(user => user.email === email) || null);

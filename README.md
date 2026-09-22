@@ -78,6 +78,10 @@ Admins with company-management permission can create draft drives with multiple 
 
 Students can save drives, check role eligibility, review their submitted details/resume, confirm one application per drive and follow its timeline. The notification bell shows publication, application/result/request updates and saved-drive deadline reminders. Notifications refresh through the existing API while the portal is open; no sockets or extra service are needed. Withdrawal and correction requests are reviewed from the admin applicant page. See [Stage 4 usage and setup](STAGE_4_TESTING.md), including the additive collection/index setup to run before rollout.
 
+## Recruiter exports, results and offers
+
+Admins can export applicant columns to Excel/CSV, preview a recruiter shortlist from pasted emails or an uploaded file, and publish partial/final results for one role and round. Students receive timeline updates and in-app notifications. Controlled batch undo, offer acceptance/joining and configurable placement rules are included. Separate staff permissions govern exports, round results and offers. ExcelJS runs in the backend; no spreadsheet account or API key is needed. See [Stage 5 usage, setup and testing](STAGE_5_TESTING.md). Its additive database setup must be applied before importing results or recording offers.
+
 ## Run with Docker
 
 Requirements: Docker Desktop and Docker Compose.

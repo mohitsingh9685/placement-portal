@@ -13,9 +13,10 @@ import { applicationSnapshot, checkEligibility, eligibilityChecks } from "../ser
 import { hasPermission } from "../config/permissions.js";
 import { roundsFor, documentId, publicDocument, getPublishing } from "../services/publishingService.js";
 import { notify } from "../services/notificationService.js";
+import { getPlacementPolicy, placementRestriction } from "../services/offerService.js";
 const studentFields = "-refreshToken -password -googleId";
 
-function staffApplications(applications, user) {
+export function staffApplications(applications, user) {
   // Resume access also controls any stored URL returned in applicant data.
   return applications.map(application => {
     const data = publicApplication(application);
@@ -28,6 +29,7 @@ function staffApplications(applications, user) {
 }
 function publicApplication(application) {
   const data = application.toObject ? application.toObject() : structuredClone(application);
+  if ((data.workflowVersion || 0) < 5 && data.status === "SELECTED") data.currentStageName = "Selected (earlier record)";
   if (data.snapshot?.documents) data.snapshot.documents = data.snapshot.documents.filter(doc => doc.key).map(publicDocument);
   if (data.company?.jobDescription) data.company.jobDescription = undefined;
   for (const request of data.requests || []) {
@@ -49,6 +51,7 @@ async function validateResume(student, required, session = null) {
 export async function getApplicationPreview(req, res, next) {
   try {
     const company = await getPublishing(req.params.companyId, req.user);
+    const restriction = placementRestriction(req.user, company.drive, await getPlacementPolicy());
     let resumeError = "";
     try { await validateResume(req.user, true); } catch (error) { if (error.statusCode !== 400) throw error; resumeError = error.message; }
     const application = await Application.findOne({ student: req.user._id, drive: company.drive._id });
@@ -56,7 +59,8 @@ export async function getApplicationPreview(req, res, next) {
     res.json({ company, profileVersion: req.user.profileVersion || 0, driveRevision: company.drive.revision, profile: applicationSnapshot(req.user), application: application ? publicApplication(application) : null,
       roles: company.roles.map(role => {
         const checks = [
-          { label: "Applications open", passed: open && role.isActive !== false, message: "Registration closed" },
+          { label: "Applications open", passed: open && role.isActive !== false && !role.finalizedStages?.includes("applied"), message: "Registration closed" },
+          { label: "College placement policy", passed: !restriction, message: restriction || "Further applications allowed" },
           ...eligibilityChecks(req.user, role.eligibility),
           { label: role.resumeRequired ? "Required resume" : "Resume (optional)", passed: !resumeError || (!role.resumeRequired && !req.user.resume?.key), message: resumeError || "Resume ready" },
           { label: "One role per drive", passed: !application, message: "You already have an application in this drive" },
@@ -88,10 +92,14 @@ export async function applyToCompany(req, res, next) {
       // Serialize submissions with publishing/role/document edits without making
       // an admin's editing revision stale each time a student applies.
       await Drive.updateOne({ _id: drive._id }, { $inc: { activityVersion: 1 } }, { session });
+      if (role.finalizedStages?.includes("applied")) throw new ApiError(409, "The application round has been finalized for this role");
+      const restriction = placementRestriction(student, drive, await getPlacementPolicy(session));
+      if (restriction) throw new ApiError(403, restriction);
       checkEligibility(student, role.eligibility);
       await validateResume(student, role.resumeRequired, session);
       if (await Application.exists({ student: req.user._id, drive: drive._id }).session(session)) throw new ApiError(409, "You have already applied to a role in this drive");
       [application] = await Application.create([{
+        workflowVersion: 5, currentStageKey: "applied", currentStageName: "Applied",
         student: req.user._id, company: drive.company, drive: drive._id, role: role._id,
         history: [{ title: "Application submitted", message: `Applied for ${role.title}`, status: "APPLIED" }],
         isEligible: true, snapshot: { ...applicationSnapshot(student), driveTitle: drive.title, roleTitle: role.title, compensation: role.compensation, experience: role.experience, positions: role.positions,
@@ -139,9 +147,11 @@ export async function updateApplicationStatus(req, res, next) {
       application = await Application.findById(req.params.applicationId).session(session);
       if (!application) throw new ApiError(404, "Application not found");
       if (application.status === "WITHDRAWN") throw new ApiError(409, "This application has been withdrawn");
+      if (application.workflowVersion >= 5) throw new ApiError(409, "Use the recruitment round preview or offer actions for this application");
       if (application.status === req.body.status) return;
       application.status = req.body.status;
       application.history.push({ title: "Application status updated", message: `Status changed to ${req.body.status.toLowerCase()}.`, status: req.body.status });
+      application.recruitmentRevision = (application.recruitmentRevision || 0) + 1;
       await application.save({ session });
       await notify({ key: `result:${application._id}:${application.history.at(-1)._id}`, recipient: application.student, kind: "RESULT", application: application._id, company: application.company, title: "Application update", message: `${application.snapshot.roleTitle || "Your application"}: ${req.body.status.toLowerCase()}.` }, session);
       await AuditLog.create([{ actor: req.user._id, actorModel: "Admin", action: "APPLICATION_STATUS_UPDATED", target: String(application._id), details: { status: application.status } }], { session });
@@ -180,6 +190,7 @@ export async function requestApplicationChange(req, res, next) {
       }
       application.requests.push({ ...req.body, proposedSnapshot, eligibilityWarnings });
       application.history.push({ title: `${req.body.kind === "CORRECTION" ? "Correction" : "Withdrawal"} requested`, message: req.body.reason, status: application.status });
+      application.recruitmentRevision = (application.recruitmentRevision || 0) + 1;
       await application.save({ session });
       await notify({ key: `request:${application.requests.at(-1)._id}`, recipient: application.student, company: application.company, application: application._id, kind: "REQUEST", title: "Request sent", message: "Your placement team will review your request. Your application remains unchanged until they decide." }, session);
     });
@@ -196,10 +207,12 @@ export async function resolveApplicationRequest(req, res, next) {
       if (!request) throw new ApiError(404, "Request not found");
       if (request.status !== "PENDING") throw new ApiError(409, "This request has already been reviewed");
       if (req.body.decision === "APPROVED" && ["WITHDRAWN", "REJECTED"].includes(application.status)) throw new ApiError(409, "This application is no longer active. Decline this request with an explanation.");
+      if (req.body.decision === "APPROVED" && request.kind === "WITHDRAWAL" && ["ISSUED", "ACCEPTED", "JOINED"].includes(application.offer?.status)) throw new ApiError(409, "Resolve the active offer before approving a withdrawal.");
       request.status = req.body.decision; request.response = req.body.response; request.resolvedAt = new Date(); request.resolvedBy = req.user._id;
       if (request.status === "APPROVED" && request.kind === "WITHDRAWAL") application.status = "WITHDRAWN";
       if (request.status === "APPROVED" && request.kind === "CORRECTION" && request.eligibilityWarnings != null) application.isEligible = request.eligibilityWarnings.length === 0;
       application.history.push({ title: `${request.kind === "CORRECTION" ? "Correction" : "Withdrawal"} ${request.status.toLowerCase()}`, message: request.response, status: application.status });
+      application.recruitmentRevision = (application.recruitmentRevision || 0) + 1;
       await application.save({ session });
       await AuditLog.create([{ actor: req.user._id, actorModel: "Admin", action: "APPLICATION_REQUEST_REVIEWED", target: String(application._id), details: { requestId: request._id, kind: request.kind, decision: request.status } }], { session });
       await notify({ key: `request-result:${request._id}`, recipient: application.student, company: application.company, application: application._id, kind: "REQUEST", title: `${request.kind === "CORRECTION" ? "Correction" : "Withdrawal"} request ${request.status.toLowerCase()}`, message: request.response }, session);
