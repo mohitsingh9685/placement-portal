@@ -72,13 +72,18 @@ Implemented: ExcelJS exports with selectable columns, XLSX/CSV/paste imports, em
 
 Verification: **169 automated tests** (38 backend, 34 frontend, 97 MongoDB integration), including targeted reruns after the final edge-case fixes, clean frontend lint/build and a synthetic browser workflow from Excel download through shortlist upload, interview selection and accepted offer. Read-only staff controls and student/admin screens were checked at 390 pixels. On September 22, Mohit supplied successful dry-run and apply output for the Stage 5 setup on `placement-portal` and then confirmed that round processing works. Deployment and live cloud checks remain separate; no deployment or git push was performed by the agent. See [Stage 5 usage, setup and testing](STAGE_5_TESTING.md).
 
-## 6. Reports, capacity, and launch — planned
+## 6. Placement reports and paginated pages — implemented and verified locally
 
-- Unique placed students versus offers, branch/batch reports, and consistent compensation statistics.
-- Count/aggregate endpoints instead of downloading every applicant; server pagination/filter/sort and narrow projections.
-- Staging with 1,000 synthetic students and about 20,000 applications; test browsing, exports, results, and agreed deadline bursts.
-- Monitoring, backups/restore rehearsal, hosting assessment, email notifications if selected, and rollback procedure.
-- Pilot with staff and 30–50 students; record response times, errors and data correctness before wider rollout.
+Scope limited to the two parts requested on September 22:
+
+1. **Placement reports:** registered placed/unplaced students, unique placement totals, current offer counts, and company/branch/graduating-year summaries. Course, branch and year filters apply across reports. Super Admins have access; other staff need the new View placement reports permission.
+2. **Performance:** database-side pagination, search, filtering, sorting and counts for company dashboards, admin applicants and student application history. Company lists send brief role summaries; applicant pages return only the requested page. Pending student requests have their own paginated queue. Global totals remain independent of the current page, and applicant selections clear when the page or filters change.
+
+Verification: **181 automated tests** (38 backend, 34 frontend, 109 disposable MongoDB integration), clean lint/build and browser checks covering reports, cohort filters, multi-page navigation, search beyond the current page, applicant selection reset and mobile layout. Follow-up focused checks cover legacy course/branch searches, accepted corrections and eligibility filters. See [Stage 6 usage, indexes and verification](STAGE_6_TESTING.md).
+
+An additive index setup is prepared and tested locally. No Stage 6 setup was run on Atlas; no deployment or git push was performed. These functional checks do not establish 1,000-student concurrent capacity.
+
+Deferred beyond this requested scope: load testing, production monitoring and backup/restore rehearsal, hosting assessment, rollout/pilot and deployment. Compensation analytics are not included because compensation is descriptive text.
 
 ## Open decisions
 

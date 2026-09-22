@@ -56,15 +56,7 @@ export async function getPublishing(companyId, user) {
   }
   return graph;
 }
-export async function listPublishing(user) {
-  const companies = await Company.find().sort({ createdAt: -1 });
-  const drives = await Drive.find({ _id: { $in: companies.map(company => company.defaultDrive).filter(Boolean) } });
-  const roles = await JobRole.find({ drive: { $in: drives.map(drive => drive._id) } }).sort({ order: 1, _id: 1 });
-  const byId = new Map(drives.map(drive => [String(drive._id), drive]));
-  const rolesByDrive = new Map();
-  for (const role of roles) { const key = String(role.drive); if (!rolesByDrive.has(key)) rolesByDrive.set(key, []); rolesByDrive.get(key).push(role); }
-  return companies.map(company => visibleGraph(company, byId.get(String(company.defaultDrive)), rolesByDrive.get(String(company.defaultDrive)) || [], user)).filter(Boolean);
-}
+
 export function assertPublishable(drive, roles, now = new Date()) {
   if (!drive.description?.trim()) throw new ApiError(400, "Add a drive description before publishing");
   if (!drive.registrationDeadline || new Date(drive.registrationDeadline) <= now) throw new ApiError(400, "Choose an application deadline in the future");

@@ -14,7 +14,7 @@ import { hasPermission } from "../config/permissions.js";
 import { roundsFor, documentId, publicDocument, getPublishing } from "../services/publishingService.js";
 import { notify } from "../services/notificationService.js";
 import { getPlacementPolicy, placementRestriction } from "../services/offerService.js";
-const studentFields = "-refreshToken -password -googleId";
+import { listApplications } from "../services/applicationListService.js";
 
 export function staffApplications(applications, user) {
   // Resume access also controls any stored URL returned in applicant data.
@@ -27,8 +27,10 @@ export function staffApplications(applications, user) {
     return data;
   });
 }
-function publicApplication(application) {
-  const data = application.toObject ? application.toObject() : structuredClone(application);
+export function publicApplication(application) {
+  // Aggregation returns BSON values in plain objects. JSON serialization preserves
+  // ObjectId's public string form; structuredClone loses its BSON prototype.
+  const data = application.toObject ? application.toObject() : JSON.parse(JSON.stringify(application));
   if ((data.workflowVersion || 0) < 5 && data.status === "SELECTED") data.currentStageName = "Selected (earlier record)";
   if (data.snapshot?.documents) data.snapshot.documents = data.snapshot.documents.filter(doc => doc.key).map(publicDocument);
   if (data.company?.jobDescription) data.company.jobDescription = undefined;
@@ -119,25 +121,26 @@ export async function applyToCompany(req, res, next) {
 }
 export async function getApplicationsByCompany(req, res, next) {
   try {
-    const filter = { company: req.params.companyId };
+    const filter = { company: new mongoose.Types.ObjectId(req.params.companyId) };
     const { roleId } = req.query;
     if (roleId !== undefined) {
       if (typeof roleId !== "string" || !mongoose.isObjectIdOrHexString(roleId)) throw new ApiError(400, "Invalid role ID");
       const company = await Company.findById(req.params.companyId).select("defaultDrive");
       if (!company || !await JobRole.exists({ _id: roleId, drive: company.defaultDrive })) throw new ApiError(404, "Role not found for this company");
       filter.drive = company.defaultDrive;
-      filter.role = roleId;
+      filter.role = new mongoose.Types.ObjectId(roleId);
     }
-    res.json(staffApplications(await Application.find(filter).populate("student", studentFields).populate("company").populate("role", "title"), req.user));
+    const result = await listApplications(filter, req.query);
+    res.set("Cache-Control", "no-store").json({ ...result, applications: staffApplications(result.applications, req.user) });
   }
   catch (error) { next(error); }
 }
 export async function getMyApplications(req, res, next) {
-  try { res.json((await Application.find({ student: req.user._id }).sort({ appliedAt: -1 }).populate("company").populate("role", "title")).map(publicApplication)); }
+  try { const result = await listApplications({ student: req.user._id }, req.query); res.set("Cache-Control", "no-store").json({ ...result, applications: result.applications.map(publicApplication) }); }
   catch (error) { next(error); }
 }
 export async function getAllApplications(req, res, next) {
-  try { res.json(staffApplications(await Application.find().populate("student", studentFields).populate("company").populate("role", "title"), req.user)); }
+  try { const result = await listApplications({}, req.query); res.set("Cache-Control", "no-store").json({ ...result, applications: staffApplications(result.applications, req.user) }); }
   catch (error) { next(error); }
 }
 export async function updateApplicationStatus(req, res, next) {

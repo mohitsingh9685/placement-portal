@@ -217,7 +217,7 @@ test("revoking one offer preserves placement from another and retains legacy pla
 test("students see real round and offer history with private notifications", async () => {
   const { graph, applicants: a } = await createCohort();
   await advance(graph, a[0], "applied"); await advance(graph, a[0], "test"); await advance(graph, a[0], "interview"); await offer(a[0], "ISSUE"); await offer(a[0], "ACCEPT");
-  const mine = (await request("/api/application/my")).body.find(app => app._id === a[0]._id);
+  const mine = (await request("/api/application/my")).body.applications.find(app => app._id === a[0]._id);
   assert.equal(mine.status, "PLACED"); assert.equal(mine.offer.status, "ACCEPTED"); assert.ok(mine.history.some(event => event.title === "Shortlisted for Interview"));
   const notifications = (await request("/api/student/notifications")).body.items; assert.ok(notifications.some(n => n.title === "Offer acceptance recorded"));
   assert.ok(!notifications.some(n => String(n.application) === a[1]._id));

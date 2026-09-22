@@ -49,4 +49,7 @@ const schema = new mongoose.Schema({
 schema.index({ student: 1, drive: 1 }, { unique: true, name: "student_drive_unique", partialFilterExpression: { drive: { $type: "objectId" } } });
 schema.index({ drive: 1, role: 1, status: 1 });
 schema.index({ student: 1, "offer.status": 1 });
+schema.index({ company: 1, role: 1, appliedAt: -1, _id: -1 });
+schema.index({ student: 1, appliedAt: -1, _id: -1 });
+schema.index({ "offer.status": 1, student: 1 });
 export default mongoose.model("Application", schema);

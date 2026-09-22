@@ -120,4 +120,6 @@ const studentSchema = new mongoose.Schema(
 
 studentSchema.index({ passingYear: 1, branch: 1 });
 
+studentSchema.index({ role: 1, course: 1, branch: 1, passingYear: 1, placementStatus: 1 });
+studentSchema.index({ role: 1, name: 1, _id: 1 });
 export default mongoose.model("Student", studentSchema);

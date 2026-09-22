@@ -60,4 +60,6 @@ const companySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+companySchema.index({ companyName: 1, _id: 1 });
+companySchema.index({ createdAt: -1, _id: -1 });
 export default mongoose.model("Company", companySchema);

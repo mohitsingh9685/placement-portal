@@ -6,7 +6,8 @@ import JobRole from "../models/JobRole.js";
 import companyCache from "../services/companyCache.js";
 import { syncLegacyDrive } from "../services/driveService.js";
 import ApiError from "../utils/ApiError.js";
-import { getPublishing, listPublishing } from "../services/publishingService.js";
+import { getPublishing } from "../services/publishingService.js";
+import { pagedCompanies } from "../services/companyListService.js";
 
 export async function addCompany(req, res, next) {
   try {
@@ -21,8 +22,7 @@ export async function addCompany(req, res, next) {
 export async function getCompanies(req, res, next) {
   try {
     // Visibility and attachment metadata must reflect current publishing state.
-    const companies = await listPublishing(req.user);
-    res.json({ success: true, source: "mongodb", companies });
+    res.set("Cache-Control", "no-store").json(await pagedCompanies(req.user, req.query));
   } catch (error) { next(error); }
 }
 export async function getCompanyById(req, res, next) {

@@ -1,4 +1,5 @@
 export const PERMISSIONS = [
+  { key: "reports.view", label: "View placement reports", description: "View placement totals, offer counts and student/company summaries.", requires: ["students.view", "applications.view"] },
   { key: "students.view", label: "View students", description: "View the college email list and submitted student profiles." },
   { key: "students.manage", label: "Manage student access", description: "Import emails, edit college-list details, and enable or disable students.", requires: ["students.view"] },
   { key: "companies.manage", label: "Manage companies", description: "Create, edit and delete companies, and upload job descriptions." },

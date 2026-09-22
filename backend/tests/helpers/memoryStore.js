@@ -85,6 +85,8 @@ export function installMemoryStore() {
   replace(JobRole, "findById", (id) => query(roles.get(String(id)) || null));
   replace(Company, "updateOne", async (filter, update) => { const company = companies.get(String(filter._id)); if (company) company.totalApplicants = (company.totalApplicants || 0) + (update.$inc?.totalApplicants || 0); });
   replace(Company, "create", async (values) => { const c = doc(Company, values, companies); return c.save(); });
+  // List-query behavior is exercised against real MongoDB in integration tests.
+  replace(Application, "aggregate", async () => [{ items: [], total: [], counts: [], requestCount: [] }]);
   replace(Application, "find", (filter = {}) => query([...applications.values()].filter((a) =>
     (!filter.student || String(a.student) === String(filter.student)) && (!filter.company || String(a.company) === String(filter.company)))));
   replace(Application, "exists", ({ student, drive }) => query([...applications.values()].find(app => String(app.student) === String(student) && String(app.drive) === String(drive)) || null));

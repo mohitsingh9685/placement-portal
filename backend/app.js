@@ -5,6 +5,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import compression from "compression";
 import recruitmentRoutes from "./routes/recruitmentRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 import rosterRoutes from "./routes/rosterRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -38,6 +39,7 @@ export function createApp({ rateLimit = true } = {}) {
   app.use("/api/admin/accounts", adminRoutes);
   app.use("/api/company", companyRoutes);
   app.use("/api/recruitment", recruitmentRoutes);
+  app.use("/api/reports", reportRoutes);
   app.use("/api/application", applicationRoutes);
   app.use("/api/student", studentExperienceRoutes);
   app.use("/api/v1/upload", uploadRoutes);

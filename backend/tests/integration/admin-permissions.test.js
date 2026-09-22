@@ -162,9 +162,9 @@ test("application readers without resume permission receive no stored resume URL
   const cookie = await cookieFor(await Admin.findById(staff._id));
   for (const path of ["/api/application/admin/all", `/api/application/admin/company/${fixture.companyId}`]) {
     const restricted = await request(path, { cookie });
-    assert.equal(restricted.status, 200); assert.equal(restricted.body[0].student.resume, undefined); assert.equal(restricted.body[0].snapshot.resume, undefined);
+    assert.equal(restricted.status, 200); assert.equal(restricted.body.applications[0].student.resume, undefined); assert.equal(restricted.body.applications[0].snapshot.resume, undefined);
     const full = await request(path, { cookie: superCookie });
-    assert.equal(full.body[0].student.resume.key, "synthetic/old.pdf"); assert.equal(full.body[0].snapshot.resume.key, "synthetic/submitted.pdf");
+    assert.equal(full.body.applications[0].student.resume, undefined); assert.equal(full.body.applications[0].snapshot.resume.key, "synthetic/submitted.pdf");
   }
   await Admin.updateOne({ _id: staff._id }, { $set: { permissions: ["applications.view", "applications.manage"] } });
   const updated = await request(`/api/application/admin/status/${fixture.applicationId}`, { cookie, method: "PUT", body: { status: "REJECTED" } });

@@ -85,17 +85,17 @@ test("admin applicant queries isolate roles while old company links retain all a
   const secondStudent = await Student.create({ name: "Sales Candidate", email: "sales@example.invalid", role: "student" });
   const second = await Application.create({ student: secondStudent._id, company: graph._id, drive: graph.drive._id, role: graph.roles[1]._id, status: "SELECTED", snapshot: { name: secondStudent.name, email: secondStudent.email, roleTitle: graph.roles[1].title } });
   const path = `/api/application/admin/company/${graph._id}`;
-  const all = await request(path); assert.equal(all.status, 200); assert.equal(all.body.length, 2);
+  const all = await request(path); assert.equal(all.status, 200); assert.equal(all.body.applications.length, 2);
   const engineering = await request(`${path}?roleId=${graph.roles[0]._id}`);
-  assert.equal(engineering.status, 200); assert.equal(engineering.body.length, 1);
-  assert.equal(engineering.body[0].role._id, graph.roles[0]._id); assert.equal(engineering.body[0].status, "APPLIED");
+  assert.equal(engineering.status, 200); assert.equal(engineering.body.applications.length, 1);
+  assert.equal(engineering.body.applications[0].role._id, graph.roles[0]._id); assert.equal(engineering.body.applications[0].status, "APPLIED");
   const sales = await request(`${path}?roleId=${graph.roles[1]._id}`);
-  assert.equal(sales.status, 200); assert.deepEqual(sales.body.map(a => a._id), [String(second._id)]);
+  assert.equal(sales.status, 200); assert.deepEqual(sales.body.applications.map(a => a._id), [String(second._id)]);
   const manager = await Admin.create({ name: "Results Admin", email: "results@example.invalid", permissions: ["applications.view", "applications.manage"] });
-  assert.equal((await request(`/api/application/admin/status/${engineering.body[0]._id}`, { cookie: await cookieFor(manager), method: "PUT", body: { status: "REJECTED" } })).status, 409); // Modern applications require a reviewed round result.
+  assert.equal((await request(`/api/application/admin/status/${engineering.body.applications[0]._id}`, { cookie: await cookieFor(manager), method: "PUT", body: { status: "REJECTED" } })).status, 409); // Modern applications require a reviewed round result.
   assert.equal((await Application.findById(second._id)).status, "SELECTED");
   const empty = await publish(await create());
-  assert.deepEqual((await request(`/api/application/admin/company/${empty._id}?roleId=${empty.roles[0]._id}`)).body, []);
+  assert.deepEqual((await request(`/api/application/admin/company/${empty._id}?roleId=${empty.roles[0]._id}`)).body.applications, []);
 });
 
 test("admin role filters reject malformed, missing and cross-company roles and enforce viewing permission", async () => {
@@ -124,9 +124,9 @@ test("application reviewers can open inactive roles without gaining resume or ma
     assert.equal((await request(`${prefix}/${graph._id}`, { cookie: actor })).body.roles.length, 1);
   }
   const applications = await request(`/api/application/admin/company/${graph._id}?roleId=${graph.roles[0]._id}`, { cookie });
-  assert.equal(applications.status, 200); assert.equal(applications.body.length, 1);
-  assert.equal(applications.body[0].snapshot.resume, undefined); assert.equal(applications.body[0].student.resume, undefined);
-  assert.equal((await request(`/api/application/admin/status/${applications.body[0]._id}`, { cookie, method: "PUT", body: { status: "SELECTED" } })).status, 403);
+  assert.equal(applications.status, 200); assert.equal(applications.body.applications.length, 1);
+  assert.equal(applications.body.applications[0].snapshot.resume, undefined); assert.equal(applications.body.applications[0].student.resume, undefined);
+  assert.equal((await request(`/api/application/admin/status/${applications.body.applications[0]._id}`, { cookie, method: "PUT", body: { status: "SELECTED" } })).status, 403);
 });
 
 test("publish validates completeness; closing and reopening preserve roles and applications", async () => {
@@ -240,7 +240,7 @@ test("document replacements preserve applicant versions without disclosing stora
   assert.equal((await request(`/api/company/${graph._id}/drive/documents/${roleDocument.id}`, { cookie: studentCookie })).status, 200);
   assert.equal((await request(`/api/company/guest/${graph._id}/drive/documents/${roleDocument.id}`, { cookie: null })).status, 404);
   const publicListing = await request(`/api/company/guest/${graph._id}`, { cookie: null }); assert.equal(JSON.stringify(publicListing).includes("synthetic/"), false);
-  const mine = (await request("/api/application/my", { cookie: studentCookie })).body.find(a => a.company._id === graph._id); assert.equal(mine.snapshot.documents[0].id, original.id); assert.ok(!mine.snapshot.documents[0].key);
+  const mine = (await request("/api/application/my", { cookie: studentCookie })).body.applications.find(a => a.company._id === graph._id); assert.equal(mine.snapshot.documents[0].id, original.id); assert.ok(!mine.snapshot.documents[0].key);
 });
 
 test("upload failures, stale revisions and foreign role IDs cannot replace the existing JD", async () => {
@@ -323,7 +323,7 @@ test("free-text compensation publishes without a pay type and survives applicati
   assert.equal((await apply(graph.roles[0])).status, 201);
   const update = editInput(graph); Object.assign(update.roles[0], { experience: "1–2 years", positions: 5 }); update.roles[0].compensation.description = "Revised package";
   assert.equal((await edit(graph, update)).status, 200);
-  const history = (await request("/api/application/my", { cookie: studentCookie })).body.find(app => app.drive?._id === graph.drive._id || app.company?._id === graph._id);
+  const history = (await request("/api/application/my", { cookie: studentCookie })).body.applications.find(app => app.drive?._id === graph.drive._id || app.company?._id === graph._id);
   assert.equal(history.snapshot.compensation.description, body.roles[0].compensation.description); assert.equal(history.snapshot.positions, 10); assert.equal(history.snapshot.experience, "Freshers / 0–1 years");
   assert.equal((await get(graph)).roles[0].compensation.description, "Revised package");
 });
@@ -359,7 +359,7 @@ test("diploma lateral-entry profiles apply without 12th marks and preserve their
   assert.equal(applied.status, 201, JSON.stringify(applied.body)); assert.equal(applied.body.application.snapshot.entryQualification, "DIPLOMA"); assert.equal(applied.body.application.snapshot.diplomaPercentage, 75); assert.equal(applied.body.application.snapshot.diplomaPassingYear, 2024);
   const regular = await request("/api/auth/update-profile", { cookie: studentCookie, method: "PUT", body: { ...profile, entryQualification: "TWELFTH", twelfthPercentage: 90 } });
   assert.equal(regular.status, 200); assert.equal(regular.body.user.diplomaPercentage, null); assert.equal(regular.body.user.diplomaCollege, "");
-  const history = (await request("/api/application/my", { cookie: studentCookie })).body.find(a => a.company._id === graph._id);
+  const history = (await request("/api/application/my", { cookie: studentCookie })).body.applications.find(a => a.company._id === graph._id);
   assert.equal(history.snapshot.entryQualification, "DIPLOMA"); assert.equal(history.snapshot.diplomaPercentage, 75); assert.equal(history.snapshot.twelfthPercentage, null);
 });
 test("API rejects incomplete diploma profiles and does not waive unspecified company criteria", async () => {

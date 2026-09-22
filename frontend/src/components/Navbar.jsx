@@ -63,6 +63,7 @@ function Navbar() {
               {hasPermission(user, "students.view") && <button onClick={() => navigate("/admin/students")} className={navButtonClass("/admin/students")}>
                 Students
               </button>}
+              {hasPermission(user, "reports.view") && <button onClick={() => navigate("/admin/reports")} className={navButtonClass("/admin/reports")}>Reports</button>}
               {user.role === "super_admin" && <button onClick={() => navigate("/admin/accounts")} className={navButtonClass("/admin/accounts")}>Admins</button>}
               {hasPermission(user, "companies.manage") && <button
                 onClick={() => navigate("/create-company")}

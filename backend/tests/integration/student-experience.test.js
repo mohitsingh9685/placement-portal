@@ -224,7 +224,7 @@ test("withdrawal retains the original application, disallows reapplication and c
   assert.equal((await request(`/api/application/${app._id}`, { method: "DELETE" })).status, 405);
   assert.equal((await request(`/api/application/admin/status/${app._id}`, { cookie: adminCookie, method: "PUT", body: { status: "SELECTED" } })).status, 409);
   assert.equal((await Company.findById(graph._id)).totalApplicants, 1);
-  const mine = (await request("/api/application/my")).body.find(a => a._id === app._id);
+  const mine = (await request("/api/application/my")).body.applications.find(a => a._id === app._id);
   assert.equal(mine.status, "WITHDRAWN"); assert.deepEqual(mine.snapshot, original); assert.equal(mine.history.length, 3);
 });
 test("correction captures the current profile; approval preserves the original and exposes a separate accepted snapshot", async () => {
@@ -238,7 +238,7 @@ test("correction captures the current profile; approval preserves the original a
   assert.equal(result.body.application.effectiveSnapshot.name, "Corrected Name"); assert.equal(result.body.application.effectiveSnapshot.roleTitle, app.snapshot.roleTitle);
   assert.equal(result.body.application.snapshot.name, fixture.student.name);
   const reader = await Admin.create({ name: "Reader", email: "reader@example.invalid", permissions: ["applications.view"] });
-  const listed = (await request(`/api/application/admin/company/${graph._id}`, { cookie: await cookieFor(reader) })).body[0];
+  const listed = (await request(`/api/application/admin/company/${graph._id}`, { cookie: await cookieFor(reader) })).body.applications[0];
   assert.equal(listed.snapshot.resume, undefined); assert.equal(listed.effectiveSnapshot.resume, undefined); assert.equal(listed.requests[0].proposedSnapshot.resume, undefined);
 });
 test("correction cannot forge a snapshot; decline preserves submitted details and allows a new request", async () => {
@@ -246,7 +246,7 @@ test("correction cannot forge a snapshot; decline preserves submitted details an
   assert.equal((await request(`/api/application/${app._id}/requests`, { method: "POST", body: { kind: "CORRECTION", reason: "Try to forge values", proposedSnapshot: { cgpa: 10 } } })).status, 400);
   const requested = (await changeRequest(app, "CORRECTION")).body.application;
   assert.equal((await decide(requested, "REJECTED")).status, 200);
-  const mine = (await request("/api/application/my")).body.find(a => a._id === app._id);
+  const mine = (await request("/api/application/my")).body.applications.find(a => a._id === app._id);
   assert.deepEqual(mine.effectiveSnapshot, mine.snapshot); assert.equal(mine.requests[0].status, "REJECTED");
   assert.equal((await changeRequest(app)).status, 201);
 });
@@ -259,7 +259,7 @@ test("a correction below the cutoff reaches staff with captured warnings and pre
   assert.equal(requested.requests[0].proposedSnapshot.cgpa, 6.5);
   assert.deepEqual(requested.requests[0].eligibilityWarnings, ["Not eligible: CGPA too low (minimum 8)"]);
   assert.equal(requested.effectiveSnapshot.cgpa, app.snapshot.cgpa);
-  const staff = (await request(`/api/application/admin/company/${graph._id}`, { cookie: adminCookie })).body[0];
+  const staff = (await request(`/api/application/admin/company/${graph._id}`, { cookie: adminCookie })).body.applications[0];
   assert.deepEqual(staff.requests[0].eligibilityWarnings, requested.requests[0].eligibilityWarnings);
   await Student.updateOne({ _id: fixture.studentId }, { $set: { cgpa: 9 } });
   const accepted = (await decide(requested)).body.application;

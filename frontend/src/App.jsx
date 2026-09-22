@@ -3,6 +3,7 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import MyApplications from "./pages/MyApplications";
+import PlacementReports from "./pages/PlacementReports.jsx";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateCompany from "./pages/CreateCompany";
 import AdminStudents from "./pages/AdminStudents.jsx";
@@ -37,6 +38,7 @@ export default function App() {
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin-profile" element={<AdminProfile />} />
     </Route>
+    <Route element={<RequireSession role="admin" permission="reports.view" />}><Route path="/admin/reports" element={<PlacementReports />} /></Route>
     <Route element={<RequireSession role="super_admin" />}>
       <Route path="/admin/accounts" element={<AdminAccounts />} />
     </Route>

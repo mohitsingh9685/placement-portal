@@ -38,6 +38,8 @@ try {
   await setupStage4(mongoose.connection, { apply: true });
   const { setupStage5 } = await import("../migrations/stage5.js");
   await setupStage5(mongoose.connection, { apply: true });
+  const { setupStage6 } = await import("../migrations/stage6.js");
+  await setupStage6(mongoose.connection, { apply: true });
   const { default: Admin } = await import("../models/Admin.js");
   const { bootstrapSuperAdmin } = await import("../services/adminManagementService.js");
   await bootstrapSuperAdmin(fixture.admin.email, { apply: true });
@@ -72,6 +74,22 @@ try {
       snapshot: { ...applicationSnapshot(student), roleTitle: selectedRole.title, driveTitle: demo.drive.title, compensation: selectedRole.compensation, recruitmentStages: demo.drive.stages }, history: [{ title: "Application submitted", message: "Synthetic preview application", status: "APPLIED" }] });
   }
   await Company.updateOne({ _id: companyId }, { $set: { totalApplicants: 4 } });
+  if (process.argv.includes("--reports")) {
+    // More than one page, using only the disposable database created above.
+    for (let index = 4; index < 28; index++) {
+      const student = await Student.create({ ...fixture.student, _id: new mongoose.Types.ObjectId(), name: `Demo Candidate ${String(index).padStart(2, "0")}`, email: `talent${index}@example.invalid`, course: index % 3 ? "B.Tech" : "MBA", branch: index % 3 ? "CSE" : "FINANCE", passingYear: index % 2 ? 2027 : 2028, resume: undefined });
+      const app = await Application.create({ student: student._id, company: companyId, drive: demo.drive._id, role: demo.roles[0]._id, snapshot: { ...applicationSnapshot(student), roleTitle: "Software Engineer" }, status: "APPLIED", workflowVersion: 5,
+        ...(index === 27 ? { requests: [{ kind: "WITHDRAWAL", reason: "I accepted another opportunity", status: "PENDING" }] } : {}),
+      });
+      if (index === 4) { await Application.updateOne({ _id: app._id }, { $set: { status: "PLACED", "offer.status": "ACCEPTED", "offer.compensationDetails": "6 LPA" } }); await Student.updateOne({ _id: student._id }, { $set: { placementStatus: "PLACED" } }); }
+    }
+    for (let index = 1; index <= 23; index++) {
+      const extraId = await createPublishing(driveSchema.parse({ companyName: `Pagination Demo ${String(index).padStart(2, "0")}`, title: "Graduate drive", description: "Synthetic pagination check", registrationDeadline: new Date(Date.now() + 86400000).toISOString(), roles: [{ ...role, resumeRequired: false }], stages: demo.drive.stages.map(({ key, name, kind }) => ({ key, name, kind })) }), fixture.adminId);
+      await changePublishingStatus(extraId, { status: "PUBLISHED", revision: 0 }, fixture.adminId);
+      const extra = await getPublishing(extraId, await Admin.findById(fixture.adminId));
+      await Application.create({ student: fixture.studentId, company: extraId, drive: extra.drive._id, role: extra.roles[0]._id, snapshot: { ...applicationSnapshot(await Student.findById(fixture.studentId)), roleTitle: role.title }, status: "APPLIED", workflowVersion: 5 });
+    }
+  }
   const { createSession } = await import("../services/authService.js");
   const { setAuthCookies } = await import("../config/cookie.js");
   const { createApp } = await import("../app.js");

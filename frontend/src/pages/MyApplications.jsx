@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import API from "../api/axios.js";
+import usePagedQuery from "../hooks/usePagedQuery.js";
+import useDebouncedValue from "../hooks/useDebouncedValue.js";
+import Pagination from "../components/Pagination.jsx";
 import Navbar from "../components/Navbar.jsx";
 import DriveDocuments from "../components/DriveDocuments.jsx";
 import ApplicationSnapshot from "../components/ApplicationSnapshot.jsx";
@@ -9,7 +12,7 @@ import useAuth from "../auth/useAuth.js";
 import useNotifications from "../notifications/useNotifications.js";
 import { getGuestApplications } from "../utils/guestSession.js";
 import { formatCompensation } from "../utils/compensation.js";
-import { formatPortalDate, applicationStatus, mergeApplicationUpdates } from "../utils/studentExperience.js";
+import { formatPortalDate, applicationStatus } from "../utils/studentExperience.js";
 
 const panel = "rounded-2xl border border-white/10 bg-slate-900/70 p-5 sm:p-6";
 const statusColor = { SHORTLISTED: "text-cyan-200 bg-cyan-400/10", INTERVIEW: "text-indigo-200 bg-indigo-400/10", OFFERED: "text-emerald-200 bg-emerald-400/10", PLACED: "text-emerald-200 bg-emerald-400/10", APPLIED: "text-amber-200 bg-amber-400/10", SELECTED: "text-emerald-200 bg-emerald-400/10", REJECTED: "text-red-200 bg-red-400/10", WITHDRAWN: "text-slate-300 bg-slate-400/10" };
@@ -57,26 +60,23 @@ function ApplicationCard({ application: app, guest, onChange }) {
 
 export default function MyApplications() {
   const { user } = useAuth(), guest = Boolean(user?.isGuest), inbox = useNotifications(), location = useLocation();
-  const [apps, setApps] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState(""), [filter, setFilter] = useState("ALL"), [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let active = true, inFlight = false; const controller = new AbortController();
-    async function load() {
-      if (inFlight || document.visibilityState === "hidden") return;
-      inFlight = true;
-      try { const rows = guest ? getGuestApplications() : (await API.get("/application/my", { signal: controller.signal })).data; if (active) { setApps(previous => mergeApplicationUpdates(previous, rows)); setError(""); } }
-      catch (err) { if (active) setError(err.response?.data?.message || "Unable to load your applications. Please try again."); }
-      finally { if (active) setLoading(false); inFlight = false; }
-    }
-    load(); const interval = setInterval(load, 60000); window.addEventListener("focus", load); document.addEventListener("visibilitychange", load);
-    return () => { active = false; controller.abort(); clearInterval(interval); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
-  }, [guest, attempt]);
-  useEffect(() => { if (!loading && location.hash.startsWith("#application-")) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "start" }); }, [loading, location.hash]);
-  const filtered = apps.filter(app => filter === "ALL" || app.status === filter);
+  const [filter, setFilter] = useState("ALL"), [search, setSearch] = useState(""), [page, setPage] = useState(1);
+  const term = useDebouncedValue(search), applicationId = /^#application-([a-f0-9]{24})$/i.exec(location.hash)?.[1];
+  const list = usePagedQuery(guest ? null : "/application/my", applicationId ? { applicationId } : { status: filter, search: term, page, limit: 20 }, 60000);
+  const loading = list.loading || term !== search;
+  const demo = guest ? getGuestApplications() : [];
+  const demoFiltered = demo.filter(app => (filter === "ALL" || app.status === filter) && `${app.company?.companyName} ${app.company?.role}`.toLowerCase().includes(term.toLowerCase()));
+  const data = guest ? { applications: demoFiltered.slice((page - 1) * 20, page * 20), total: demoFiltered.length, totalApplications: demo.length, pages: Math.max(1, Math.ceil(demoFiltered.length / 20)), limit: 20, counts: Object.fromEntries(Object.keys(statusColor).map(status => [status, demo.filter(a => a.status === status).length])) } : list.data;
+  useEffect(() => { if (!loading && applicationId) document.getElementById(`application-${applicationId}`)?.scrollIntoView({ block: "start" }); }, [loading, applicationId]);
   return <div className="premium-shell min-h-screen"><Navbar /><main className="mx-auto max-w-6xl space-y-6 px-4 py-8 text-slate-100">
     <header className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-bold">My applications</h1><p className="mt-2 text-slate-400">Track updates, review submitted details and contact your placement team through requests.</p></div><Link to="/dashboard" className="rounded-xl bg-cyan-600 px-4 py-2 font-semibold">Browse drives</Link></header>
     {guest && <p className="rounded-xl border border-cyan-400/30 p-4 text-sm">These demo applications are stored only in this browser. Admins cannot view them.</p>}
-    {error && <div role="alert" className="rounded-xl border border-red-400/30 p-4">{error}<button onClick={() => setAttempt(v => v + 1)} className="ml-3 text-cyan-300 underline">Try again</button></div>}
-    <div className="flex flex-wrap gap-2" aria-label="Application status filters">{["ALL", "APPLIED", "SHORTLISTED", "INTERVIEW", "SELECTED", "OFFERED", "PLACED", "REJECTED", "WITHDRAWN"].map(status => <button key={status} onClick={() => setFilter(status)} aria-pressed={filter === status} className={`rounded-full border px-4 py-2 text-sm ${filter === status ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100' : 'border-white/10 text-slate-400'}`}>{status === "ALL" ? "All applications" : applicationStatus(status)} ({apps.filter(app => status === "ALL" || app.status === status).length})</button>)}</div>
-    {loading ? <p role="status" className="py-12 text-center">Loading applications…</p> : !error && !filtered.length ? <p className={`${panel} text-slate-400`}>No applications match this view.</p> : filtered.map(app => <ApplicationCard key={app._id} application={app} guest={guest} onChange={updated => { setApps(previous => mergeApplicationUpdates(previous, previous.map(item => item._id === updated._id ? updated : item))); inbox.refresh(); }} />)}
+    {list.error && <div role="alert" className="rounded-xl border border-red-400/30 p-4">{list.error}<button onClick={list.refresh} className="ml-3 text-cyan-300 underline">Try again</button></div>}
+    {applicationId ? <Link className="inline-block text-cyan-300" to="/applications">← Show all applications</Link> : <>
+      <label className="block">Search applications<input value={search} maxLength={100} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Company or role" className="mt-2 block w-full rounded-xl border border-white/15 bg-slate-950 p-3" /></label>
+      <div className="flex flex-wrap gap-2" aria-label="Application status filters">{["ALL", ...Object.keys(statusColor)].map(status => <button key={status} onClick={() => { setFilter(status); setPage(1); }} aria-pressed={filter === status} className={`rounded-full border px-4 py-2 text-sm ${filter === status ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100' : 'border-white/10 text-slate-400'}`}>{status === "ALL" ? "All applications" : applicationStatus(status)} ({data ? status === "ALL" ? data.totalApplications : data.counts[status] || 0 : "—"})</button>)}</div>
+    </>}
+    {loading ? <p role="status" className="py-12 text-center">Loading applications…</p> : data?.applications.length === 0 ? <p className={`${panel} text-slate-400`}>No applications match this view.</p> : data?.applications.map(app => <ApplicationCard key={app._id} application={app} guest={guest} onChange={() => { list.refresh(); inbox.refresh(); }} />)}
+    {!applicationId && <Pagination data={data} page={page} onPage={setPage} loading={loading} label="applications" />}
   </main></div>;
 }

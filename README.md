@@ -16,6 +16,8 @@ A full-stack placement management system for students and administrators. It cen
 - Super Admins can add staff, grant/revoke ordinary admin permissions and disable/restore ordinary admin access; all Super Admin accounts are protected from management changes
 - Direct academic profile editing, application snapshots and retained resume versions
 - Drive/role data foundation with one application per student per drive
+- Placement reports with unique placed/unplaced totals, offer counts and company/branch/year summaries
+- Paginated dashboards and applicant lists with server-side search, filtering and counts
 - Docker Compose development environment
 
 ## Tech Stack
@@ -81,6 +83,12 @@ Students can save drives, check role eligibility, review their submitted details
 ## Recruiter exports, results and offers
 
 Admins can export applicant columns to Excel/CSV, preview a recruiter shortlist from pasted emails or an uploaded file, and publish partial/final results for one role and round. Students receive timeline updates and in-app notifications. Controlled batch undo, offer acceptance/joining and configurable placement rules are included. Separate staff permissions govern exports, round results and offers. ExcelJS runs in the backend; no spreadsheet account or API key is needed. See [Stage 5 usage, setup and testing](STAGE_5_TESTING.md). Its additive database setup must be applied before importing results or recording offers.
+
+## Placement reports and pagination
+
+Open **Admin → Reports** for placed/unplaced students, offer counts and company, branch or graduating-year summaries. Super Admins have access automatically; other admins need **View placement reports**, which also requires student and application viewing permissions. Reports count registered accounts and current offer states; multiple offers do not inflate the unique placed-student total.
+
+Dashboards, applicant lists and student application history now fetch one page at a time. Search, filters, sorting and totals run on the server. See [Stage 6 usage, optional index setup and verification](STAGE_6_TESTING.md). The additional indexes improve database access without changing records or creating a new database; no new service or API key is needed.
 
 ## Run with Docker
 
