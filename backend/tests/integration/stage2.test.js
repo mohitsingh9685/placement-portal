@@ -169,10 +169,16 @@ test("accounts receive roster metadata and validated academics remain directly e
   await migrated(); await ApprovedStudent.create({ email: "new@gmail.com", branch: "ECE", passingYear: 2028, enrollmentNo: "TEST002" });
   const result = await request("/api/auth/google", { method: "POST", body: { token: "new@gmail.com" } });
   assert.equal(result.status, 200); assert.equal(result.body.user.branch, "ECE"); assert.equal(result.body.user.enrollmentNo, "TEST002");
-  const cookie = await cookieFor(); const profile = { cgpa: 9, branch: "CSE", activeBacklogs: 0, totalBacklogs: 0, tenthPercentage: 91, twelfthPercentage: 89, githubUrl: "https://github.com/example", semesterCgpa: [{ sem: 1, cgpa: 8.5 }], projects: [{ title: "Project", projectUrl: "https://example.invalid" }] };
+  const cookie = await cookieFor(); const profile = { cgpa: 9, branch: "CSE", activeBacklogs: 0, totalBacklogs: 0, tenthPercentage: 91, twelfthPercentage: 89, githubUrl: "https://github.com/example", portfolioLinks: [{ label: "Website", url: "https://example.invalid/portfolio" }], semesterCgpa: [{ sem: 1, cgpa: 8.5 }], projects: [{ title: "Project", projectUrl: "https://example.invalid" }] };
   assert.equal((await request("/api/auth/update-profile", { cookie, method: "PUT", body: { ...profile, tenthPercentage: 101 } })).status, 400);
   const saved = await request("/api/auth/update-profile", { cookie, method: "PUT", body: profile });
   assert.equal(saved.status, 200); assert.equal(saved.body.user.tenthPercentage, 91); assert.equal(saved.body.user.profileVersion, 1); assert.equal(saved.body.user.projects[0].title, "Project");
+  assert.deepEqual(saved.body.user.portfolioLinks, profile.portfolioLinks);
+  assert.deepEqual((await request("/api/auth/profile", { cookie })).body.user.portfolioLinks, profile.portfolioLinks);
+  assert.equal((await request("/api/auth/update-profile", { cookie, method: "PUT", body: { ...profile, portfolioLinks: [{ label: "Unsafe", url: "javascript:alert(1)" }] } })).status, 400);
+  const withoutLinks = { ...profile }; delete withoutLinks.portfolioLinks;
+  assert.deepEqual((await request("/api/auth/update-profile", { cookie, method: "PUT", body: withoutLinks })).body.user.portfolioLinks, profile.portfolioLinks);
+  assert.deepEqual((await request("/api/auth/update-profile", { cookie, method: "PUT", body: { ...profile, portfolioLinks: [] } })).body.user.portfolioLinks, []);
   assert.equal((await Application.findById(fixture.applicationId)).snapshot.cgpa, 7.5);
 });
 test("company creation saves compensation, admin reference, drive and role together", async () => {
@@ -189,12 +195,14 @@ test("simultaneous submissions for two roles create one application per drive", 
   await migrated(); await Application.deleteMany({ student: fixture.studentId }); await Company.updateOne({ _id: fixture.companyId }, { totalApplicants: 0 });
   const company = await Company.findById(fixture.companyId), role = await JobRole.findById(company.defaultRole);
   const second = await JobRole.create({ drive: role.drive, title: "Analyst", eligibility: role.eligibility, isActive: true }); const cookie = await cookieFor();
-  await Student.updateOne({ _id: fixture.studentId }, { $set: { projects: [{ title: "Submitted project" }], semesterCgpa: [{ sem: 1, cgpa: 8 }] } });
+  await Student.updateOne({ _id: fixture.studentId }, { $set: { projects: [{ title: "Submitted project" }], portfolioLinks: [{ label: "Website", url: "https://example.invalid/submitted" }], semesterCgpa: [{ sem: 1, cgpa: 8 }] } });
   const responses = await Promise.all([role._id, second._id].map(roleId => request("/api/application/apply", { cookie, method: "POST", body: { roleId } })));
   assert.deepEqual(responses.map(result => result.status).sort(), [201,409]); assert.equal(await Application.countDocuments({ student: fixture.studentId }), 1); assert.equal((await Company.findById(fixture.companyId)).totalApplicants, 1);
   const app = await Application.findOne({ student: fixture.studentId }); assert.equal(app.snapshot.resume.key, "synthetic/old.pdf"); assert.ok(app.snapshot.resume.versionId);
   assert.equal(app.snapshot.projects[0].title, "Submitted project"); assert.equal(app.snapshot.semesterCgpa[0].cgpa, 8);
-  await Student.updateOne({ _id: fixture.studentId }, { $set: { cgpa: 10 } }); assert.equal((await Application.findById(app._id)).snapshot.cgpa, 8.2);
+  assert.equal(app.snapshot.portfolioLinks[0].url, "https://example.invalid/submitted");
+  await Student.updateOne({ _id: fixture.studentId }, { $set: { cgpa: 10, portfolioLinks: [] } }); assert.equal((await Application.findById(app._id)).snapshot.cgpa, 8.2);
+  assert.equal((await Application.findById(app._id)).snapshot.portfolioLinks[0].url, "https://example.invalid/submitted");
   assert.equal((await request(`/api/application/${app._id}`, { cookie, method: "DELETE" })).status, 405); assert.equal((await Company.findById(fixture.companyId)).totalApplicants, 1);
   assert.ok(await Application.findById(app._id));
 });

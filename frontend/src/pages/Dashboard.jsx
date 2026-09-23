@@ -4,44 +4,57 @@ import Navbar from "../components/Navbar.jsx";
 import Pagination from "../components/Pagination.jsx";
 import CompanyFilters from "../components/CompanyFilters.jsx";
 import ProfileChecklist from "../components/ProfileChecklist.jsx";
+import OpportunityCard from "../components/OpportunityCard.jsx";
 import usePagedQuery from "../hooks/usePagedQuery.js";
 import useDebouncedValue from "../hooks/useDebouncedValue.js";
 import useSavedOpportunities from "../hooks/useSavedOpportunities.js";
 import useAuth from "../auth/useAuth.js";
 import { getGuestApplications } from "../utils/guestSession.js";
-import { formatCompensation } from "../utils/compensation.js";
-import { formatPortalDate } from "../utils/studentExperience.js";
-const panel = "rounded-2xl border border-white/10 bg-slate-900/80 p-5 sm:p-6";
 const defaultFilters = { search: "", course: "", branch: "", sort: "latest", eligibility: "", applied: "" };
 export default function Dashboard() {
   const { user } = useAuth(), guest = Boolean(user?.isGuest), saved = useSavedOpportunities();
   const [params, setParams] = useSearchParams(), savedOnly = !guest && params.get("saved") === "1";
   const [filters, setFilters] = useState(defaultFilters), [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const query = useDebouncedValue(filters), list = usePagedQuery(guest ? "/company/guest" : "/company", { ...query, page, limit: 12, ...(savedOnly ? { saved: "true" } : {}) });
   const loading = list.loading || query !== filters;
   function filter(key, value) { setFilters(old => ({ ...old, [key]: value, ...(key === "course" ? { branch: "" } : {}) })); setPage(1); }
+  function setSavedOnly(value) {
+    setPage(1);
+    setParams(previous => { const next = new URLSearchParams(previous); if (value) next.set("saved", "1"); else next.delete("saved"); return next; }, { replace: true });
+  }
   function resetFilters() {
     setFilters({ ...defaultFilters }); setPage(1);
     setParams(previous => { const next = new URLSearchParams(previous); next.delete("saved"); return next; }, { replace: true });
   }
-  return <div className="premium-shell min-h-screen"><Navbar /><main className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-slate-100">
-    {guest && <p className="rounded-xl border border-cyan-400/30 p-4">Guest demo · Applications stay in this browser.</p>}
-    <header className={panel}><div className="flex items-center gap-4">{user?.profilePicture?.url && <img src={user.profilePicture.url} alt="" className="h-14 w-14 rounded-xl object-cover" />}<div><h1 className="text-3xl font-bold">Placement opportunities</h1><p className="mt-2 text-slate-400">{user?.name} · {user?.course} · {user?.branch} · CGPA {user?.cgpa ?? "—"}</p></div></div></header>
-    <div className="grid gap-4 sm:grid-cols-2">{[["Listed drives", list.data?.summary.companies], ["Eligible drives", guest ? null : list.data?.summary.eligible]].map(([name, value]) => <section key={name} className={panel}><p className="text-slate-400">{name}</p><p className="mt-2 text-3xl font-bold">{value ?? "—"}</p></section>)}</div>
-    {!guest && <ProfileChecklist profile={user} />}
-    <CompanyFilters filters={filters} onChange={filter} onReset={resetFilters} guest={guest} />
-    {!guest && <label className="inline-flex items-center gap-2"><input type="checkbox" checked={savedOnly} onChange={e => { setPage(1); setParams(e.target.checked ? { saved: "1" } : {}); }} />Saved drives only</label>}
-    {(list.error || saved.error) && <p role="alert" className="text-red-300">{list.error || saved.error} <button onClick={() => { list.refresh(); if (saved.error) saved.reload(); }} className="underline">Try again</button></p>}
-    {loading ? <p role="status" className="py-10">Loading drives…</p> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{list.data?.companies.map(c => {
-      const applied = guest ? getGuestApplications().some(a => a.company?._id === c._id) : c.applied;
-      const isSaved = saved.saved.some(s => s.company === c._id);
-      return <article key={c._id} className={`${panel} flex flex-col gap-4`}><h2 className="text-xl font-bold"><Link to={`/student/company/${c._id}`} className="hover:text-cyan-300">{c.companyName}</Link></h2><p className="text-slate-400">{c.role}</p>
-        <p className="whitespace-pre-wrap break-words text-sm"><strong>Compensation: </strong>{formatCompensation(c)}</p><p className="text-sm">Minimum CGPA: {c.roles?.length > 1 ? "By role" : c.minCgpa ?? "—"}</p><p className="text-sm">Deadline: {c.registrationDeadline ? formatPortalDate(c.registrationDeadline) : "Not specified"}</p>
-        <p className="text-sm text-cyan-200">{applied ? "Applied" : guest ? c.drive?.status : c.eligible ? "Eligible to apply" : "Not currently eligible · view requirements"}</p>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-4">{!guest && <button disabled={saved.busy || saved.loading} aria-pressed={isSaved} className="rounded-lg border border-cyan-400/30 px-3 py-2 text-sm text-cyan-300 disabled:opacity-40" onClick={async () => { await saved.save(c._id, !isSaved); if (savedOnly) list.refresh(); }}>{isSaved ? "★ Saved" : "☆ Save drive"}</button>}<Link to={`/student/company/${c._id}`} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold">{applied ? "View drive" : c.roles?.length > 1 ? "Choose role" : "View & apply"}</Link></div>
-      </article>;
-    })}</div>}
-    {!loading && list.data?.total === 0 && <p className="py-10 text-slate-400">No drives match these filters.</p>}
-    <Pagination data={list.data} page={page} onPage={setPage} loading={loading} label="drives" />
+  return <div className="premium-shell min-h-screen"><Navbar wide /><main className="w-full space-y-7 px-4 py-7 text-slate-100 sm:px-6 lg:px-8">
+    <header className="flex flex-wrap items-center justify-between gap-5">
+      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Placement opportunities</h1>
+      {!guest && <Link to="/profile" className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2.5 hover:bg-slate-800/80">
+        {user?.profilePicture?.url ? <img src={user.profilePicture.url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" /> : <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-400/10 font-semibold text-cyan-200">{user?.name?.trim()[0]?.toUpperCase() || "S"}</span>}
+        <span className="min-w-0"><span className="block truncate text-sm font-semibold">{user?.name}</span><span className="mt-1 block text-xs text-slate-400">{[user?.course, user?.branch, user?.cgpa != null ? `CGPA ${user.cgpa}` : null].filter(Boolean).join(" · ")}</span></span><span aria-hidden="true" className="ml-2 text-slate-400">↗</span>
+      </Link>}
+    </header>
+    {guest && <p className="text-sm text-cyan-200">Guest demo · Applications stay in this browser.</p>}
+    <button type="button" onClick={() => setFiltersOpen(open => !open)} aria-expanded={filtersOpen} aria-controls="dashboard-filters" className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-900 px-4 py-2 text-sm font-medium lg:hidden"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" className="h-4 w-4"><path d="M3 5h14M5 10h10M7 15h6" strokeWidth="1.5" strokeLinecap="round" /></svg>{filtersOpen ? "Hide filters" : "Filters"}</button>
+    <div className="grid items-start gap-6 lg:grid-cols-[250px_minmax(0,1fr)] xl:gap-8">
+      <aside id="dashboard-filters" aria-label="Dashboard filters and profile" className={`min-w-0 space-y-4 ${filtersOpen ? "block" : "hidden lg:block"}`}>
+        <CompanyFilters filters={filters} onChange={filter} onReset={resetFilters} guest={guest} compact sidebar />
+        {!guest && <ProfileChecklist profile={user} compact />}
+      </aside>
+      <section aria-label="Placement drives" className="min-w-0 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex gap-1 rounded-xl border border-white/10 bg-slate-950/50 p-1" aria-label="Drive views">{[[false, "All drives"], ...(!guest ? [[true, "Saved drives"]] : [])].map(([value, label]) => <button type="button" key={label} onClick={() => setSavedOnly(value)} aria-pressed={savedOnly === value} className={`rounded-lg px-4 py-2 text-sm font-semibold ${savedOnly === value ? "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-300/20" : "text-slate-400 hover:text-slate-100"}`}>{label}</button>)}</div>
+          <p aria-live="polite" className="text-xs text-slate-400">{loading ? "Finding drives…" : list.data ? `${list.data.total} ${list.data.total === 1 ? "opportunity" : "opportunities"}` : ""}</p>
+        </div>
+        {(list.error || saved.error) && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-950/30 p-4 text-sm text-red-200">{list.error || saved.error} <button onClick={() => { list.refresh(); if (saved.error) saved.reload(); }} className="ml-2 underline">Try again</button></p>}
+        {loading ? <div role="status" className="grid gap-5 sm:grid-cols-2"><span className="sr-only">Loading drives…</span>{[0, 1].map(index => <div aria-hidden="true" key={index} className="h-80 animate-pulse rounded-2xl border border-white/10 bg-slate-900/65 p-6"><div className="h-5 w-20 rounded-md bg-slate-800" /><div className="mt-6 h-6 w-2/3 rounded-md bg-slate-800" /><div className="mt-3 h-4 w-1/2 rounded-md bg-slate-800" /><div className="mt-8 h-20 rounded-xl bg-slate-800/60" /></div>)}</div> : <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))] gap-5">{list.data?.companies.map(company => <OpportunityCard key={company._id} company={company} guest={guest}
+          applied={guest ? getGuestApplications().some(application => application.company?._id === company._id) : company.applied}
+          isSaved={saved.saved.some(item => item.company === company._id)} saving={saved.busy || saved.loading}
+          onSave={async () => { await saved.save(company._id, !saved.saved.some(item => item.company === company._id)); if (savedOnly) list.refresh(); }} />)}</div>}
+        {!loading && list.data?.total === 0 && <div className="rounded-2xl border border-dashed border-white/15 bg-slate-900/40 px-6 py-16 text-center"><h2 className="text-lg font-semibold">{savedOnly ? "No saved drives match" : "No matching opportunities"}</h2><button type="button" onClick={resetFilters} className="mt-4 text-sm font-semibold text-cyan-300">Reset filters</button></div>}
+        <Pagination data={list.data} page={page} onPage={setPage} loading={loading} label="drives" />
+      </section>
+    </div>
   </main></div>;
 }

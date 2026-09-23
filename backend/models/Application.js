@@ -10,6 +10,7 @@ const snapshot = new mongoose.Schema({
   diplomaPercentage: Number, diplomaBranch: String, diplomaCollege: String, diplomaPassingYear: Number,
   activeBacklogs: Number, totalBacklogs: Number, contactNo: String, whatsappNo: String,
   counselorGroup: String, skills: [String], githubUrl: String, linkedinUrl: String,
+  portfolioLinks: [{ _id: false, label: String, url: String }],
   semesterCgpa: [{ _id: false, sem: Number, cgpa: Number }],
   projects: [{ _id: false, title: String, description: String, projectUrl: String }],
   resume: documentSchema, resumeUrl: String, profileVersion: Number,

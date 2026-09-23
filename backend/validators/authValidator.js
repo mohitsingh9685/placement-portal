@@ -24,6 +24,7 @@ export const profileUpdateSchema = z.preprocess((body) => {
   twelfthPercentage: number(z.number().min(0).max(100).nullable()).optional(), twelfthStream: text.optional(),
   githubUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).optional(),
   linkedinUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).optional(),
+  portfolioLinks: z.array(z.object({ label: z.string().trim().min(1, "Name each portfolio link").max(60), url: z.string().trim().max(2000).pipe(z.url({ protocol: /^https?$/ })) })).max(10).optional(),
   semesterCgpa: z.array(z.object({ sem: number(z.number().int().min(1).max(12)), cgpa: number(z.number().min(0).max(10)) })).max(12).refine(rows => new Set(rows.map(row => row.sem)).size === rows.length, "Semester entries must be unique").optional(),
   projects: z.array(z.object({ title: text.min(1), description: z.string().trim().max(3000).optional(), projectUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).optional() })).max(20).optional(),
   counselorGroup: text.optional(), contactNo: text.optional(), whatsappNo: text.optional(),

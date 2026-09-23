@@ -1,20 +1,16 @@
-import { educationRequirement, educationRequirementLabel } from "../utils/education.js";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import DriveDocuments from "../components/DriveDocuments";
 import API from "../api/axios";
 import useAuth from "../auth/useAuth";
-import { academicDescription } from "../utils/academics.js";
 import { formatCompensation } from "../utils/compensation";
 import { checkRoleEligibility } from "../utils/eligibility";
 import { isGuestUser, getGuestApplications, addGuestApplication } from "../utils/guestSession";
 import useSavedOpportunities from "../hooks/useSavedOpportunities.js";
 import useNotifications from "../notifications/useNotifications.js";
-import CalendarDownload from "../components/CalendarDownload.jsx";
-import ApplicationSnapshot from "../components/ApplicationSnapshot.jsx";
+import StudentRoleDialog from "../components/StudentRoleDialog.jsx";
 import ProfileChecklist from "../components/ProfileChecklist.jsx";
-const card = "rounded-2xl border border-white/10 bg-slate-900/75 p-5 sm:p-6 space-y-4";
 const date = value => value ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "Not specified";
 export default function StudentViewCompany() {
   const { id } = useParams();
@@ -32,7 +28,6 @@ function StudentDrive({ id }) {
     request.then(({ data }) => {
       if (!active) return; const graph = data.company;
       setCompany(graph); setPreview(data); setApplication(data.application || null); setError("");
-      if (graph.roles?.length === 1) setChosen(graph.roles[0]._id);
     }).catch(err => { if (active) setError(err.response?.data?.message || "Unable to load drive"); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id, guest, attempt]);
@@ -65,37 +60,52 @@ function StudentDrive({ id }) {
       if (err.response?.status === 409) { try { const { data } = await API.get(`/application/preview/${id}`); setPreview(data); setCompany(data.company); setApplication(data.application); } catch { /* Keep the original error visible and let the student retry. */ } }
     } finally { setBusy(false); }
   }
-  return <div className="premium-shell min-h-screen"><Navbar /><main className="mx-auto max-w-5xl px-4 py-8 space-y-6 text-slate-100">
-    <Link to="/dashboard" className="text-cyan-300">← All drives</Link>
-    {(error || savedDrives.error) && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-950/60 p-4">{error || savedDrives.error}<button type="button" disabled={busy || loading} className="ml-3 text-cyan-200 underline disabled:opacity-40" onClick={() => { setReviewing(false); setConfirmed(false); setLoading(true); setAttempt(v => v + 1); savedDrives.reload(); }}>Refresh details</button></p>}
-    {loading ? <p>Loading drive…</p> : company && <>
-      <header className={card}><p className="text-cyan-300 text-sm">{company.drive.status}</p><h1 className="text-3xl font-bold">{company.companyName}</h1><h2 className="text-xl text-slate-200">{company.drive.title}</h2><p className="whitespace-pre-wrap text-slate-300">{company.description}</p>
-        <div className="grid sm:grid-cols-2 gap-3 text-sm"><p><span className="text-slate-400">Apply by: </span>{date(company.registrationDeadline)}</p><p><span className="text-slate-400">Drive date: </span>{date(company.driveDate)}</p></div>
-        <div className="flex flex-wrap items-center gap-3"><CalendarDownload company={company} />{!guest && <button type="button" disabled={savedDrives.busy || savedDrives.loading} aria-pressed={Boolean(saved)} onClick={() => savedDrives.save(id, !saved)} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-cyan-200 disabled:opacity-40">{saved ? "★ Saved — remove" : "☆ Save drive"}</button>}</div>
-        {saved && !guest && <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={saved.remind} disabled={savedDrives.busy} onChange={e => savedDrives.save(id, true, e.target.checked)} />Remind me in the portal during the last 24 hours before the deadline</label>}
-        <DriveDocuments companyId={id} documents={company.drive.attachments} guest={guest} title="Shared job descriptions & documents" />
-      </header>
-      {!guest && <ProfileChecklist profile={preview?.profile || user} />}
-      {application && <div role="status" className="rounded-xl border border-emerald-400/30 bg-emerald-950/50 p-4">{guest ? "Demo application saved" : "You have applied"}: {application.snapshot?.roleTitle || application.role?.title || application.company?.role || role?.title}. <Link className="underline text-cyan-200" to="/applications">Track your application</Link></div>}
-      <section className="space-y-4"><h2 className="text-2xl font-semibold">Choose your role</h2><p className="text-slate-400">You can apply to only one role in this drive. Review each role before submitting.</p>
-        <div className="grid md:grid-cols-2 gap-4">{company.roles.map(item => { const report = preview?.roles?.find(r => r.roleId === item._id); const result = guest ? checkRoleEligibility(user, { ...item, resumeRequired: false }, { ...company.drive, registrationDeadline: company.registrationDeadline }) : { eligible: report?.eligible, reason: report?.checks.find(c => !c.passed)?.message }; return <label key={item._id} className={`${card} cursor-pointer ${chosen === item._id ? '!border-cyan-400 ring-1 ring-cyan-400' : ''}`}>
-          <div className="flex items-center gap-3"><input type="radio" name="role" disabled={busy || loading} value={item._id} checked={chosen === item._id} onChange={() => { setChosen(item._id); setReviewing(false); setConfirmed(false); }} /><span className="font-semibold text-lg">{item.title}</span></div>
-          <p className="whitespace-pre-wrap break-words">{formatCompensation(item)}</p><p className="text-sm text-slate-400">{item.domain} · {item.jobType} · {item.location || "Location to be confirmed"}</p><p className={`text-sm ${result.eligible ? 'text-emerald-300' : 'text-amber-200'}`}>{result.eligible ? "Eligible based on your profile" : result.reason}</p>
-        </label>; })}</div>
-      </section>
-      {role && <section className={card}><h2 className="text-2xl font-semibold">{role.title}</h2><p className="whitespace-pre-wrap text-slate-300">{role.description}</p>
-        <div className="grid sm:grid-cols-2 gap-3 text-sm"><p><span className="text-slate-400">Experience: </span>{role.experience || "Not specified"}</p><p><span className="text-slate-400">Number of positions: </span>{role.positions ?? "Not specified"}</p></div>
-        <h3 className="font-semibold">Eligibility requirements</h3><dl className="grid sm:grid-cols-2 gap-3 text-sm">{[
-          ["Accepted entry qualifications", educationRequirementLabel(role.eligibility)], ["Minimum CGPA", role.eligibility.minCgpa ?? 0], ["10th percentage", role.eligibility.minTenthPercentage == null ? "No minimum specified" : `${role.eligibility.minTenthPercentage}%`],
-          ...(educationRequirement(role.eligibility) !== "DIPLOMA_ONLY" ? [["12th percentage (12th entrants)", role.eligibility.minTwelfthPercentage == null ? "No minimum specified" : `${role.eligibility.minTwelfthPercentage}%`]] : []), ...(["TWELFTH_OR_DIPLOMA", "DIPLOMA_ONLY"].includes(educationRequirement(role.eligibility)) ? [["Diploma percentage (lateral entry)", role.eligibility.minDiplomaPercentage == null ? "No minimum specified" : `${role.eligibility.minDiplomaPercentage}%`]] : []), ["Active backlogs", role.eligibility.allowActiveBacklogs !== false && Number(role.eligibility.maxActiveBacklogs) > 0 ? `Up to ${role.eligibility.maxActiveBacklogs ?? 0}` : "None allowed"],
-          ["Total backlogs", role.eligibility.maxTotalBacklogs == null ? "No limit specified" : `Up to ${role.eligibility.maxTotalBacklogs}`], ["Courses & branches", academicDescription(role.eligibility)], ["Graduating years", role.eligibility.passingYears?.join(", ") || "Any year"], ["Resume", role.resumeRequired ? "Required" : "Optional"],
-        ].map(([label, value]) => <div key={label}><dt className="text-slate-400">{label}</dt><dd className="mt-1">{value}</dd></div>)}</dl>
-        <h3 className="font-semibold border-t border-white/10 pt-4">Recruitment rounds</h3><ol className="flex flex-wrap gap-2">{(role.stages?.length ? role.stages : company.drive.stages).map((stage, i) => <li className="rounded-lg bg-white/5 px-3 py-2 text-sm" key={stage.key}>{i + 1}. {stage.name}</li>)}</ol>
-        <DriveDocuments companyId={id} documents={role.attachments} guest={guest} title="Documents for this role" />
-        {!guest && roleReport && <div className="border-t border-white/10 pt-4"><h3 className="font-semibold">Your eligibility check</h3><ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{roleReport.checks.map(check => <li key={check.label} className={check.passed ? "text-emerald-300" : "text-amber-200"}>{check.passed ? "✓" : "○"} {check.label}{!check.passed && <p className="mt-1 text-xs">{check.message}</p>}</li>)}</ul></div>}
-        {!application && !reviewing && <div className="flex flex-wrap gap-4 items-center"><button disabled={busy || !eligibility.eligible} onClick={review} className="rounded-xl bg-cyan-600 hover:bg-cyan-500 px-5 py-3 font-semibold disabled:opacity-40">{busy ? "Checking…" : guest ? "Try demo application" : `Review application for ${role.title}`}</button>{!eligibility.eligible && <p className="text-amber-200 text-sm">{eligibility.reason}</p>}</div>}
-      </section>}
-      {reviewing && role && !application && <section aria-label="Review application" className={`${card} !border-cyan-400/40`}><h2 className="text-2xl font-bold">Review your application</h2><p className="font-semibold text-cyan-200">{company.companyName} · {role.title}</p><p className="whitespace-pre-wrap text-sm">{formatCompensation(role)}</p><ApplicationSnapshot snapshot={preview.profile} /><p className="text-sm text-slate-400">These details and this resume version will be submitted. Later profile changes do not automatically change your application.</p><label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={confirmed} disabled={busy} onChange={e => setConfirmed(e.target.checked)} />I have reviewed my details and want to apply for this role.</label><div className="flex flex-wrap gap-3"><button disabled={busy || !confirmed} onClick={apply} className="rounded-xl bg-cyan-600 px-5 py-3 font-semibold disabled:opacity-40">{busy ? "Submitting…" : "Confirm and apply"}</button><button disabled={busy} onClick={() => setReviewing(false)} className="rounded-xl border border-white/15 px-5 py-3">Back to role</button><Link to="/profile" className="self-center text-cyan-300 underline">Edit profile first</Link></div></section>}
-    </>}
-  </main></div>;
+  const applicationTitle = application?.snapshot?.roleTitle || application?.role?.title || application?.company?.role || role?.title || "Your selected role";
+  function openRole(roleId) { if (busy || loading) return; setChosen(roleId); setReviewing(false); setConfirmed(false); setError(""); }
+  function closeRole() { if (busy) return; setChosen(""); setReviewing(false); setConfirmed(false); setError(""); }
+  function refreshDetails() { setReviewing(false); setConfirmed(false); setLoading(true); setAttempt(value => value + 1); savedDrives.reload(); }
+
+  return <div className="premium-shell flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
+    <Navbar wide />
+    <main className="flex min-h-0 flex-1 flex-col gap-5 px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
+      <Link to="/dashboard" className="w-fit shrink-0 text-sm font-medium text-cyan-200 hover:text-cyan-100">← All drives</Link>
+      {((error && !role) || savedDrives.error) && <p role="alert" className="shrink-0 rounded-xl border border-red-400/30 bg-red-950/60 p-3 text-sm">{error || savedDrives.error}<button type="button" disabled={busy || loading} className="ml-3 text-cyan-200 underline disabled:opacity-40" onClick={refreshDetails}>Refresh details</button></p>}
+      {loading ? <p role="status" className="py-8 text-sm text-slate-400">Loading drive…</p> : company && <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-6">
+        <section aria-labelledby="student-company-heading" className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/80">
+          <header className="shrink-0 space-y-3 border-b border-white/10 p-5 sm:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3"><span className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs font-semibold text-cyan-200">{company.drive.status}</span><p className="text-xs text-slate-400">Apply by <span className="ml-1 text-slate-200">{date(company.registrationDeadline)}</span></p></div>
+            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h1 id="student-company-heading" className="break-words text-2xl font-bold tracking-tight sm:text-3xl">{company.companyName}</h1>{company.drive.title && <p className="mt-1 text-sm text-slate-400">{company.drive.title}</p>}</div>{!guest && <button type="button" disabled={savedDrives.busy || savedDrives.loading} aria-pressed={Boolean(saved)} onClick={() => savedDrives.save(id, !saved)} className="shrink-0 rounded-xl border border-white/15 px-3 py-2 text-sm text-cyan-200 hover:bg-white/5 disabled:opacity-40">{saved ? "★ Saved" : "☆ Save"}</button>}</div>
+            {saved && !guest && <label className="flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={saved.remind} disabled={savedDrives.busy} onChange={event => savedDrives.save(id, true, event.target.checked)} className="mt-0.5" />Remind me before the deadline</label>}
+          </header>
+          <div role="region" aria-label="Company details" tabIndex={0} className="max-h-[35dvh] min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300/50 sm:px-6 lg:max-h-none">
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">{company.description || "No company description provided."}</p>
+            {company.drive.attachments?.length > 0 && <DriveDocuments companyId={id} documents={company.drive.attachments} guest={guest} title="Company documents" />}
+          </div>
+        </section>
+
+        <div className="flex min-h-0 min-w-0 flex-col gap-4">
+          {!guest && <div className="shrink-0"><ProfileChecklist profile={preview?.profile || user} compact /></div>}
+        <section aria-labelledby="student-roles-heading" className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-white/10 bg-slate-900/55">
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4"><h2 id="student-roles-heading" className="text-lg font-semibold">Roles <span className="ml-1 text-sm font-normal text-slate-400">({company.roles.length})</span></h2><p className="text-xs text-slate-400">One application per drive</p></header>
+          {application && <div role="status" className="mx-4 mt-4 shrink-0 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-sm"><p className="text-emerald-200">{guest ? "Demo application saved" : "Applied"} · {applicationTitle}</p><Link to="/applications" className="mt-1 inline-block text-xs font-medium text-cyan-200 hover:underline">Track application →</Link></div>}
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">
+            {company.roles.map(item => {
+              const report = preview?.roles?.find(value => value.roleId === item._id);
+              const result = guest ? checkRoleEligibility(user, { ...item, resumeRequired: false }, { ...company.drive, registrationDeadline: company.registrationDeadline }) : { eligible: report?.eligible };
+              const appliedToRole = application && (application.role?._id || application.role) === item._id;
+              return <button key={item._id} type="button" aria-haspopup="dialog" aria-label={`View ${item.title}`} disabled={busy || loading} onClick={() => openRole(item._id)} className="group block w-full min-w-0 space-y-3 rounded-xl border border-white/10 bg-slate-950/30 p-4 text-left transition-colors hover:border-cyan-300/40 hover:bg-slate-800/60 focus-visible:outline-cyan-300 disabled:opacity-50">
+                <span className="flex items-start justify-between gap-3"><span className="min-w-0 break-words text-base font-semibold text-slate-100">{item.title}</span><span aria-hidden="true" className="text-cyan-300 transition-transform group-hover:translate-x-1">↗</span></span>
+                <span className="block line-clamp-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">{formatCompensation(item)}</span>
+                <span className="flex flex-wrap items-center gap-2 text-xs text-slate-400">{[item.jobType, item.location].filter(Boolean).map((value, index) => <span key={index} className="max-w-full break-words rounded-md border border-white/10 px-2 py-1">{value}</span>)}</span>
+                <span className={`block text-xs font-medium ${appliedToRole ? "text-cyan-200" : result.eligible ? "text-emerald-300" : "text-amber-200"}`}>{appliedToRole ? "Applied to this role" : result.eligible ? "Eligible to apply" : "View eligibility"}</span>
+              </button>;
+            })}
+            {!company.roles.length && <p className="p-4 text-sm text-slate-400">No roles available.</p>}
+          </div>
+        </section>
+        </div>
+      </div>}
+    </main>
+    {role && !loading && <StudentRoleDialog key={role._id} company={company} role={role} report={roleReport} eligibility={eligibility} application={application} applicationTitle={applicationTitle} preview={preview} guest={guest} busy={busy} error={error} reviewing={reviewing} confirmed={confirmed} onConfirm={setConfirmed} onReview={review} onApply={apply} onBack={() => { setReviewing(false); setConfirmed(false); }} onClose={closeRole} />}
+  </div>;
 }

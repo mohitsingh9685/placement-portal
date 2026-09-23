@@ -3,7 +3,7 @@ export function extraProfileState(user = {}) {
   return { tenthPercentage: user.tenthPercentage ?? "", twelfthPercentage: user.twelfthPercentage ?? "",
     entryQualification: user.entryQualification || "TWELFTH", diplomaPercentage: user.diplomaPercentage ?? "", diplomaPassingYear: user.diplomaPassingYear ?? "",
     ...Object.fromEntries(textFields.map(key => [key, user[key] || ""])),
-    semesterCgpa: user.semesterCgpa || [], projects: user.projects || [] };
+    semesterCgpa: user.semesterCgpa || [], projects: user.projects || [], portfolioLinks: user.portfolioLinks || [] };
 }
 export function profileExtrasPayload(form) {
   const diploma = form.entryQualification === "DIPLOMA";
@@ -15,5 +15,5 @@ export function profileExtrasPayload(form) {
     diplomaPercentage: !diploma || form.diplomaPercentage === "" ? null : form.diplomaPercentage,
     diplomaPassingYear: !diploma || form.diplomaPassingYear === "" ? null : form.diplomaPassingYear,
     diplomaBranch: diploma ? form.diplomaBranch || "" : "", diplomaCollege: diploma ? form.diplomaCollege || "" : "",
-    semesterCgpa: form.semesterCgpa || [], projects: form.projects || [] };
+    semesterCgpa: form.semesterCgpa || [], projects: form.projects || [], portfolioLinks: form.portfolioLinks || [] };
 }

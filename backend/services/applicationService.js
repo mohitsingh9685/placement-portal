@@ -21,7 +21,7 @@ export function checkEligibility(student, eligibility) {
   if (failed) throw new ApiError(400, failed.message);
 }
 export function applicationSnapshot(student) {
-  const fields = ["name", "email", "enrollmentNo", "collegeName", "course", "branch", "semester", "passingYear", "cgpa", "tenthPercentage", "twelfthPercentage", "twelfthStream", "entryQualification", "diplomaPercentage", "diplomaBranch", "diplomaCollege", "diplomaPassingYear", "activeBacklogs", "totalBacklogs", "contactNo", "whatsappNo", "counselorGroup", "skills", "githubUrl", "linkedinUrl", "semesterCgpa", "projects", "profileVersion"];
+  const fields = ["name", "email", "enrollmentNo", "collegeName", "course", "branch", "semester", "passingYear", "cgpa", "tenthPercentage", "twelfthPercentage", "twelfthStream", "entryQualification", "diplomaPercentage", "diplomaBranch", "diplomaCollege", "diplomaPassingYear", "activeBacklogs", "totalBacklogs", "contactNo", "whatsappNo", "counselorGroup", "skills", "githubUrl", "linkedinUrl", "portfolioLinks", "semesterCgpa", "projects", "profileVersion"];
   const data = student.toObject ? student.toObject() : student;
   return { ...Object.fromEntries(fields.filter(field => data[field] !== undefined).map(field => [field, data[field]])),
     ...(data.resume?.key ? { resume: data.resume } : {}), legacyIncomplete: false };

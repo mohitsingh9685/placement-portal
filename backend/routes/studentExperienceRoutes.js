@@ -12,8 +12,13 @@ router.param("companyId", validateObjectId);
 const wrap = fn => (req, res, next) => fn(req, res).catch(next);
 
 router.get("/notifications", wrap(async (req, res) => {
-  const page = z.coerce.number().int().min(1).max(10000).parse(req.query.page || 1);
-  res.json(await inbox(req.user, page));
+  const query = z.object({
+    page: z.coerce.number().int().min(1).max(10000).default(1),
+    limit: z.coerce.number().int().min(1).max(20).default(20),
+    kind: z.enum(["ALL", ...Notification.schema.path("kind").enumValues]).default("ALL"),
+    read: z.enum(["ALL", "UNREAD", "READ"]).default("ALL"),
+  }).strict().parse(req.query);
+  res.json(await inbox(req.user, query));
 }));
 router.post("/notifications/read", validate(z.object({ id: z.string().regex(/^[a-f0-9]{64}$/).optional(), before: z.string().datetime().optional() }).strict().refine(v => Boolean(v.id) !== Boolean(v.before), "Choose one notification or a read-through date")), wrap(async (req, res) => {
   await markNotificationsRead(req.user, req.body); res.json({ success: true });

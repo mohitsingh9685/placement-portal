@@ -1,785 +1,251 @@
-import { CourseBranchFields } from "../components/AcademicFields.jsx";
-import { isStaffRole } from "../utils/permissions.js";
-import ProfileExtraFields from "../components/ProfileExtraFields.jsx";
-import ResumeHistory from "../components/ResumeHistory.jsx";
-import { extraProfileState, profileExtrasPayload } from "../utils/profileFields.js";
-import useAuth from "../auth/useAuth.js";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
+import useAuth from "../auth/useAuth.js";
 import Navbar from "../components/Navbar";
+import ResumeHistory from "../components/ResumeHistory.jsx";
+import StudentProfileDetails, { ProfilePortfolio, ProfileProjects } from "../components/StudentProfileDetails.jsx";
+import { extraProfileState, profileExtrasPayload } from "../utils/profileFields.js";
 import { isGuestUser } from "../utils/guestSession";
+import { isStaffRole } from "../utils/permissions.js";
 
-function parseStoredUser() {
-  try {
-    const raw = localStorage.getItem("user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+const panel = "min-w-0 rounded-2xl border border-white/10 bg-slate-900/80 p-4 sm:p-5";
+const primaryButton = "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-950/20 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryButton = "rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50";
+const fileInput = "block w-full min-w-0 rounded-xl border border-white/15 p-2 text-xs text-slate-400 file:mr-2 file:rounded-lg file:border-0 file:bg-cyan-400/10 file:px-3 file:py-2 file:font-medium file:text-cyan-200";
+
+function formFromProfile(user = {}) {
+  return {
+    ...extraProfileState(user),
+    cgpa: user.cgpa ?? "", branch: user.branch ?? "",
+    activeBacklogs: user.activeBacklogs ?? user.activebacklogs ?? 0,
+    totalBacklogs: user.totalBacklogs ?? "", enrollmentNo: user.enrollmentNo ?? "",
+    collegeName: user.collegeName ?? "", course: user.course ?? "",
+    semester: user.semester ?? "", passingYear: user.passingYear ?? "",
+  };
 }
 
 function initialsFromName(name) {
-  if (!name || typeof name !== "string") return "?";
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-}
-
-function backlogCount(user) {
-  return user.activeBacklogs ?? user.activebacklogs ?? 0;
-}
-
-function normalizedSkills(user) {
-  const s = user?.skills;
-  if (!Array.isArray(s)) return [];
-  return s.map((x) => String(x).trim()).filter(Boolean);
+  return name?.trim().split(/\s+/).slice(0, 2).map(word => word[0]?.toUpperCase()).join("") || "S";
 }
 
 function resumeFileName(resume) {
   if (!resume) return "";
-  if (resume.fileName) return resume.fileName;
-  if (resume.name) return resume.name;
-
+  if (resume.fileName || resume.name) return resume.fileName || resume.name;
   const raw = resume.key || resume.url || "";
-  if (!raw) return "";
-
+  if (!raw) return "Uploaded resume";
   try {
     const pathname = raw.startsWith("http") ? new URL(raw).pathname : raw;
-    const fallbackName = decodeURIComponent(pathname.split("/").filter(Boolean).pop() || "");
-    return /^[0-9a-f-]{32,}\.(pdf|doc|docx)$/i.test(fallbackName)
-      ? "Uploaded resume"
-      : fallbackName;
-  } catch {
-    const fallbackName = raw.split("/").filter(Boolean).pop() || "";
-    return /^[0-9a-f-]{32,}\.(pdf|doc|docx)$/i.test(fallbackName)
-      ? "Uploaded resume"
-      : fallbackName;
-  }
+    const name = decodeURIComponent(pathname.split("/").filter(Boolean).pop() || "");
+    return /^[0-9a-f-]{32,}\.(pdf|doc|docx)$/i.test(name) ? "Uploaded resume" : name;
+  } catch { return "Uploaded resume"; }
 }
 
-function uploadErrorMessage(error, fallback) {
-  return error.response?.data?.message || error.message || fallback;
-}
-
-function FloatingField({
-  id,
-  label,
-  value,
-  onChange,
-  type = "text",
-  inputMode,
-  min,
-  disabled,
-}) {
-  return (
-    <div className="group relative">
-      <input
-        id={id}
-        type={type}
-        inputMode={inputMode}
-        min={min}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        placeholder=" "
-        className="peer w-full rounded-xl border border-slate-200 bg-white/90 px-3.5 pb-2.5 pt-5 text-sm text-slate-900 shadow-sm outline-none transition-all duration-200 focus:border-[#0a66c2] focus:ring-4 focus:ring-[#0a66c2]/15 disabled:cursor-not-allowed disabled:bg-slate-100"
-      />
-      <label
-        htmlFor={id}
-        className="pointer-events-none absolute left-3.5 top-2 z-10 origin-left bg-white px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 transition-all duration-200 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-placeholder-shown:normal-case peer-focus:top-2 peer-focus:text-[11px] peer-focus:uppercase peer-focus:text-[#0a66c2] peer-disabled:bg-slate-100"
-      >
-        {label}
-      </label>
-    </div>
-  );
-}
-
-function Profile() {
+export default function Profile() {
   const { user: sessionUser, updateUser } = useAuth();
-  const isGuest = isGuestUser(sessionUser);
   const navigate = useNavigate();
-  const [profileUser, setProfileUser] = useState(parseStoredUser);
+  const isGuest = isGuestUser(sessionUser);
+  const [profileUser, setProfileUser] = useState(sessionUser);
+  const [form, setForm] = useState(() => formFromProfile(sessionUser || {}));
+  const [loading, setLoading] = useState(true);
+  const [loadVersion, setLoadVersion] = useState(0);
+  const [loadError, setLoadError] = useState("");
+  const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
-  const [previewPhoto, setPreviewPhoto] = useState("");
+  const [previewPhoto, setPreviewPhoto] = useState(sessionUser?.profilePicture?.url || "");
   const [uploadingResume, setUploadingResume] = useState(false);
   const [selectedResume, setSelectedResume] = useState(null);
-  const [resumeUploadSuccess, setResumeUploadSuccess] = useState(false);
-  const [skillInput, setSkillInput] = useState("");
-  const [editMode, setEditMode] = useState(false);
-  const [activeSection, setActiveSection] = useState("academic");
-  const [form, setForm] = useState(() => {
-    const u = parseStoredUser() || {};
-    return {
-      ...extraProfileState(u),
-      cgpa: u.cgpa != null && u.cgpa !== "" ? String(u.cgpa) : "",
-      branch: u.branch ?? "",
-      activeBacklogs: String(backlogCount(u)),
-      skills: normalizedSkills(u),
-
-      enrollmentNo: u.enrollmentNo ?? "",
-      collegeName: u.collegeName ?? "",
-      course: u.course ?? "",
-      semester: u.semester ? String(u.semester) : "",
-      passingYear: u.passingYear ? String(u.passingYear) : "",
-      contactNo: u.contactNo ?? "",
-      whatsappNo: u.whatsappNo ?? "",
-      totalBacklogs: u.totalBacklogs != null ? String(u.totalBacklogs) : "",
-    };
-  });
+  const busy = saving || uploadingPhoto || uploadingResume;
 
   useEffect(() => {
-    if (isGuest) {
-      navigate("/dashboard", { replace: true });
-      return;
-    }
+    if (isGuest) { navigate("/dashboard", { replace: true }); return; }
+    const controller = new AbortController();
+    API.get("/auth/profile", { signal: controller.signal }).then(({ data }) => {
+      if (controller.signal.aborted) return;
+      const user = data.user || data;
+      if (isStaffRole(user.role)) { navigate("/admin-profile", { replace: true }); return; }
+      setProfileUser(user);
+      setForm(formFromProfile(user));
+      setPreviewPhoto(user.profilePicture?.url || "");
+      setLoadError("");
+    }).catch(() => {
+      if (!controller.signal.aborted) setLoadError("Unable to load your profile.");
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [navigate, isGuest, loadVersion]);
 
-    const fetchProfile = async () => {
-      try {
-        const res = await API.get("/auth/profile");
+  useEffect(() => () => {
+    if (previewPhoto.startsWith("blob:")) URL.revokeObjectURL(previewPhoto);
+  }, [previewPhoto]);
 
-        const user = res.data.user || res.data;
+  const change = patch => setForm(previous => ({ ...previous, ...patch }));
+  const showError = (error, fallback) => setFeedback({ error: true, text: error.response?.data?.message || error.message || fallback });
 
-        setProfileUser(user);
-        setPreviewPhoto(user.profilePicture?.url || "");
-        setSelectedResume(null);
-        setForm({
-          ...extraProfileState(user),
-          cgpa: user.cgpa != null && user.cgpa !== "" ? String(user.cgpa) : "",
-          branch: user.branch ?? "",
-          activeBacklogs: String(user.activeBacklogs ?? 0),
-          skills: normalizedSkills(user),
-
-          enrollmentNo: user.enrollmentNo ?? "",
-          collegeName: user.collegeName ?? "",
-          course: user.course ?? "",
-          semester: user.semester ? String(user.semester) : "",
-          passingYear: user.passingYear ? String(user.passingYear) : "",
-          contactNo: user.contactNo ?? "",
-          whatsappNo: user.whatsappNo ?? "",
-          totalBacklogs: user.totalBacklogs != null ? String(user.totalBacklogs) : "",
-        });
-
-        localStorage.setItem("user", JSON.stringify(user));
-
-        // keep your RBAC intact
-        if (isStaffRole(user.role)) {
-          navigate("/admin-profile", { replace: true });
-        }
-
-      } catch {
-        navigate("/", { replace: true });
-      }
-    };
-
-    fetchProfile();
-  }, [navigate, isGuest]);
-
-  useEffect(() => {
-    if (!resumeUploadSuccess) return undefined;
-
-    const timer = window.setTimeout(() => {
-      setResumeUploadSuccess(false);
-    }, 3500);
-
-    return () => window.clearTimeout(timer);
-  }, [resumeUploadSuccess]);
-
-  const headlineParts = useMemo(() => {
-    const parts = [];
-    if (form.branch.trim()) parts.push(form.branch.trim());
-    if (form.cgpa) parts.push(`CGPA ${form.cgpa}`);
-    return parts.join(" · ");
-  }, [form.branch, form.cgpa]);
-
-  const currentResumeFileName = resumeFileName(profileUser?.resume);
-
-  const addSkillsFromInput = () => {
-    const raw = skillInput.trim();
-    if (!raw) return;
-    const next = raw
-      .split(/[,;]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!next.length) return;
-    setForm((prev) => ({
-      ...prev,
-      skills: [...new Set([...prev.skills, ...next])],
-    }));
-    setSkillInput("");
-  };
-
-  const removeSkill = (skill) => {
-    setForm((prev) => ({
-      ...prev,
-      skills: prev.skills.filter((s) => s !== skill),
-    }));
-  };
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0];
-
-    if (!file) return;
-
-    const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
-    const maxImageSize = 2 * 1024 * 1024;
-
-    if (!allowedImageTypes.includes(file.type)) {
-      alert("Please choose a JPG, PNG, or WEBP image.");
-      e.target.value = "";
-      setSelectedPhoto(null);
-      return;
-    }
-
-    if (file.size > maxImageSize) {
-      alert("Profile photo must be 2MB or smaller. Please compress or choose a smaller image.");
-      e.target.value = "";
-      setSelectedPhoto(null);
-      return;
-    }
-
-    setSelectedPhoto(file);
-    setPreviewPhoto(URL.createObjectURL(file));
-  };
-
-  const handlePhotoUpload = async () => {
-    if (!selectedPhoto) {
-      alert("Please select a photo first");
-      return;
-    }
-
-    try {
-      setUploadingPhoto(true);
-
-      const formData = new FormData();
-
-      formData.append("profilePhoto", selectedPhoto);
-
-      const res = await API.post(
-        "/v1/upload/profile-photo",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      const updatedPhoto = res.data.profilePicture;
-
-      const updatedUser = {
-        ...profileUser,
-        profilePicture: updatedPhoto,
-      };
-
-      setProfileUser(updatedUser);
-
-      updateUser(updatedUser);
-
-      setPreviewPhoto(updatedPhoto?.url || "");
-
-      setSelectedPhoto(null);
-
-      alert("Profile photo updated successfully ✅");
-    } catch (error) {
-      console.error(error);
-      alert(uploadErrorMessage(error, "Failed to upload profile photo"));
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-  const handleResumeChange = (e) => {
-    const file = e.target.files?.[0];
-
-    if (!file) return;
-
-    setSelectedResume(file);
-    setResumeUploadSuccess(false);
-  };
-
-  const handleResumeUpload = async () => {
-    if (!selectedResume) {
-      alert("Please select a resume first");
-      return;
-    }
-
-    try {
-      setUploadingResume(true);
-
-      const formData = new FormData();
-
-      formData.append("resume", selectedResume);
-
-      const res = await API.post(
-        "/v1/upload/resume",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      const updatedUser = {
-        ...profileUser,
-        resume: {
-          ...res.data.resume,
-          fileName: res.data.resume?.fileName || selectedResume.name,
-        },
-      };
-
-      setProfileUser(updatedUser);
-
-      updateUser(updatedUser);
-
-      setSelectedResume(null);
-      setResumeUploadSuccess(true);
-    } catch (error) {
-      console.error(error);
-      alert(uploadErrorMessage(error, "Failed to upload resume"));
-    } finally {
-      setUploadingResume(false);
-    }
-  };
-  const handleViewResume = async () => {
-    try {
-      const res = await API.get(
-        "/v1/upload/resume/view"
-      );
-
-      const signedUrl = res.data?.signedUrl;
-
-      if (!signedUrl) {
-        alert("Resume not found");
-        return;
-      }
-
-      window.open(signedUrl, "_blank");
-    } catch (error) {
-      console.error(error);
-      alert("Failed to open resume");
-    }
-  };
-  const handleUpdate = async () => {
-    if (!form.course || !form.branch) { alert("Choose your course and branch first."); return; }
-    setSaving(true);
-    try {
-      const res = await API.put("/auth/update-profile", {
-        ...profileExtrasPayload(form),
-        cgpa: form.cgpa,
-        branch: form.branch,
-        activeBacklogs: form.activeBacklogs,
-        skills: form.skills,
-
-        enrollmentNo: form.enrollmentNo,
-        collegeName: form.collegeName,
-        course: form.course,
-        semester: form.semester || undefined,
-        passingYear: form.passingYear || undefined,
-        contactNo: form.contactNo,
-        whatsappNo: form.whatsappNo,
-        totalBacklogs: form.totalBacklogs,
-      });
-
-      const updatedUser = res.data.user || res.data;
-
-      updateUser(updatedUser);
-
-      setProfileUser(updatedUser);
-      alert("Profile updated ✅");
-    } catch (error) {
-      alert(error.response?.data?.message || "Error updating profile");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!profileUser || isStaffRole(profileUser.role)) {
-    return null;
+  function cancelEditing() {
+    setForm(formFromProfile(profileUser));
+    setSelectedPhoto(null);
+    setSelectedResume(null);
+    setPreviewPhoto(profileUser.profilePicture?.url || "");
+    setFeedback(null);
+    setEditMode(false);
   }
 
-  const userInitial = initialsFromName(profileUser.name);
+  function handlePhotoChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      setFeedback({ error: true, text: "Choose a JPG, PNG or WEBP photo up to 2 MB." });
+      event.target.value = "";
+      setSelectedPhoto(null);
+      setPreviewPhoto(profileUser.profilePicture?.url || "");
+      return;
+    }
+    setFeedback(null);
+    setSelectedPhoto(file);
+    setPreviewPhoto(URL.createObjectURL(file));
+  }
 
-  return (
-    <div className="premium-shell min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-100/80">
-      <Navbar />
+  async function handlePhotoUpload() {
+    if (!selectedPhoto || busy) return;
+    setUploadingPhoto(true);
+    setFeedback(null);
+    try {
+      const body = new FormData();
+      body.append("profilePhoto", selectedPhoto);
+      const { data } = await API.post("/v1/upload/profile-photo", body, { headers: { "Content-Type": "multipart/form-data" } });
+      const updatedUser = { ...profileUser, profilePicture: data.profilePicture };
+      setProfileUser(updatedUser);
+      updateUser(updatedUser);
+      setPreviewPhoto(data.profilePicture?.url || "");
+      setSelectedPhoto(null);
+      setFeedback({ text: "Profile photo updated." });
+    } catch (error) { showError(error, "Unable to upload your photo."); }
+    finally { setUploadingPhoto(false); }
+  }
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-        <article className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-xl shadow-slate-200/60">
-          <div className="relative h-40 bg-gradient-to-r from-[#0a66c2] via-sky-500 to-indigo-700 sm:h-48">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_40%)]" />
-          </div>
+  function handleResumeChange(event) {
+    setSelectedResume(event.target.files?.[0] || null);
+    setFeedback(null);
+  }
 
-          <div className="relative px-6 pb-8 pt-14 sm:px-8">
-            <div className="absolute -top-16 left-6 sm:left-8">
+  async function handleResumeUpload() {
+    if (!selectedResume || busy) return;
+    setUploadingResume(true);
+    setFeedback(null);
+    try {
+      const body = new FormData();
+      body.append("resume", selectedResume);
+      const { data } = await API.post("/v1/upload/resume", body, { headers: { "Content-Type": "multipart/form-data" } });
+      const updatedUser = { ...profileUser, resume: { ...data.resume, fileName: data.resume?.fileName || selectedResume.name } };
+      setProfileUser(updatedUser);
+      updateUser(updatedUser);
+      setSelectedResume(null);
+      setFeedback({ text: "Resume uploaded." });
+    } catch (error) { showError(error, "Unable to upload your resume."); }
+    finally { setUploadingResume(false); }
+  }
 
-              <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-slate-800 to-slate-600 shadow-2xl sm:h-32 sm:w-32">
+  async function handleViewResume() {
+    try {
+      const { data } = await API.get("/v1/upload/resume/view");
+      if (!data.signedUrl) throw new Error("Resume not found.");
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) { showError(error, "Unable to open your resume."); }
+  }
 
-                {previewPhoto ? (
-                  <img
-                    src={previewPhoto}
-                    alt={profileUser.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-3xl font-semibold text-white">
-                    <span aria-hidden>{userInitial}</span>
-                  </div>
-                )}
+  async function handleUpdate(event) {
+    event.preventDefault();
+    if (!editMode || busy) return;
+    if (!form.course || !form.branch) { setFeedback({ error: true, text: "Choose your course and branch." }); return; }
+    setSaving(true);
+    setFeedback(null);
+    try {
+      // Only submit the fields on this page; stored skills and contact details stay intact.
+      const { data } = await API.put("/auth/update-profile", {
+        ...profileExtrasPayload(form),
+        cgpa: form.cgpa, branch: form.branch, activeBacklogs: form.activeBacklogs,
+        totalBacklogs: form.totalBacklogs, enrollmentNo: form.enrollmentNo,
+        collegeName: form.collegeName, course: form.course,
+        semester: form.semester || undefined, passingYear: form.passingYear || undefined,
+      });
+      const updatedUser = data.user || data;
+      setProfileUser(updatedUser);
+      setForm(formFromProfile(updatedUser));
+      updateUser(updatedUser);
+      const uploadsPending = Boolean(selectedPhoto || selectedResume);
+      setEditMode(uploadsPending);
+      if (!selectedPhoto) setPreviewPhoto(updatedUser.profilePicture?.url || "");
+      setFeedback({ text: uploadsPending ? "Profile saved. Upload your selected files to finish." : "Profile saved." });
+    } catch (error) { showError(error, "Unable to save your profile."); }
+    finally { setSaving(false); }
+  }
 
+  if (isGuest || !profileUser || isStaffRole(profileUser.role)) return null;
+  const hasResume = Boolean(profileUser.resume?.versionId || profileUser.resume?.url || profileUser.resume?.key);
+  const headline = [profileUser.course, profileUser.branch].filter(Boolean).join(" · ");
+
+  return <div className="premium-shell min-h-screen">
+    <Navbar wide />
+    <main className="w-full space-y-5 px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My profile</h1>
+        {editMode ? <div className="flex items-center gap-3"><button type="button" disabled={busy} onClick={cancelEditing} className={secondaryButton}>Cancel</button><button type="submit" form="student-profile-form" disabled={busy} className={primaryButton}>{saving ? "Saving…" : "Save profile"}</button></div> : <button type="button" disabled={loading || Boolean(loadError)} onClick={() => { setEditMode(true); setFeedback(null); }} className={primaryButton}>
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" className="h-4 w-4"><path d="m12.5 3.5 4 4M3 17l4-.8L16.5 6.7a2.8 2.8 0 0 0-4-4L3 12.2 3 17Z" strokeWidth="1.4" strokeLinejoin="round" /></svg>Edit profile
+        </button>}
+      </header>
+
+      {loadError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-950/30 p-4 text-sm text-red-200">{loadError} <button type="button" className="ml-2 underline" onClick={() => { setLoading(true); setLoadVersion(value => value + 1); }}>Retry</button></p>}
+      {feedback && <p role={feedback.error ? "alert" : "status"} className={`rounded-xl border p-4 text-sm ${feedback.error ? "border-red-400/20 bg-red-950/30 text-red-200" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"}`}>{feedback.text}</p>}
+
+      {loading ? <p role="status" className="py-12 text-sm text-slate-400">Loading your profile…</p> : <form id="student-profile-form" onSubmit={handleUpdate} onInvalidCapture={event => { const details = event.target.closest("details"); if (details) details.open = true; }} aria-label="Student profile details" className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-6">
+        <aside aria-label="Profile, resume and portfolio" className="grid min-w-0 items-start gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <section className={`${panel} overflow-hidden`} aria-label="Student profile">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-400/15 to-indigo-400/15 text-2xl font-bold text-cyan-100">
+                {previewPhoto ? <img src={previewPhoto} alt={profileUser.name} className="h-full w-full object-cover" /> : <span aria-hidden="true">{initialsFromName(profileUser.name)}</span>}
               </div>
-
-
-
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${profileUser.placementStatus === "PLACED" ? "bg-emerald-400/10 text-emerald-200" : "bg-cyan-400/10 text-cyan-200"}`}>{profileUser.placementStatus === "PLACED" ? "Placed" : "Open to roles"}</span>
             </div>
-
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 pt-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Student profile
-                </p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                  {profileUser.name}
-                </h1>
-                {headlineParts && (
-                  <p className="mt-1 text-sm font-medium text-slate-700">{headlineParts}</p>
-                )}
-                <p className="mt-1 truncate text-sm text-slate-500">{profileUser.email}</p>
-                <div className="mt-3">
-                  {profileUser?.resume?.url ? (
-                    <button
-                      type="button"
-                      onClick={handleViewResume}
-                      className="inline-flex items-center rounded-full bg-[#0a66c2]/10 px-4 py-2 text-sm font-semibold text-[#0a66c2] transition-all hover:bg-[#0a66c2]/20"
-                    >
-                      View Resume
-                    </button>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      No resume uploaded yet.{" "}
-                      <span className="font-medium text-[#0a66c2]">
-                        Enable edit mode to upload your resume.
-                      </span>
-                    </p>
-                  )}
-                </div>
-                {form.skills.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {form.skills.slice(0, 6).map((skill) => (
-                      <span
-                        key={skill}
-                        className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                <span className="inline-flex rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-900">
-                  {profileUser.placementStatus === "PLACED" ? "Placed" : "Open to roles"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditMode((prev) => !prev)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition-all hover:border-[#0a66c2]/40 hover:text-[#0a66c2]"
-                >
-                  {editMode ? "Viewing" : "Edit mode"}
-                </button>
-              </div>
-
-            </div>
-          </div>
-          {editMode && (
-            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
-
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800">
-                    Profile Photo
-                  </h3>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    JPG, PNG or WEBP • Max 2MB
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    className="block text-sm text-slate-600"
-                  />
-
-                  <button
-                    type="button"
-                    disabled={uploadingPhoto}
-                    onClick={handlePhotoUpload}
-                    className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {uploadingPhoto ? "Uploading..." : "Upload Photo"}
-                  </button>
-
-                </div>
-
-              </div>
-
-              <div className="mt-6 border-t border-slate-200 pt-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      Resume Upload
-                    </h3>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      PDF, DOC or DOCX • Max 5MB
-                    </p>
-
-                    {currentResumeFileName && (
-                      <p className="mt-2 max-w-md truncate text-xs font-medium text-cyan-200">
-                        Current resume: {currentResumeFileName}
-                      </p>
-                    )}
-
-                    {selectedResume && (
-                      <p className="mt-2 max-w-md truncate text-xs font-medium text-slate-300">
-                        Selected file: {selectedResume.name}
-                      </p>
-                    )}
-
-                    {resumeUploadSuccess && (
-                      <p className="mt-2 text-xs font-medium text-emerald-400">
-                        Resume uploaded successfully
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={handleResumeChange}
-                      className="block text-sm text-slate-600"
-                    />
-
-                    <button
-                      type="button"
-                      disabled={uploadingResume}
-                      onClick={handleResumeUpload}
-                      className="rounded-xl bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#084d96] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {uploadingResume ? "Uploading..." : "Upload Resume"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
-        </article>
-
-        <div className="mt-8 rounded-2xl border border-slate-200/70 bg-white p-2 shadow-sm">
-          <div className="grid gap-2 sm:grid-cols-3">
-            {[
-              ["academic", "Academic info"],
-              ["contact", "Contact"],
-              ["skills", "Skills"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setActiveSection(key)}
-                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${activeSection === key
-                    ? "bg-gradient-to-r from-[#0a66c2] to-indigo-600 text-white shadow-lg shadow-[#0a66c2]/25"
-                    : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-                  }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <ResumeHistory currentVersionId={profileUser?.resume?.versionId} />
-        {activeSection === "academic" && <ProfileExtraFields form={form} onChange={patch => setForm(previous => ({ ...previous, ...patch }))} disabled={!editMode} />}
-        <div className="mt-6 pb-6">
-          {activeSection === "academic" && (
-          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Academic info
-            </h3>
-            <div className="mt-6 grid gap-5 sm:grid-cols-2">
-              <FloatingField
-                id="profile-cgpa"
-                label="CGPA"
-                value={form.cgpa}
-                inputMode="decimal"
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, cgpa: e.target.value })}
-              />
-              <CourseBranchFields course={form.course} branch={form.branch} disabled={!editMode} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-slate-900 disabled:opacity-60" required onChange={patch => setForm(previous => ({ ...previous, ...patch }))} />
-              <FloatingField
-                id="profile-backlogs"
-                label="Active backlogs"
-                type="number"
-                min={0}
-                value={form.activeBacklogs}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, activeBacklogs: e.target.value })}
-              />
-
-              <FloatingField
-                id="profile-total-backlogs"
-                label="Total backlogs"
-                type="number"
-                min={0}
-                value={form.totalBacklogs}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, totalBacklogs: e.target.value })}
-              />
-
-              <FloatingField
-                id="profile-enrollment"
-                label="Enrollment No"
-                value={form.enrollmentNo}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, enrollmentNo: e.target.value })}
-              />
-              <FloatingField
-                id="profile-college"
-                label="College"
-                value={form.collegeName}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, collegeName: e.target.value })}
-              />
-              <FloatingField
-                id="profile-semester"
-                label="Semester"
-                value={form.semester}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, semester: e.target.value })}
-              />
-              <FloatingField
-                id="profile-passing-year"
-                label="Passing Year"
-                value={form.passingYear}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, passingYear: e.target.value })}
-              />
-            </div>
+            <h2 className="break-words text-xl font-bold tracking-tight">{profileUser.name}</h2>
+            {headline && <p className="mt-2 text-sm text-cyan-200">{headline}</p>}
+            <p className="mt-2 break-words text-sm leading-relaxed text-slate-400">{profileUser.email}</p>
+            {editMode && <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
+              <label className="block text-sm font-medium" htmlFor="profile-photo">Profile photo</label>
+              <input id="profile-photo" key={profileUser.profilePicture?.url || "photo"} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} disabled={busy} className={fileInput} />
+              <p className="text-xs text-slate-400">JPG, PNG, WEBP · Up to 2 MB</p>
+              <button type="button" disabled={busy || !selectedPhoto} onClick={handlePhotoUpload} className={`${secondaryButton} w-full`}>{uploadingPhoto ? "Uploading…" : "Upload photo"}</button>
+            </div>}
           </section>
-          )}
 
-          {activeSection === "contact" && (
-          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Contact
-            </h3>
-            <div className="mt-6 grid gap-5 sm:grid-cols-2">
-              <FloatingField
-                id="profile-contact-no"
-                label="Contact No"
-                value={form.contactNo}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, contactNo: e.target.value })}
-              />
-              <FloatingField
-                id="profile-whatsapp-no"
-                label="Whatsapp No"
-                value={form.whatsappNo}
-                disabled={!editMode}
-                onChange={(e) => setForm({ ...form, whatsappNo: e.target.value })}
-              />
+          <section className={panel} aria-labelledby="profile-resume-heading">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2"><span aria-hidden="true" className="rounded-lg bg-indigo-400/10 p-2 text-indigo-200"><svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5ZM14 3v5h5M8 12h8M8 16h6" strokeLinejoin="round" /></svg></span><h2 id="profile-resume-heading" className="text-base font-semibold">Resume</h2></div>
+              {hasResume && <button type="button" aria-label="View resume" onClick={handleViewResume} className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-cyan-200 hover:bg-white/5">View <span aria-hidden="true">↗</span></button>}
             </div>
+            <p className="mt-3 break-words text-sm leading-relaxed text-slate-400">{hasResume ? resumeFileName(profileUser.resume) : "No resume uploaded"}</p>
+            {editMode && <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
+              <label htmlFor="profile-resume" className="block text-sm font-medium">{hasResume ? "Replace resume" : "Add resume"}</label>
+              <input id="profile-resume" key={profileUser.resume?.versionId || profileUser.resume?.url || "resume"} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeChange} disabled={busy} className={fileInput} />
+              <p className="text-xs text-slate-400">PDF, DOC, DOCX · Up to 5 MB</p>
+              <button type="button" disabled={busy || !selectedResume} onClick={handleResumeUpload} className={`${secondaryButton} w-full`}>{uploadingResume ? "Uploading…" : "Upload resume"}</button>
+            </div>}
+            <ResumeHistory currentVersionId={profileUser.resume?.versionId} compact />
           </section>
-          )}
+          <ProfilePortfolio form={form} onChange={change} disabled={!editMode || busy || Boolean(loadError)} editing={editMode} />
+        </aside>
 
-          {activeSection === "skills" && (
-          <section className="rounded-2xl border border-slate-200/80 bg-white px-6 py-6 shadow-lg shadow-slate-200/40 ring-1 ring-slate-100 transition-all duration-300 sm:px-8 sm:py-7">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Skills
-            </h3>
-            <div className="mt-6">
-              {form.skills.length > 0 && (
-                <ul className="mb-4 flex flex-wrap gap-2" aria-label="Your skills">
-                  {form.skills.map((skill) => (
-                    <li
-                      key={skill}
-                      className="group inline-flex items-center gap-1.5 rounded-full border border-[#0a66c2]/20 bg-[#0a66c2]/5 py-1 pl-3 pr-1 text-xs font-semibold text-[#084d96]"
-                    >
-                      {skill}
-                      <button
-                        type="button"
-                        disabled={!editMode}
-                        onClick={() => removeSkill(skill)}
-                        className="rounded-full p-1 text-[#084d96]/70 transition-colors hover:bg-[#0a66c2]/15 hover:text-[#084d96] disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label={`Remove ${skill}`}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <input
-                  type="text"
-                  value={skillInput}
-                  disabled={!editMode}
-                  placeholder="Add skill…"
-                  onChange={(e) => setSkillInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addSkillsFromInput();
-                    }
-                  }}
-                  className="min-h-[2.75rem] flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition-all focus:border-[#0a66c2] focus:outline-none focus:ring-4 focus:ring-[#0a66c2]/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                />
-                <button
-                  type="button"
-                  disabled={!editMode}
-                  onClick={addSkillsFromInput}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-          </section>
-          )}
+        <div className="min-w-0 space-y-5">
+          <StudentProfileDetails form={form} onChange={change} disabled={!editMode || busy || Boolean(loadError)} editing={editMode} />
+          <ProfileProjects form={form} onChange={change} disabled={!editMode || busy || Boolean(loadError)} editing={editMode} />
         </div>
-
-        <div className="flex flex-col-reverse gap-3 pb-10 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={() => navigate("/dashboard")}
-            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={handleUpdate}
-            className="rounded-xl bg-gradient-to-r from-[#0a66c2] to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0a66c2]/25 transition-all hover:shadow-xl hover:shadow-[#0a66c2]/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a66c2] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save profile"}
-          </button>
-        </div>
-      </main>
-    </div>
-  );
+          {editMode && <div className="sticky bottom-4 z-40 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-white/15 bg-slate-900/95 p-4 shadow-xl shadow-black/30 backdrop-blur-xl lg:col-span-2">
+            <button type="button" disabled={busy} onClick={cancelEditing} className={secondaryButton}>Cancel</button>
+            <button type="submit" disabled={busy} className={primaryButton}>{saving ? "Saving…" : "Save profile"}</button>
+          </div>}
+      </form>}
+    </main>
+  </div>;
 }
-
-export default Profile;

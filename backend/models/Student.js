@@ -77,6 +77,7 @@ const studentSchema = new mongoose.Schema(
 
     githubUrl: String,
     linkedinUrl: String,
+    portfolioLinks: [{ _id: false, label: String, url: String }],
 
     resume: documentSchema,
     profileVersion: { type: Number, default: 0 },

@@ -157,13 +157,55 @@ test("read-all respects the displayed cutoff; repeated reads are idempotent and 
   assert.equal(await NotificationRead.countDocuments(), 25); assert.equal((await feed()).body.unreadCount, 1);
   for (const page of ["bad", "0", "-1", "1.5"]) assert.equal((await request(`/api/student/notifications?page=${page}`)).status, 400);
 });
+test("notification categories and read filters apply before pagination without changing global unread counts", async () => {
+  const graph = await create(); const other = await otherStudent();
+  const personal = { recipient: fixture.studentId, company: graph._id, title: "Synthetic notification", message: "Test update" };
+  for (let i = 0; i < 12; i++) await notify({ ...personal, key: `application:${i}`, kind: "APPLICATION" });
+  const firstRequest = await notify({ ...personal, key: "request:1", kind: "REQUEST" });
+  const secondRequest = await notify({ ...personal, key: "request:2", kind: "REQUEST" });
+  await notify({ ...personal, key: "result:1", kind: "RESULT" });
+  await notify({ ...personal, key: "expired-result", kind: "RESULT", expiresAt: new Date(0) });
+  await notify({ ...personal, key: "other-private", recipient: other.student._id, kind: "RESULT" });
+  await request("/api/student/notifications/read", { method: "POST", body: { id: firstRequest } });
+
+  const unread = (await request("/api/student/notifications?kind=REQUEST&read=UNREAD&limit=1")).body;
+  assert.deepEqual(unread.items.map(item => item._id), [secondRequest]);
+  assert.equal(unread.total, 1); assert.equal(unread.pages, 1); assert.equal(unread.limit, 1);
+  assert.equal(unread.totalCount, 16); assert.equal(unread.unreadCount, 15);
+  assert.deepEqual(unread.counts.REQUEST, { total: 2, unread: 1 });
+  assert.deepEqual(unread.counts.RESULT, { total: 1, unread: 1 });
+  assert.deepEqual(unread.counts.APPLICATION, { total: 12, unread: 12 });
+  const read = (await request("/api/student/notifications?kind=REQUEST&read=READ")).body;
+  assert.deepEqual(read.items.map(item => item._id), [firstRequest]); assert.equal(read.unreadCount, 15);
+  const first = (await request("/api/student/notifications?kind=APPLICATION&limit=5")).body;
+  const last = (await request("/api/student/notifications?kind=APPLICATION&limit=5&page=3")).body;
+  assert.equal(first.items.length, 5); assert.equal(first.pages, 3); assert.equal(last.items.length, 2);
+  assert.ok([...first.items, ...last.items].every(item => item.kind === "APPLICATION"));
+  assert.ok(last.items.every(item => !first.items.some(previous => previous._id === item._id)));
+  const empty = (await request("/api/student/notifications?kind=RESULT&read=READ")).body;
+  assert.equal(empty.total, 0); assert.equal(empty.pages, 1); assert.deepEqual(empty.items, []);
+  const otherInbox = (await feed(other.cookie)).body;
+  assert.equal(otherInbox.totalCount, 2); assert.equal(otherInbox.counts.REQUEST, undefined);
+  assert.deepEqual(otherInbox.counts.RESULT, { total: 1, unread: 1 });
+  // Read-all remains an inbox-wide action, even when invoked from a selected category.
+  await request("/api/student/notifications/read", { method: "POST", body: { before: unread.asOf } });
+  const afterRead = (await request("/api/student/notifications?kind=REQUEST&read=UNREAD")).body;
+  assert.equal(afterRead.unreadCount, 0); assert.equal(afterRead.total, 0);
+  assert.equal(afterRead.counts.APPLICATION.unread, 0); assert.equal((await feed(other.cookie)).body.unreadCount, 2);
+});
+test("notification filters reject unknown categories, invalid read states and unbounded page sizes", async () => {
+  for (const query of ["kind=ACCOUNT", "read=maybe", "limit=0", "limit=21", "limit=1.5", "limit=bad", "kind=REQUEST&kind=RESULT", "kind[$ne]=REQUEST"]) {
+    assert.equal((await request(`/api/student/notifications?${query}`)).status, 400, query);
+  }
+});
 test("notifications and saved drives require active student access and do not expose past broadcasts to new accounts", async () => {
   const graph = await create();
   for (const cookie of [null, adminCookie]) for (const path of ["/api/student/notifications", "/api/student/saved"]) assert.equal((await request(path, { cookie })).status, cookie ? 403 : 401);
   const other = await otherStudent();
   // Timestamp is immutable through Mongoose; seed the hypothetical newer account directly.
   await Student.collection.updateOne({ _id: other.student._id }, { $set: { createdAt: new Date(Date.now() + 1000) } });
-  assert.equal((await feed(other.cookie)).body.total, 0);
+  const newAccountFeed = (await feed(other.cookie)).body;
+  assert.equal(newAccountFeed.total, 0); assert.equal(newAccountFeed.totalCount, 0); assert.deepEqual(newAccountFeed.counts, {});
   await ApprovedStudent.updateOne({ email: other.student.email }, { $set: { isActive: false } });
   assert.equal((await save(graph, {}, other.cookie)).status, 403);
 });

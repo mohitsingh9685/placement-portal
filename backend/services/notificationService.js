@@ -39,17 +39,26 @@ export async function syncDeadlineReminders(student, now = new Date()) {
   }
 }
 
-export async function inbox(student, page = 1, now = new Date()) {
+export async function inbox(student, { page = 1, limit = 20, kind = "ALL", read = "ALL" } = {}, now = new Date()) {
   await syncDeadlineReminders(student, now);
   const asOf = new Date();
+  const selected = { ...(kind === "ALL" ? {} : { kind }), ...(read === "ALL" ? {} : { read: read === "READ" }) };
   const [result] = await Notification.aggregate([
     { $match: { ...audience(student, now), createdAt: { $lte: asOf } } },
     { $lookup: { from: "notificationreads", let: { receipt: { $concat: [String(student._id), ":", "$_id"] } }, pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$receipt"] } } }], as: "receipts" } },
     { $addFields: { read: { $gt: [{ $size: "$receipts" }, 0] } } },
     { $project: { receipts: 0, recipient: 0 } },
-    { $facet: { items: [{ $sort: { createdAt: -1, _id: -1 } }, { $skip: (page - 1) * 20 }, { $limit: 20 }], total: [{ $count: "count" }], unread: [{ $match: { read: false } }, { $count: "count" }] } },
+    { $facet: {
+      items: [{ $match: selected }, { $sort: { createdAt: -1, _id: -1 } }, { $skip: (page - 1) * limit }, { $limit: limit }],
+      total: [{ $match: selected }, { $count: "count" }],
+      counts: [{ $group: { _id: "$kind", total: { $sum: 1 }, unread: { $sum: { $cond: ["$read", 0, 1] } } } }],
+    } },
   ]);
-  return { items: result.items, total: result.total[0]?.count || 0, unreadCount: result.unread[0]?.count || 0, page, pages: Math.max(1, Math.ceil((result.total[0]?.count || 0) / 20)), asOf: asOf.toISOString() };
+  const total = result.total[0]?.count || 0;
+  const counts = Object.fromEntries(result.counts.map(({ _id, total, unread }) => [_id, { total, unread }]));
+  const totalCount = result.counts.reduce((sum, entry) => sum + entry.total, 0);
+  const unreadCount = result.counts.reduce((sum, entry) => sum + entry.unread, 0);
+  return { items: result.items, total, totalCount, unreadCount, counts, page, limit, pages: Math.max(1, Math.ceil(total / limit)), asOf: asOf.toISOString() };
 }
 
 export async function markNotificationsRead(student, { id, before }) {
