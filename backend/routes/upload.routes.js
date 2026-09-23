@@ -19,6 +19,7 @@ import {
 import { protect, requirePermission, isStudent } from "../middleware/authMiddleware.js";
 
 import { validateObjectId } from "../middleware/validateMiddleware.js";
+import uploadAdmission, { handleUpload } from "../middleware/uploadAdmission.js";
 const router = express.Router();
 router.param("studentId", validateObjectId);
 router.param("companyId", validateObjectId);
@@ -42,17 +43,19 @@ const uploadErrorHandler = (sizeMessage) => (err, req, res, next) => {
 router.post(
   "/profile-photo",
   protect,
+  uploadAdmission,
   uploadProfilePhotoMiddleware.single("profilePhoto"),
   uploadErrorHandler("Profile photo must be 2MB or smaller"),
-  uploadProfilePhoto
+  handleUpload(uploadProfilePhoto)
 );
 
 router.post(
   "/resume",
   protect, isStudent,
+  uploadAdmission,
   uploadResumeMiddleware.single("resume"),
   uploadErrorHandler("Resume must be 5MB or smaller"),
-  uploadResumeController
+  handleUpload(uploadResumeController)
 );
 
 router.get("/resume/versions", protect, isStudent, listResumeVersions);
@@ -74,9 +77,10 @@ router.post(
   "/jd/:companyId",
   protect,
   requirePermission("companies.manage"),
+  uploadAdmission,
   uploadJDMiddleware.single("jd"),
   uploadErrorHandler("Job description file must be 10MB or smaller"),
-  uploadJDController
+  handleUpload(uploadJDController)
 );
 
 router.get(

@@ -2,6 +2,16 @@ import multer from "multer";
 
 const storage = multer.memoryStorage();
 
+// These endpoints accept one file; document metadata is sent in the query.
+// Bound the whole multipart shape so text fields cannot bypass file-size limits.
+const singleFileLimits = {
+  files: 1,
+  fields: 0,
+  parts: 2,
+  fieldNameSize: 100,
+  fieldSize: 1024,
+};
+
 const imageFileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
     "image/jpeg",
@@ -49,6 +59,7 @@ const jdFileFilter = (req, file, cb) => {
 export const uploadProfilePhotoMiddleware = multer({
   storage,
   limits: {
+    ...singleFileLimits,
     fileSize: 2 * 1024 * 1024,
   },
   fileFilter: imageFileFilter,
@@ -57,6 +68,7 @@ export const uploadProfilePhotoMiddleware = multer({
 export const uploadResumeMiddleware = multer({
   storage,
   limits: {
+    ...singleFileLimits,
     fileSize: 5 * 1024 * 1024,
   },
   fileFilter: resumeFileFilter,
@@ -65,8 +77,8 @@ export const uploadResumeMiddleware = multer({
 export const uploadJDMiddleware = multer({
   storage,
   limits: {
+    ...singleFileLimits,
     fileSize: 10 * 1024 * 1024,
-    files: 1,
   },
   fileFilter: jdFileFilter,
 });

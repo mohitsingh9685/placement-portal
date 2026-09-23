@@ -74,21 +74,32 @@ export function emailRows(rows) {
   });
 }
 
+let activeWorkbookParsers = 0;
 export async function parseRecruiterInput(text, file) {
   if (file && text?.trim()) throw new ApiError(400, "Upload a file or paste emails, not both");
   if (!file) return emailRows(parseCsvRows(text || ""));
   if (file.size > 2 * 1024 * 1024) throw new ApiError(400, "Results files must be 2 MB or smaller");
   if (/\.csv$/i.test(file.originalname)) return emailRows(parseCsvRows(file.buffer.toString("utf8")));
   if (!/\.xlsx$/i.test(file.originalname)) throw new ApiError(400, "Use an .xlsx or .csv file");
+  if (activeWorkbookParsers >= 2) throw new ApiError(429, "Other workbooks are being processed. Try again shortly.");
   // Parse unfamiliar workbooks off the API event loop with a memory and time limit.
-  const rows = await new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("./recruiterWorkbookWorker.js", import.meta.url), { workerData: file.buffer, resourceLimits: { maxOldGenerationSizeMb: 96 } });
-    let settled = false;
-    const finish = (error, rows) => { if (settled) return; settled = true; clearTimeout(timer); worker.terminate(); error ? reject(new ApiError(400, error)) : resolve(rows); };
-    const timer = setTimeout(() => finish("Workbook took too long to read. Export a smaller CSV and try again."), 8000);
-    worker.once("message", result => finish(result.error, result.rows));
-    worker.once("error", () => finish("Could not read this workbook. Use a smaller .xlsx or CSV file."));
-    worker.once("exit", () => { if (!settled) finish("Could not read this workbook."); });
-  });
-  return emailRows(rows);
+  activeWorkbookParsers++;
+  try {
+    const rows = await new Promise((resolve, reject) => {
+      const worker = new Worker(new URL("./recruiterWorkbookWorker.js", import.meta.url), { workerData: file.buffer, resourceLimits: { maxOldGenerationSizeMb: 96 } });
+      let settled = false;
+      const finish = (error, rows) => {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        worker.terminate().then(() => error ? reject(new ApiError(400, error)) : resolve(rows), reject);
+      };
+      const timer = setTimeout(() => finish("Workbook took too long to read. Export a smaller CSV and try again."), 8000);
+      worker.once("message", result => finish(result.error, result.rows));
+      worker.once("error", () => finish("Could not read this workbook. Use a smaller .xlsx or CSV file."));
+      worker.once("exit", () => { if (!settled) finish("Could not read this workbook."); });
+    });
+    return emailRows(rows);
+  } finally {
+    activeWorkbookParsers--;
+  }
 }

@@ -37,6 +37,44 @@ test("archive metadata cannot conceal oversized or inconsistent decompressed con
   buffer.writeUInt32LE(buffer.readUInt32LE(central + 24) + 1, central + 24);
   await assert.rejects(parseRecruiterInput("", file(buffer)), /sizes are invalid/);
 });
+test("a forged archive entry count cannot hide unchecked compressed content", async () => {
+  const book = new ExcelJS.Workbook();
+  book.addWorksheet("Results").addRows([["Email"], ["audit@example.invalid"]]);
+  book.addImage({ buffer: Buffer.alloc(17 * 1024 * 1024), extension: "png" });
+  const buffer = Buffer.from(await book.xlsx.writeBuffer());
+  assert.ok(buffer.length < 100000);
+  await assert.rejects(parseRecruiterInput("", file(buffer)), /too large/);
+  const end = buffer.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  assert.ok(buffer.readUInt16LE(end + 10) > 1);
+  buffer.writeUInt16LE(1, end + 8);
+  buffer.writeUInt16LE(1, end + 10);
+  await assert.rejects(parseRecruiterInput("", file(buffer)), /archive directory/);
+});
+test("workbook preflight rejects ambiguous directory boundaries and split archives", async () => {
+  const original = await exportApplicants([{ email: "a@example.invalid" }], ["email"], "xlsx");
+  const end = original.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  for (const corrupt of [
+    buffer => buffer.writeUInt32LE(buffer.readUInt32LE(end + 12) - 1, end + 12),
+    buffer => buffer.writeUInt16LE(buffer.readUInt16LE(end + 10) + 1, end + 10),
+    buffer => buffer.writeUInt16LE(1, end + 4),
+    buffer => buffer.writeUInt16LE(1, end + 20),
+    buffer => {
+      buffer.writeUInt32LE(buffer.readUInt32LE(end + 16) + 1, end + 16);
+      buffer.writeUInt32LE(buffer.readUInt32LE(end + 12) - 1, end + 12);
+    },
+  ]) {
+    const buffer = Buffer.from(original); corrupt(buffer);
+    await assert.rejects(parseRecruiterInput("", file(buffer)), /archive directory/);
+  }
+});
+test("simultaneous workbooks stay bounded and capacity returns after workers finish", async () => {
+  const workbook = file(await exportApplicants([{ email: "a@example.invalid" }], ["email"], "xlsx"));
+  const first = parseRecruiterInput("", workbook), second = parseRecruiterInput("", workbook);
+  await assert.rejects(parseRecruiterInput("", workbook), error => error.statusCode === 429);
+  for (const rows of await Promise.all([first, second])) assert.equal(rows[0].email, "a@example.invalid");
+  await assert.rejects(parseRecruiterInput("", file(Buffer.from("not a zip"))), /workbook|xlsx/i);
+  assert.equal((await parseRecruiterInput("", workbook))[0].email, "a@example.invalid");
+});
 test("diagnostics keep source row numbers after blank rows", async () => {
   assert.equal((await parseRecruiterInput("Email\n\na@example.invalid"))[0].row, 3);
   const book = new ExcelJS.Workbook(), sheet = book.addWorksheet("Results"); sheet.getCell("A1").value = "Email"; sheet.getCell("A4").value = "a@example.invalid";

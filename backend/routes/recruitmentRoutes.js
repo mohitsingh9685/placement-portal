@@ -10,6 +10,7 @@ import { getPlacementPolicy, updatePlacementPolicy, updateOffer } from "../servi
 import { staffApplications } from "../controllers/applicationController.js";
 import RecruiterResult from "../models/RecruiterResult.js";
 import ApiError from "../utils/ApiError.js";
+import uploadAdmission, { handleUpload } from "../middleware/uploadAdmission.js";
 
 const router = express.Router();
 for (const key of ["companyId", "batchId", "applicationId"]) router.param(key, validateObjectId);
@@ -25,7 +26,7 @@ router.post("/companies/:companyId/export", requirePermission("applications.expo
   res.set("Content-Type", req.body.format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv; charset=utf-8");
   res.attachment(result.filename).send(result.buffer);
 }));
-router.post("/companies/:companyId/results/preview", requirePermission("rounds.manage"), importLimit, (req, res, next) => upload(req, res, error => next(error ? new ApiError(400, "Upload one CSV or XLSX file up to 2 MB.") : undefined)), wrap(async (req, res) => {
+router.post("/companies/:companyId/results/preview", requirePermission("rounds.manage"), importLimit, uploadAdmission, (req, res, next) => upload(req, res, error => next(error ? new ApiError(400, "Upload one CSV or XLSX file up to 2 MB.") : undefined)), handleUpload(async (req, res) => {
   let input = req.body;
   if (req.is("multipart/form-data")) {
     try { input = JSON.parse(req.body.input); } catch { throw new ApiError(400, "Invalid import settings"); }

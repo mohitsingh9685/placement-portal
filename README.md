@@ -158,6 +158,11 @@ These checks use synthetic persistence and Google verification without connectin
 
 ## Deployment Notes
 
+See the [23 September security review](SECURITY_REVIEW.md) for endpoint coverage,
+high-risk fixes, dependency checks, and the disposable 1,000-user capacity check.
+See [live infrastructure verification](STAGING_VERIFICATION.md) for the actual
+hosting/storage results, verified index setup, and remaining login checks.
+
 - Configure frontend `VITE_*` variables in Vercel.
 - Configure all backend secrets in Render.
 - Keep the S3 bucket private and use signed URLs for access.
