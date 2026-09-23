@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { profileChecklist } from "../utils/studentExperience.js";
 export default function ProfileChecklist({ profile, compact = false }) {
   const checks = profileChecklist(profile), completed = checks.filter(c => c.complete).length;
-  if (compact) return <details className="group rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-slate-200">
+  if (compact) return <details open className="group rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-slate-200">
     <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
       <span className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">Your profile</span><span className="flex items-center gap-2"><span className={`text-xs font-medium ${completed === checks.length ? "text-emerald-300" : "text-amber-200"}`}>{completed}/{checks.length} ready</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3 w-3 text-slate-400 transition-transform group-open:rotate-180"><path d="m4 6 4 4 4-4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span></span>
       <span aria-hidden="true" className="mt-3 block h-1 rounded-full bg-slate-800"><span style={{ width: `${completed / checks.length * 100}%` }} className={`block h-full rounded-full ${completed === checks.length ? "bg-emerald-400" : "bg-cyan-400"}`} /></span>

@@ -70,7 +70,7 @@ function Login() {
     navigate("/dashboard");
   };
 
-  if (loading || sessionError) return <SessionStatus error={sessionError} retry={retry} />;
+  if (loading && !user) return <SessionStatus />;
   if (user) return <Navigate to={sessionDestination(user)} replace />;
 
   return (
@@ -117,6 +117,10 @@ function Login() {
           </div>
 
           <div className="space-y-6">
+            {sessionError && <div role="status" className="rounded-xl border border-amber-300/25 bg-amber-300/5 p-3 text-center text-sm text-slate-200">
+              <p>{sessionError}</p>
+              <button type="button" onClick={retry} className="mt-2 font-semibold text-cyan-300 underline underline-offset-4">Reconnect</button>
+            </div>}
             <div className="flex items-center gap-4 py-1">
               <div className="h-px flex-1 bg-white/15"></div>
               <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-300/70">

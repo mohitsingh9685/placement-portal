@@ -4,8 +4,8 @@ import SessionStatus from "./SessionStatus.jsx";
 import { sessionDestination } from "../utils/session.js";
 import { hasPermission, isStaffRole } from "../utils/permissions.js";
 export default function RequireSession({ role, permission, allowGuest = false, requireComplete = true }) {
-  const { user, loading, error, retry } = useAuth();
-  if (loading || error) return <SessionStatus error={error} retry={retry} />;
+  const { user, loading } = useAuth();
+  if (!user && loading) return <SessionStatus />;
   if (!user) return <Navigate to="/" replace />;
   if (user.isGuest && !allowGuest) return <Navigate to="/dashboard" replace />;
   if (role && !(role === "admin" ? isStaffRole(user.role) : user.role === role)) return <Navigate to={sessionDestination(user)} replace />;

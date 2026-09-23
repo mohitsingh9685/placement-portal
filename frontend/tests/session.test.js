@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import axios from "axios";
 import { createApiClient } from "../src/api/axios.js";
-import { readStoredUser, sessionDestination } from "../src/utils/session.js";
+import { readStoredUser, saveStoredUser, sessionDestination } from "../src/utils/session.js";
 
 function clientFor(adapter, expired) {
   const original = axios.defaults.adapter;
@@ -74,4 +74,23 @@ test("stored user corruption is recoverable and destinations honor role/profile 
   assert.equal(sessionDestination({ role: "admin" }), "/admin");
   assert.equal(sessionDestination({ role: "student", profileCompleted: false }), "/complete-profile");
   assert.equal(sessionDestination({ role: "student", profileCompleted: true }), "/dashboard");
+});
+
+test("unchanged profiles do not broadcast another storage update, while sign-out clears cached identity", () => {
+  const values = new Map([["token", "legacy-token"]]);
+  const writes = [];
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => { writes.push(key); values.set(key, value); },
+    removeItem: key => { values.delete(key); },
+  };
+  const user = { _id: "student-1", role: "student", name: "Student" };
+  saveStoredUser(user, storage);
+  saveStoredUser({ ...user }, storage);
+  assert.deepEqual(writes, ["user"]);
+  assert.equal(storage.getItem("token"), null);
+  saveStoredUser({ ...user, name: "Updated student" }, storage);
+  assert.equal(writes.length, 2);
+  saveStoredUser(null, storage);
+  assert.equal(readStoredUser(storage), null);
 });
