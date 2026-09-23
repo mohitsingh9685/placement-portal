@@ -101,7 +101,7 @@ export default function DriveRoleEditor({ roles, selectedRole, companyName, onSe
         </div>}
         {tab === "courses" && <Courses key={selectedRole} value={role.eligibility} onChange={eligibility => onChange({ eligibility })} programs={programs} />}
         {tab === "rounds" && <Rounds role={role} onChange={onChange} page={roundPage} setPage={setRoundPage} />}
-        {tab === "documents" && (documents || <div className="rounded-xl border border-dashed border-white/15 p-6 text-center"><h3 className="font-semibold">Role documents</h3><p className="mt-2 text-sm text-slate-400">Save the drive first, then attach job descriptions or images.</p></div>)}
+        {tab === "documents" && documents}
       </div></fieldset>
     </div>
     <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-slate-950/35 px-5 py-3">

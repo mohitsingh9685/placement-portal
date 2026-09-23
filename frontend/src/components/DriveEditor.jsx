@@ -9,7 +9,7 @@ import DriveRoleEditor from "./DriveRoleEditor";
 import useAcademicPrograms from "../hooks/useAcademicPrograms.js";
 import { newRole, emptyDrive, editorFromGraph, drivePayload, splitDeadlineInput, joinDeadlineInput } from "../utils/driveEditor";
 import { driveEditorIssue, roleEditorIssue } from "../utils/driveEditorValidation.js";
-import { queueDriveDocuments, saveDriveWithDocuments, uploadDriveDocument } from "../utils/driveDocumentUploads.js";
+import { queueDriveDocuments, retainPendingRoleDocuments, saveDriveWithDocuments, uploadDriveDocument } from "../utils/driveDocumentUploads.js";
 
 const outline = "rounded-lg border border-white/15 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40";
 export default function DriveEditor({ id }) {
@@ -22,22 +22,23 @@ export default function DriveEditor({ id }) {
   const [roleTab, setRoleTab] = useState("details"), [roundPage, setRoundPage] = useState(0), [rolePage, setRolePage] = useState(0);
   const [issue, setIssue] = useState(null);
   const [pendingDocuments, setPendingDocuments] = useState([]);
-  const unsaved = dirty || pendingDocuments.length > 0;
+  const pendingCount = pendingDocuments.length + form.roles.reduce((count, role) => count + (role.pendingDocuments?.length || 0), 0);
+  const unsaved = dirty || pendingCount > 0;
   const deadline = splitDeadlineInput(form.registrationDeadline);
   const activeRole = Math.max(0, Math.min(selectedRole, form.roles.length - 1));
   const pages = Math.max(1, Math.ceil(form.roles.length / 3)), currentPage = Math.min(rolePage, pages - 1);
   const activeCount = form.roles.filter(role => role.isActive !== false).length;
-  const accept = data => { setGraph(data); setForm(editorFromGraph(data)); setDirty(false); };
+  const accept = data => { setGraph(data); setForm(current => editorFromGraph({ ...data, roles: retainPendingRoleDocuments(data.roles, current.roles) })); setDirty(false); };
   useEffect(() => { if (!id) return; let active = true;
     API.get(`/company/${id}`).then(({ data }) => { if (active) { setGraph(data); setForm(editorFromGraph(data)); setDirty(false); } }).catch(err => { if (active) setError(err.response?.data?.message || "Unable to load drive"); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
   useEffect(() => {
-    if (!pendingDocuments.length) return;
+    if (!pendingCount) return;
     const warnBeforeLeaving = event => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warnBeforeLeaving);
     return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
-  }, [pendingDocuments.length]);
+  }, [pendingCount]);
   const change = values => { setForm(current => ({ ...current, ...values })); setDirty(true); setMessage(""); setIssue(null); setError(""); };
   const roleChange = values => change({ roles: form.roles.map((role, i) => i === activeRole ? { ...role, ...values } : role) });
   function openRole(index) { setSelectedRole(index); setRoleOpen(true); setRoleTab("details"); setRoundPage(0); setIssue(null); setError(""); }
@@ -46,7 +47,7 @@ export default function DriveEditor({ id }) {
   function removeRole() {
     const role = form.roles[activeRole];
     if (graph?.drive.status === "PUBLISHED" && activeCount === 1 && role.isActive !== false) { setError("Keep at least one active role, or close applications before removing it."); return; }
-    if (role._id) roleChange({ isActive: false });
+    if (role._id) roleChange({ isActive: false, pendingDocuments: [] });
     else { change({ roles: form.roles.filter((_, i) => i !== activeRole) }); setSelectedRole(Math.max(0, activeRole - 1)); setRoundPage(0); if (form.roles.length === 1) setRoleOpen(false); }
   }
   function revealIssue(next) {
@@ -69,24 +70,35 @@ export default function DriveEditor({ id }) {
     setIssue(null);
     await run(async () => {
       const payload = !graph || dirty ? drivePayload(form, graph?.drive.revision, programs) : null;
-      const data = await saveDriveWithDocuments({ api: API, graph, payload, files: pendingDocuments, onSaved: accept,
-        onUploaded: file => setPendingDocuments(current => current.filter(pending => pending !== file)),
+      const data = await saveDriveWithDocuments({ api: API, graph, payload, files: pendingDocuments, roles: form.roles, onSaved: accept,
+        onUploaded: (file, roleId) => roleId
+          ? setForm(current => ({ ...current, roles: current.roles.map(role => role._id === roleId ? { ...role, pendingDocuments: role.pendingDocuments.filter(pending => pending !== file) } : role) }))
+          : setPendingDocuments(current => current.filter(pending => pending !== file)),
       });
-      setMessage(pendingDocuments.length ? "Drive and documents saved." : "Drive saved.");
+      setMessage(pendingCount ? "Drive and documents saved." : "Drive saved.");
       if (!id) navigate(`/admin/edit-company/${data._id}`, { replace: true });
     });
   }
   async function status(value) { await run(async () => { const { data } = await API.post(`/company/${graph._id}/drive/status`, { revision: graph.drive.revision, status: value }); accept(data); setMessage(value === "PUBLISHED" ? "Drive published." : "Applications closed."); }); }
-  function selectSharedDocuments(files) {
-    try { setPendingDocuments(queueDriveDocuments(pendingDocuments, files, graph?.drive.attachments?.length || 0)); setError(""); setMessage(""); }
+  function updatePendingDocuments(roleIndex, update) {
+    if (roleIndex === null) setPendingDocuments(update);
+    else setForm(current => ({ ...current, roles: current.roles.map((role, index) => index === roleIndex ? { ...role, pendingDocuments: update(role.pendingDocuments || []) } : role) }));
+  }
+  function selectDocuments(files, roleIndex, target) {
+    try {
+      const current = roleIndex === null ? pendingDocuments : form.roles[roleIndex].pendingDocuments || [];
+      const queued = queueDriveDocuments(current, files, target?.attachments?.length || 0);
+      updatePendingDocuments(roleIndex, () => queued); setError(""); setMessage("");
+    }
     catch (err) { setError(err.message); }
   }
-  function attachments(roleId) {
-    const target = roleId ? graph?.roles.find(role => role._id === roleId) : graph?.drive;
-    return <DriveDocuments key={roleId || "shared"} compact stacked={!roleId} pageSize={roleId ? 5 : 2} disabledMessage={unsaved ? "Save drive changes before managing documents." : "Updating documents…"} companyId={graph?._id} documents={target?.attachments} history={target?.retiredAttachments} manage disabled={busy || (Boolean(roleId) && unsaved)} savedActionsDisabled={unsaved}
-      pendingFiles={roleId ? [] : pendingDocuments} onRemovePending={roleId ? undefined : file => setPendingDocuments(current => current.filter(pending => pending !== file))}
-      title={roleId ? "Documents for this role" : "Shared documents"}
-      onUpload={(files, replaceId) => !roleId && !replaceId ? selectSharedDocuments(files) : run(async () => {
+  function attachments(roleIndex = null) {
+    const role = roleIndex === null ? null : form.roles[roleIndex], roleId = role?._id;
+    const target = role ? graph?.roles.find(saved => saved._id === roleId) : graph?.drive;
+    return <DriveDocuments key={role ? `role:${roleIndex}` : "shared"} compact stacked={!role} pageSize={role ? 5 : 2} disabledMessage={role?.isActive === false ? "Restore this role to add documents." : "Updating documents…"} companyId={graph?._id} documents={target?.attachments} history={target?.retiredAttachments} manage disabled={busy || role?.isActive === false} savedActionsDisabled={unsaved}
+      pendingFiles={role ? role.pendingDocuments || [] : pendingDocuments} onRemovePending={file => updatePendingDocuments(roleIndex, current => current.filter(pending => pending !== file))}
+      title={role ? "Documents for this role" : "Shared documents"}
+      onUpload={(files, replaceId) => !replaceId ? selectDocuments(files, roleIndex, target) : run(async () => {
         let latest = graph;
         for (const file of files) {
           latest = await uploadDriveDocument(API, latest, file, { roleId, replaceId }); accept(latest);
@@ -135,6 +147,6 @@ export default function DriveEditor({ id }) {
         </section>
       </>}
     </main>
-    {roleOpen && form.roles[activeRole] && <DriveRoleEditor roles={form.roles} selectedRole={activeRole} companyName={form.companyName} onSelect={selectRole} onAdd={addRole} onRemove={removeRole} onRestore={() => roleChange({ isActive: true })} onChange={roleChange} onClose={() => { setRoleOpen(false); setIssue(null); }} onDone={doneRole} busy={busy} dirty={dirty} programs={programs} tab={roleTab} setTab={tab => { setRoleTab(tab); setIssue(null); }} roundPage={roundPage} setRoundPage={setRoundPage} issue={issue?.scope === "role" ? issue : null} error={error} documents={graph && form.roles[activeRole]._id ? attachments(form.roles[activeRole]._id) : null} />}
+    {roleOpen && form.roles[activeRole] && <DriveRoleEditor roles={form.roles} selectedRole={activeRole} companyName={form.companyName} onSelect={selectRole} onAdd={addRole} onRemove={removeRole} onRestore={() => roleChange({ isActive: true })} onChange={roleChange} onClose={() => { setRoleOpen(false); setIssue(null); }} onDone={doneRole} busy={busy} dirty={unsaved} programs={programs} tab={roleTab} setTab={tab => { setRoleTab(tab); setIssue(null); }} roundPage={roundPage} setRoundPage={setRoundPage} issue={issue?.scope === "role" ? issue : null} error={error} documents={attachments(activeRole)} />}
   </div>;
 }

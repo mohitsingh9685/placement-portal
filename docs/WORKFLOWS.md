@@ -56,6 +56,8 @@ Ordinary viewers see active roles on published/closed drives. Company managers a
 
 Documents belong either to the shared drive or a specific role. Upload, replace and remove use the drive's revision. Replacement/removal retires the old metadata rather than deleting a file referenced by application history. Current public documents can be viewed through the guest routes; retired documents require publishing/review permission or an owning student's application reference. Returned metadata does not expose storage keys.
 
+Admins can choose shared and role documents before the first save, including for newly added roles on an existing drive. Selections stay with their role while switching tabs or roles. Saving persists the drive and roles, then uploads each selected file using the saved IDs and latest revision. Successful uploads leave the queue; failures retain the remaining files for retry without creating another drive. Removing an unsaved role also removes its selected files. File selections stay in browser memory until saved and are lost on a page reload.
+
 Source: [publishingService.js](../backend/services/publishingService.js), [driveDocumentService.js](../backend/services/driveDocumentService.js).
 
 ## Reviewing and submitting an application

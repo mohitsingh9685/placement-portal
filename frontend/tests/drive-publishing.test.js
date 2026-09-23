@@ -128,11 +128,11 @@ test("India deadline input round-trips independently of the browser time zone", 
   assert.equal(fromIndiaInput(""), null); assert.equal(toIndiaInput(null), "");
 });
 test("draft payload preserves optional limits and strips database/document metadata", () => {
-  const form = emptyDrive(); form.roles.push(newRole()); form.roles[0]._id = "507f1f77bcf86cd799439099"; form.roles[0].attachments = [{ key: "must-not-send" }];
+  const form = emptyDrive(); form.roles.push(newRole()); form.roles[0]._id = "507f1f77bcf86cd799439099"; form.roles[0].attachments = [{ key: "must-not-send" }]; form.roles[0].pendingDocuments = [new File(["test"], "role.pdf")];
   form.roles[0].eligibility.branches = " cse, IT "; form.roles[0].eligibility.years = "2027, 2028";
   form.roles[0].eligibility.maxTotalBacklogs = "0";
   const body = drivePayload(form, 3); assert.equal(body.revision, 3); assert.equal(body.roles.length, 2);
-  assert.equal(body.roles[0].attachments, undefined); assert.equal(body.roles[0].eligibility.maxTotalBacklogs, 0); assert.equal(body.roles[1].eligibility.maxTotalBacklogs, null);
+  assert.equal(body.roles[0].attachments, undefined); assert.equal(body.roles[0].pendingDocuments, undefined); assert.equal(body.roles[0].eligibility.maxTotalBacklogs, 0); assert.equal(body.roles[1].eligibility.maxTotalBacklogs, null);
   assert.equal(body.roles[0].compensation.amount, null); assert.deepEqual(body.roles[0].eligibility.allowedBranches, ["CSE", "IT"]); assert.deepEqual(body.roles[0].eligibility.passingYears, [2027, 2028]);
 });
 test("editor preserves legacy pay as editable text, including units, zero and missing values", () => {
