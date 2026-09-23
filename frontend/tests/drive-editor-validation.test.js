@@ -1,0 +1,72 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { emptyDrive, newRole, drivePayload, editorFromGraph } from "../src/utils/driveEditor.js";
+import { driveEditorIssue, roleEditorIssue } from "../src/utils/driveEditorValidation.js";
+import { academicPrograms } from "../../backend/config/academicPrograms.js";
+import { driveSchema } from "../../backend/validators/driveValidator.js";
+const validForm = () => {
+  const form = emptyDrive();
+  Object.assign(form, { companyName: "Example", title: "Graduate hiring", registrationDeadline: "2027-09-23T09:30" });
+  form.roles[0].title = "Engineer";
+  return form;
+};
+test("saving validates unmounted roles and routes to the exact tab and round page", () => {
+  const form = validForm(); form.roles.push(newRole());
+  assert.deepEqual(driveEditorIssue(form, academicPrograms), { scope: "role", roleIndex: 1, tab: "details", field: "title", message: "Role title is required." });
+  form.roles[1].title = "Analyst";
+  form.roles[1].eligibility.minCgpa = "11";
+  assert.equal(driveEditorIssue(form, academicPrograms).tab, "eligibility");
+  form.roles[1].eligibility.minCgpa = "7";
+  form.roles[1].stages.push(...Array.from({ length: 7 }, (_, i) => ({ key: `test-${i}`, kind: "ASSESSMENT", name: i === 6 ? "" : `Test ${i}` })));
+  const issue = driveEditorIssue(form, academicPrograms);
+  assert.equal(issue.roleIndex, 1); assert.equal(issue.tab, "rounds"); assert.equal(issue.roundIndex, 7); assert.equal(issue.field, "round-7");
+  form.roles[1].stages[7].name = "Final test";
+  assert.equal(driveEditorIssue(form, academicPrograms), null);
+  assert.equal(driveSchema.safeParse(drivePayload(form, undefined, academicPrograms)).success, true);
+});
+test("course errors cannot silently broaden an unmounted role's eligibility", () => {
+  const role = newRole(); role.title = "Engineer";
+  role.eligibility.programs = [{ course: "B.Tech", allBranches: false, branches: ["CST"] }];
+  const before = structuredClone(role);
+  assert.equal(roleEditorIssue(role, academicPrograms).tab, "courses");
+  assert.deepEqual(role, before);
+  role.eligibility.programs[0].branches = ["CSE", "IT"];
+  assert.equal(roleEditorIssue(role, academicPrograms), null);
+  role.eligibility.programs = [{ course: "Unavailable", allBranches: true, branches: [] }];
+  assert.equal(roleEditorIssue(role, academicPrograms).field, "courses");
+});
+test("invalid hidden numbers, years and offer order surface before save", () => {
+  const role = newRole(); role.title = "Engineer";
+  role.eligibility.years = "2027, tomorrow";
+  assert.equal(roleEditorIssue(role, academicPrograms).field, "years");
+  role.eligibility.years = "2027, 2028";
+  Object.assign(role.eligibility, { allowActiveBacklogs: true, maxActiveBacklogs: "2", maxTotalBacklogs: "1" });
+  assert.equal(roleEditorIssue(role, academicPrograms).field, "maxTotalBacklogs");
+  role.eligibility.maxTotalBacklogs = "2";
+  role.positions = "1.5";
+  assert.equal(roleEditorIssue(role, academicPrograms).field, "positions");
+  role.positions = "2";
+  role.stages.push({ key: "offer", name: "Offer", kind: "OFFER" }, { key: "test", name: "Test", kind: "ASSESSMENT" });
+  assert.equal(roleEditorIssue(role, academicPrograms).field, "round-type-1");
+});
+test("removing and restoring a saved role preserves its identifiers and round history", () => {
+  const form = validForm(); const role = form.roles[0]; role._id = "507f1f77bcf86cd799439011";
+  role.stages.push({ key: "interview", name: "Interview", kind: "INTERVIEW" });
+  const original = structuredClone(role);
+  role.isActive = false;
+  const payload = drivePayload(form, 5, academicPrograms);
+  const reloaded = editorFromGraph({ ...payload, drive: payload });
+  assert.equal(reloaded.roles[0]._id, original._id);
+  assert.equal(reloaded.roles[0].isActive, false);
+  assert.deepEqual(reloaded.roles[0].stages, original.stages);
+  reloaded.roles[0].isActive = true;
+  assert.equal(drivePayload(reloaded, 6, academicPrograms).roles[0]._id, original._id);
+});
+test("company fields and an empty role list surface on the main page", () => {
+  const form = validForm(); form.registrationDeadline = "invalid";
+  assert.equal(driveEditorIssue(form, academicPrograms).field, "registrationDeadline");
+  form.registrationDeadline = ""; form.companyName = " ";
+  assert.equal(driveEditorIssue(form, academicPrograms).scope, "drive");
+  form.companyName = "Example"; form.roles = [];
+  assert.equal(driveEditorIssue(form, academicPrograms).field, "roles");
+});

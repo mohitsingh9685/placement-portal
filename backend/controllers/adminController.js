@@ -6,13 +6,14 @@ import { serializeUser } from "../services/authService.js";
 export async function listAdmins(req, res, next) {
   try {
     const page = Math.max(1, Math.min(10000, Math.floor(Number(req.query.page)) || 1));
+    const limit = Math.max(1, Math.min(30, Math.floor(Number(req.query.limit)) || 30));
     const filter = {};
     if (req.query.search) {
       const term = String(req.query.search).slice(0, 200).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [{ name: { $regex: term, $options: "i" } }, { email: { $regex: term, $options: "i" } }];
     }
-    const [admins, total] = await Promise.all([Admin.find(filter).sort({ email: 1 }).skip((page - 1) * 30).limit(30).lean(), Admin.countDocuments(filter)]);
-    res.json({ admins: admins.map(serializeUser), permissions: PERMISSIONS, page, pages: Math.max(1, Math.ceil(total / 30)), total });
+    const [admins, total] = await Promise.all([Admin.find(filter).sort({ email: 1 }).skip((page - 1) * limit).limit(limit).lean(), Admin.countDocuments(filter)]);
+    res.json({ admins: admins.map(serializeUser), permissions: PERMISSIONS, page, limit, pages: Math.max(1, Math.ceil(total / limit)), total });
   } catch (error) { next(error); }
 }
 export async function addAdmin(req, res, next) {

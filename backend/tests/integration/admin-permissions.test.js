@@ -66,6 +66,34 @@ async function add(cookie, input = {}) {
 const accountPath = id => `/api/admin/accounts/${id}`;
 const edit = (cookie, account, body) => request(accountPath(account._id), { cookie, method: "PATCH", body: { revision: account.revision || 0, ...body } });
 
+test("admin accounts use bounded server pages and search across the whole list", async () => {
+  const cookie = await owner();
+  await Admin.insertMany(Array.from({ length: 8 }, (_, index) => ({
+    name: `Staff ${index + 1}`, email: `staff-${index + 1}@example.invalid`, role: "admin", permissions: [],
+  })));
+  const expected = await Admin.find().sort({ email: 1 }).lean();
+  const pages = [];
+  for (let page = 1; page <= Math.ceil(expected.length / 4); page++) {
+    const result = await request(`/api/admin/accounts?limit=4&page=${page}`, { cookie });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.total, expected.length);
+    assert.equal(result.body.limit, 4);
+    assert.equal(result.body.pages, Math.ceil(expected.length / 4));
+    assert.deepEqual(result.body.admins.map(admin => admin.email), expected.slice((page - 1) * 4, page * 4).map(admin => admin.email));
+    pages.push(...result.body.admins.map(admin => admin._id));
+  }
+  assert.equal(new Set(pages).size, expected.length);
+  const filtered = await request("/api/admin/accounts?limit=4&search=STAFF%208", { cookie });
+  assert.equal(filtered.body.total, 1);
+  assert.equal(filtered.body.pages, 1);
+  assert.equal(filtered.body.admins[0].email, "staff-8@example.invalid");
+  for (const suffix of ["", "?limit=500"]) {
+    const result = await request(`/api/admin/accounts${suffix}`, { cookie });
+    assert.equal(result.body.limit, 30);
+    assert.equal(result.body.admins.length, expected.length);
+  }
+});
+
 test("recent activity returns only the current admin's latest five persisted actions", async () => {
   const cookie = await owner();
   const createdAt = new Date("2030-01-01T00:00:00Z");

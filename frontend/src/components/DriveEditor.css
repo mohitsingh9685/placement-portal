@@ -1,0 +1,20 @@
+.student-detail-dialog.drive-role-dialog {
+  width: 80vw;
+  max-width: 1600px;
+  height: 86dvh;
+  max-height: calc(100dvh - 24px);
+}
+.drive-role-dialog::backdrop {
+  background: rgb(2 6 23 / 72%);
+  backdrop-filter: blur(10px);
+}
+@media (max-width: 1023px) {
+  .student-detail-dialog.drive-role-dialog { width: calc(100vw - 24px); height: 90dvh; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .drive-role-dialog[open] { animation: student-detail-enter 180ms ease-out; }
+}
+@media (min-width: 1024px) and (max-height: 679px) {
+  .drive-editor-shell { height: auto; overflow: visible; }
+  .drive-editor-shell form > fieldset { min-height: 320px; }
+}

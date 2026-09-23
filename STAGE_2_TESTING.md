@@ -6,7 +6,7 @@ Stage 2 is implemented locally. **The live `placement-portal` Atlas database was
 
 - `admins` is a collection inside `placement-portal`. Staff authentication uses that collection; student access uses `approvedstudents` plus `students`. An import cannot create an administrator.
 - Super Admin → Admins supports staff creation, permission grants/revocation and disable/restore access. Permission changes revoke staff sessions; every Super Admin account is protected from edits/removal in the account-management UI and API. Only ordinary admins have management actions. See [Super Admin setup and verification](SUPER_ADMIN_TESTING.md).
-- Admin → Students supports email lists/CSV, preview, invalid/duplicate reporting, import, search, branch/year/access filters and pagination. Disabling a student revokes their device sessions. The Roster batch column and Edit roster controls were removed on September 23; students still submit their own profile details.
+- Admin → Students uses a full-width split layout: email entry and preview on the left, filters and students on the right. Both lists show 10 rows per page. Student names or Details open submitted academics in a dialog; the main rows stay compact. Disabling a student revokes their device sessions. The Roster batch column and Edit roster controls remain removed; students still submit their own profile details.
 - Branch and graduating-year filters now use current student profile fields, joined to the approved email list before counting and pagination. They do not use old CSV academic metadata. Name/roll-number search follows the displayed profile details, with imported identity details as a fallback. Email-only entries without the requested profile details remain visible with academic filters cleared. No migration is required.
 - Students edit academics directly, with server validation and no staff approval. The profile includes school percentages, semester results, projects and portfolio links.
 - Company → Drive → JobRole → recruitment-stage schemas are in place. Stage 3 now provides the full multi-role publishing editor; see [Stage 3 workflow and testing](STAGE_3_TESTING.md).
@@ -68,8 +68,8 @@ These create synthetic sessions and redirect to the preview frontend on port 518
 
 Browser checks performed locally:
 
-1. Import preview shows duplicate/invalid rows and disables confirmation until errors are fixed.
-2. A valid import appears in the student list; enabling/disabling access persists. The table shows student/email, submitted profile, access and actions, without a Roster batch column or Edit roster controls.
+1. Switch between Emails and Preview in the left panel. Preview shows duplicate/invalid/staff-conflict rows and disables approval until errors are fixed. Editing the input clears the previous preview. A 12-row synthetic import showed 10 rows then 2, independently of student-list pagination.
+2. A valid import clears the input and refreshes the student list; enabling/disabling access persists. Next/Previous show 10 students per page, and off-page search or combined branch/year/access filters reset to page one. Details opens submitted academics; Escape closes it and returns focus. A view-only admin gets the full-width list without import/access controls. Desktop checks at 1680×930 and 1366×768 kept pagination visible; 390×844 stacked the panels without horizontal overflow.
 3. Students save school marks, semester results and a project directly, then reload and see the saved values.
 4. Resume history shows the retained current version.
 

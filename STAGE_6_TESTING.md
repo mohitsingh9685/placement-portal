@@ -15,6 +15,10 @@ Use the matching frontend and backend release together. Locally, refresh the fro
 5. Search the student table by name, email or roll number; filter to Placed or Unplaced. Search includes students on every page.
 6. For other staff, a Super Admin can grant **View placement reports** in Admins. It includes the required View students and View applications permissions. Staff without report access cannot open these endpoints, even with a direct link.
 
+The Reports page uses the full desktop width. Eight totals share a compact strip, with offer counts and refresh information below it. Placement summaries and the student list sit side by side; both request five rows per page and keep their own Previous/Next controls visible. Student rows combine course, branch, year and roll number under Academics, and show placement/profile status together without dropping report data. Smaller screens stack the panels and contain wide tables within their own scroll area.
+
+Layout checks used the disposable `--reports` fixture with 29 students and 25 companies. At 1366×768 and 1680×930 the page and five-row student table fit without scrolling. Verified independent pagination, off-page company/student searches, placed filtering, cohort totals, year summaries and global reset. At 390×844, table overflow stays inside its panel, without horizontal page overflow.
+
 Report definitions:
 
 | Metric | Meaning |
@@ -38,6 +42,7 @@ Branch and year summaries use the student's current profile. Missing details hav
 4. Check **Student requests**. It has separate pending/history filters and pages, so a request does not disappear just because its application is on another page or excluded by applicant search.
 5. On the student dashboard, use the compact filter sidebar and All drives / Saved drives tabs. Listed/Eligible statistic boxes are removed; the company grid fills the available width. On narrow screens, Filters toggles the sidebar. Check Save/Unsave, Applied/Not applied, course/branch, eligibility and deadline sorting, plus Reset returning to All drives and page one. Eligibility includes profile, academic, resume, deadline and placement-policy checks; already-applied drives are excluded from Eligible to apply. The application preview still rechecks all conditions before submission.
 6. Open **My applications**, which requests four records per page, search for a company on a later page, and change status filters. Counts show the student's complete history, not just the visible page. A notification link opens its specific application in the details dialog even if it is not on page one. Show all applications clears the previous search/status view.
+7. Open **Students**. The right panel requests 10 students per page; search and branch/year/access filters run before pagination. The left import preview has its own 10-row pages. Pagination stays below each panel, and submitted student details open in a dialog without enlarging the rows.
 
 Student dashboard cards for a single role show job type, location, compensation and minimum CGPA. Cards with multiple active roles list every role name and the application deadline, without generic “Varies by role” or “By role” values. Role names wrap without clipping; Save and the drive link work for both card layouts.
 

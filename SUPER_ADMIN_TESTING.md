@@ -7,10 +7,14 @@ Implemented as part of stage 2. Both `admin` and `super_admin` accounts live in 
 1. Sign in with a Super Admin's Google account and open **Admins** in the navigation.
 2. Enter the staff member's name and Google account email. Choose **Admin** and select the permissions they need, or **Super Admin** for full administrative access, including management of ordinary admins' permissions.
 3. Click **Add admin**. The person can sign in with that exact Google account. The portal does not send an invitation email or create a Google account.
-4. Use **Edit permissions** on an ordinary admin to grant/revoke capabilities or promote that account to Super Admin. After promotion, that account becomes protected too. Email addresses are fixed; an account already in the student roster or student collection cannot also be added as staff.
+4. Use **Edit** on an ordinary admin to load their settings in the left panel and grant/revoke capabilities or promote that account to Super Admin. After promotion, that account becomes protected too. Email addresses are fixed; an account already in the student roster or student collection cannot also be added as staff.
 5. Use **Remove access** to disable an ordinary admin, or **Restore access** to reactivate one. Disabling retains company ownership and activity history. It is not permanent deletion.
 
 Every Super Admin row, including the signed-in account, shows **Protected account** instead of edit/remove/restore controls. The management API rejects all edits to a Super Admin with HTTP 403, even when several Super Admins exist or requests arrive concurrently. Ordinary admin edits still use revision checks; stale forms cannot change an account that has since been promoted.
+
+The full-width desktop layout places **Add an admin** on the left, **Administrator accounts** on the right and **College placement rules** below the accounts. The list requests four accounts per server page; search covers all accounts and returns to page one. Click a permission count to see the complete grants. Narrow screens stack the panels.
+
+Placement rules separate saved settings from pending edits. **Save rules** becomes available only after a change, and **Cancel changes** restores the saved values. Changing the placement milestone recalculates placement status for existing accepted/joined offers; it does not change the offer records themselves. If another admin saves newer rules, **Reload rules** retrieves that version before further editing.
 
 **Profile** shows name, email, role, account status, available account/sign-in dates and allowed permissions. Super Admins see full access, including admin management and placement rules. Ordinary admins see only their assigned permissions. These details are read-only and load from the authenticated profile endpoint; **Refresh** reloads them. The navigation no longer shows a role label beside Logout.
 
@@ -47,6 +51,8 @@ Bootstrap preserves the account ID and Google identity, records an audit event, 
 For this project, the existing owner's administrator was promoted on September 20, 2026. Read-only verification confirmed one active Super Admin, no remaining old owner sessions, the audit entry, index and unchanged student/company/application counts. The backup under `private-data/backups/2026-09-20T15-07-09.862Z/` passed exact document, collection-option and index restore comparison. Private reports are excluded from Git.
 
 ## Verification
+
+September 23 layout verification: the 19 focused admin integration tests and 40 frontend tests passed, along with ESLint and the production build. The new integration case checks bounded page sizes, complete pagination and search across all admin records. Disposable browser checks covered creation, permission dependencies/removal, editing, the permissions dialog and Escape focus return, access restoration, search/paging, rule save/cancel/persistence and conflict recovery using two tabs. The normal four-row desktop view fits at 1280×720 without document or panel scrolling; wider desktop and 390px mobile layouts were also checked. Errors or unusually long content can still scroll within their panel. No real accounts or placement rules were changed by these checks.
 
 ```bash
 npm run check
