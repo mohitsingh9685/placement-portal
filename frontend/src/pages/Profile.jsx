@@ -1,10 +1,12 @@
+import { profileFormIssue } from "../utils/formValidation.js";
+import { openDocument } from "../utils/openDocument.js";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import useAuth from "../auth/useAuth.js";
 import Navbar from "../components/Navbar";
 import ResumeHistory from "../components/ResumeHistory.jsx";
-import StudentProfileDetails, { ProfilePortfolio, ProfileProjects } from "../components/StudentProfileDetails.jsx";
+import StudentProfileDetails, { ProfilePortfolio, ProfileProjects, ProfileIdentityFields } from "../components/StudentProfileDetails.jsx";
 import { extraProfileState, profileExtrasPayload } from "../utils/profileFields.js";
 import { isGuestUser } from "../utils/guestSession";
 import { isStaffRole } from "../utils/permissions.js";
@@ -17,6 +19,7 @@ const fileInput = "block w-full min-w-0 rounded-xl border border-white/15 p-2 te
 function formFromProfile(user = {}) {
   return {
     ...extraProfileState(user),
+    name: user.name || "", contactNo: user.contactNo || user.phone || "", whatsappNo: user.whatsappNo || "",
     cgpa: user.cgpa ?? "", branch: user.branch ?? "",
     activeBacklogs: user.activeBacklogs ?? user.activebacklogs ?? 0,
     totalBacklogs: user.totalBacklogs ?? "", enrollmentNo: user.enrollmentNo ?? "",
@@ -96,7 +99,7 @@ export default function Profile() {
   function handlePhotoChange(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(file.type) || file.size > 2 * 1024 * 1024) {
+    if (!["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(file.type) || file.size === 0 || file.size > 2 * 1024 * 1024) {
       setFeedback({ error: true, text: "Choose a JPG, PNG or WEBP photo up to 2 MB." });
       event.target.value = "";
       setSelectedPhoto(null);
@@ -127,7 +130,14 @@ export default function Profile() {
   }
 
   function handleResumeChange(event) {
-    setSelectedResume(event.target.files?.[0] || null);
+    const file = event.target.files?.[0];
+    if (file && (!/\.(pdf|doc|docx)$/i.test(file.name) || file.size === 0 || file.size > 5 * 1024 * 1024)) {
+      event.target.value = "";
+      setSelectedResume(null);
+      setFeedback({ error: true, text: "Choose a non-empty PDF, DOC or DOCX resume up to 5 MB." });
+      return;
+    }
+    setSelectedResume(file || null);
     setFeedback(null);
   }
 
@@ -149,23 +159,28 @@ export default function Profile() {
   }
 
   async function handleViewResume() {
+    setFeedback(null);
     try {
-      const { data } = await API.get("/v1/upload/resume/view");
-      if (!data.signedUrl) throw new Error("Resume not found.");
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      await openDocument(async () => {
+        const { data } = await API.get("/v1/upload/resume/view");
+        if (!data.signedUrl) throw new Error("Resume not found.");
+        return data.signedUrl;
+      });
     } catch (error) { showError(error, "Unable to open your resume."); }
   }
 
   async function handleUpdate(event) {
     event.preventDefault();
     if (!editMode || busy) return;
-    if (!form.course || !form.branch) { setFeedback({ error: true, text: "Choose your course and branch." }); return; }
+    const issue = profileFormIssue(form);
+    if (issue) { setFeedback({ error: true, text: issue }); return; }
     setSaving(true);
     setFeedback(null);
     try {
-      // Only submit the fields on this page; stored skills and contact details stay intact.
+      // Keep the immutable Google email and existing skills out of profile edits.
       const { data } = await API.put("/auth/update-profile", {
         ...profileExtrasPayload(form),
+        name: form.name, contactNo: form.contactNo, whatsappNo: form.whatsappNo.trim(),
         cgpa: form.cgpa, branch: form.branch, activeBacklogs: form.activeBacklogs,
         totalBacklogs: form.totalBacklogs, enrollmentNo: form.enrollmentNo,
         collegeName: form.collegeName, course: form.course,
@@ -190,15 +205,15 @@ export default function Profile() {
   return <div className="premium-shell min-h-screen">
     <Navbar wide />
     <main className="w-full space-y-5 px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+      <header className={`flex flex-wrap items-center justify-between gap-4 ${editMode ? "sticky top-2 z-40 rounded-xl border border-white/10 bg-slate-900/95 p-3 backdrop-blur" : ""}`}>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My profile</h1>
         {editMode ? <div className="flex items-center gap-3"><button type="button" disabled={busy} onClick={cancelEditing} className={secondaryButton}>Cancel</button><button type="submit" form="student-profile-form" disabled={busy} className={primaryButton}>{saving ? "Saving…" : "Save profile"}</button></div> : <button type="button" disabled={loading || Boolean(loadError)} onClick={() => { setEditMode(true); setFeedback(null); }} className={primaryButton}>
           <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" className="h-4 w-4"><path d="m12.5 3.5 4 4M3 17l4-.8L16.5 6.7a2.8 2.8 0 0 0-4-4L3 12.2 3 17Z" strokeWidth="1.4" strokeLinejoin="round" /></svg>Edit profile
         </button>}
+        {feedback && <p role={feedback.error ? "alert" : "status"} className={`w-full rounded-xl border px-3 py-2 text-sm ${feedback.error ? "border-red-400/20 bg-red-950/30 text-red-200" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"}`}>{feedback.text}</p>}
       </header>
 
       {loadError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-950/30 p-4 text-sm text-red-200">{loadError} <button type="button" className="ml-2 underline" onClick={() => { setLoading(true); setLoadVersion(value => value + 1); }}>Retry</button></p>}
-      {feedback && <p role={feedback.error ? "alert" : "status"} className={`rounded-xl border p-4 text-sm ${feedback.error ? "border-red-400/20 bg-red-950/30 text-red-200" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"}`}>{feedback.text}</p>}
 
       {loading ? <p role="status" className="py-12 text-sm text-slate-400">Loading your profile…</p> : <form id="student-profile-form" onSubmit={handleUpdate} onInvalidCapture={event => { const details = event.target.closest("details"); if (details) details.open = true; }} aria-label="Student profile details" className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-6">
         <aside aria-label="Profile, resume and portfolio" className="grid min-w-0 items-start gap-4 sm:grid-cols-2 lg:grid-cols-1">
@@ -212,6 +227,7 @@ export default function Profile() {
             <h2 className="break-words text-xl font-bold tracking-tight">{profileUser.name}</h2>
             {headline && <p className="mt-2 text-sm text-cyan-200">{headline}</p>}
             <p className="mt-2 break-words text-sm leading-relaxed text-slate-400">{profileUser.email}</p>
+            {editMode && <div className="mt-4"><ProfileIdentityFields form={form} onChange={change} disabled={busy} /></div>}
             {editMode && <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
               <label className="block text-sm font-medium" htmlFor="profile-photo">Profile photo</label>
               <input id="profile-photo" key={profileUser.profilePicture?.url || "photo"} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} disabled={busy} className={fileInput} />
@@ -241,10 +257,7 @@ export default function Profile() {
           <StudentProfileDetails form={form} onChange={change} disabled={!editMode || busy || Boolean(loadError)} editing={editMode} />
           <ProfileProjects form={form} onChange={change} disabled={!editMode || busy || Boolean(loadError)} editing={editMode} />
         </div>
-          {editMode && <div className="sticky bottom-4 z-40 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-white/15 bg-slate-900/95 p-4 shadow-xl shadow-black/30 backdrop-blur-xl lg:col-span-2">
-            <button type="button" disabled={busy} onClick={cancelEditing} className={secondaryButton}>Cancel</button>
-            <button type="submit" disabled={busy} className={primaryButton}>{saving ? "Saving…" : "Save profile"}</button>
-          </div>}
+
       </form>}
     </main>
   </div>;

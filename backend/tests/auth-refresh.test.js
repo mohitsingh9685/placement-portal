@@ -159,7 +159,7 @@ test("unsafe requests reject foreign/missing/null origins, including form posts"
 test("profile validation rejects invalid academics and strips privilege fields; full profile is retained", async () => {
   const cookie = await login();
   const body = { name: " College Record Name ", email: "unapproved@example.invalid", cgpa: "8.5", branch: " cse ", activeBacklogs: "0", totalBacklogs: "1", semester: "6", passingYear: "2027", counselorGroup: "A1", skills: ["React"], role: "admin", refreshToken: "forged" };
-  for (const invalid of [{ name: " " }, { cgpa: 999 }, { activeBacklogs: -1 }, { activeBacklogs: 2 }, { cgpa: "" }, { semester: -3 }]) {
+  for (const invalid of [{ name: " " }, { cgpa: 0 }, { cgpa: 10 }, { cgpa: 8.255 }, { contactNo: "123" }, { contactNo: "+919876543210" }, { whatsappNo: "abc" }, { cgpa: 999 }, { activeBacklogs: -1 }, { activeBacklogs: 2 }, { cgpa: "" }, { semester: -3 }]) {
     assert.equal((await request("/api/auth/update-profile", { method: "PUT", cookie, body: { ...body, ...invalid } })).status, 400);
   }
   const result = await request("/api/auth/update-profile", { method: "PUT", cookie, body });
@@ -168,6 +168,24 @@ test("profile validation rejects invalid academics and strips privilege fields; 
   assert.equal(result.body.user.cgpa, 8.5); assert.equal(result.body.user.branch, "CSE");
   assert.equal(result.body.user.counselorGroup, "A1"); assert.equal(result.body.user.resume.key, "test/resume.pdf");
   assert.equal(result.body.user.refreshToken, undefined); assert.equal(result.body.user.placementStatus, "NOT_PLACED");
+});
+
+test("first profile completion cannot bypass identity or phone validation", async () => {
+  const cookie = await login();
+  store.students.get(String(student._id)).profileCompleted = false;
+  const basics = { cgpa: 8.2, branch: "CSE", activeBacklogs: 0, totalBacklogs: 0 };
+  const rejected = await request("/api/auth/update-profile", { method: "PUT", cookie, body: basics });
+  assert.equal(rejected.status, 400);
+  assert.equal(store.students.get(String(student._id)).profileCompleted, false);
+  const completed = await request("/api/auth/update-profile", { method: "PUT", cookie, body: { ...basics, name: "Student", enrollmentNo: "T001", collegeName: "Test College", course: "B.Tech", semester: 6, passingYear: 2027, contactNo: "9876543210" } });
+  assert.equal(completed.status, 200);
+  assert.equal(completed.body.user.profileCompleted, true);
+  assert.equal(completed.body.user.contactNo, "9876543210");
+  const future = await request("/api/auth/update-profile", { method: "PUT", cookie, body: { ...basics, semesterCgpa: [{ sem: 7, cgpa: 8 }] } });
+  assert.equal(future.status, 400);
+  assert.deepEqual(store.students.get(String(student._id)).semesterCgpa.toObject(), []);
+  const invalidYear = await request("/api/auth/update-profile", { method: "PUT", cookie, body: { ...basics, entryQualification: "DIPLOMA", diplomaPercentage: 75, diplomaPassingYear: 2028 } });
+  assert.equal(invalidYear.status, 400);
 });
 
 test("invalid JSON, IDs, application statuses and company inputs return client errors", async () => {

@@ -9,7 +9,7 @@ try {
   const { connectRedis } = await import("./config/redis.js");
   await connectDB();
   const migration = await mongoose.connection.db.collection("migrationruns").findOne({ _id: "stage2-v1", status: "APPLIED", indexesReady: true });
-  if (!migration) throw new Error("Stage 2 migration is required. Follow STAGE_2_TESTING.md before starting this release.");
+  if (!migration) throw new Error("Stage 2 migration is required. Follow docs/DEPLOYMENT.md before starting this release.");
   const indexes = await mongoose.connection.db.collection("applications").listIndexes().toArray();
   if (!indexes.some(index => index.name === "student_drive_unique" && index.unique && index.key.student === 1 && index.key.drive === 1)) throw new Error("Stage 2 indexes are incomplete. Re-run the migration apply command.");
   connectRedis();

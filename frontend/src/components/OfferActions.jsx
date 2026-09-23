@@ -1,16 +1,16 @@
 import { useState } from "react";
 import API from "../api/axios.js";
 const field = "mt-2 w-full rounded-lg border border-white/15 bg-slate-950 p-3";
-export default function OfferActions({ application, onUpdated }) {
+export default function OfferActions({ application, onUpdated, onBusyChange }) {
   const [action, setAction] = useState(""), [reason, setReason] = useState(""), [details, setDetails] = useState(""), [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const offer = application.offer?.status;
   const actions = offer === "ISSUED" ? [["ACCEPT", "Record acceptance"], ["DECLINE", "Record decline"], ["REVOKE", "Revoke offer"]] : offer === "ACCEPTED" ? [["JOIN", "Record joining"], ["REVOKE", "Revoke offer"]] : offer === "JOINED" ? [["REVOKE", "Revoke offer"]] : application.status === "SELECTED" ? [["ISSUE", "Issue offer"]] : [];
   async function submit(event) {
-    event.preventDefault(); setBusy(true); setError("");
+    event.preventDefault(); setBusy(true); onBusyChange?.(true); setError("");
     try { await API.post(`/recruitment/applications/${application._id}/offer`, { action, revision: application.recruitmentRevision || 0, reason, compensationDetails: details, reference }, { timeout: 60000 }); setAction(""); setReason(""); await onUpdated(); }
     catch (err) { setError(err.response?.data?.message || "Unable to update the offer. Refresh before trying again."); }
-    finally { setBusy(false); }
+    finally { setBusy(false); onBusyChange?.(false); }
   }
   if (!actions.length) return null;
   return <section className="space-y-3 border-t border-white/10 pt-4 text-sm"><p className="font-semibold">Offer tracking {offer ? `· ${offer}` : ""}</p><div className="flex flex-wrap gap-3">{actions.map(([key, label]) => <button key={key} disabled={busy} className={key === "REVOKE" ? "text-red-300" : "text-cyan-300"} onClick={() => { setAction(key); setError(""); }}>{label}</button>)}</div>

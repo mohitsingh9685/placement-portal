@@ -1,3 +1,4 @@
+import { cgpaSchema } from "../validators/fieldValidators.js";
 import Company from "../models/Company.js";
 import ResumeVersion from "../models/ResumeVersion.js";
 import ApiError from "../utils/ApiError.js";
@@ -16,7 +17,7 @@ const aliasPattern = value => {
 };
 // Query the same academic rules used at submission; application preview remains the final authority.
 export function eligibleRoleFilter(student) {
-  if (!student?.profileCompleted || !Number.isFinite(student.cgpa) || student.cgpa < 0 || student.cgpa > 10 ||
+  if (!student?.profileCompleted || !cgpaSchema.safeParse(student.cgpa).success ||
       !Number.isInteger(student.activeBacklogs) || student.activeBacklogs < 0 || !Number.isInteger(student.totalBacklogs) || student.totalBacklogs < student.activeBacklogs || !student.branch) return { $expr: false };
   const diploma = student.entryQualification === "DIPLOMA";
   if (diploma && (!supportsDiplomaEntry(student.course) || !Number.isFinite(student.diplomaPercentage) || student.diplomaPercentage < 0 || student.diplomaPercentage > 100)) return { $expr: false };

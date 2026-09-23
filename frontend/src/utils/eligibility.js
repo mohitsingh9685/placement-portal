@@ -1,3 +1,4 @@
+import { validCgpa } from "./formValidation.js";
 import { academicKey, matchesAcademics } from "./academics.js";
 import { schoolEligibilityReason } from "./education.js";
 export function checkCompanyEligibility(user, company) {
@@ -9,11 +10,10 @@ export function checkCompanyEligibility(user, company) {
     return { eligible: null, reason: "" };
   }
 
-  const cgpa = Number(user.cgpa);
   const backlogs = user.activeBacklogs ?? user.activebacklogs;
   const backlogCount = Number(backlogs);
   if (!user.profileCompleted || user.cgpa == null || String(user.cgpa).trim() === "" ||
-      !Number.isFinite(cgpa) || cgpa < 0 || cgpa > 10 || backlogs == null || String(backlogs).trim() === "" ||
+      !validCgpa(user.cgpa) || backlogs == null || String(backlogs).trim() === "" ||
       !Number.isInteger(backlogCount) || backlogCount < 0) {
     return { eligible: false, reason: "Complete your academic profile" };
   }

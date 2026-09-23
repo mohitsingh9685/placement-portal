@@ -1,10 +1,11 @@
+import { cgpaSchema } from "../validators/fieldValidators.js";
 import ApiError from "../utils/ApiError.js";
 import { matchesAcademics } from "../config/academicPrograms.js";
 import { checkSchoolEligibility } from "./educationService.js";
 export function eligibilityChecks(student, eligibility) {
   let schoolError = "";
   try { checkSchoolEligibility(student, eligibility); } catch (error) { schoolError = error.message; }
-  const validProfile = student.profileCompleted && Number.isFinite(student.cgpa) && student.cgpa >= 0 && student.cgpa <= 10 && Number.isInteger(student.activeBacklogs) && student.activeBacklogs >= 0 && Number.isInteger(student.totalBacklogs) && student.totalBacklogs >= student.activeBacklogs;
+  const validProfile = student.profileCompleted && cgpaSchema.safeParse(student.cgpa).success && Number.isInteger(student.activeBacklogs) && student.activeBacklogs >= 0 && Number.isInteger(student.totalBacklogs) && student.totalBacklogs >= student.activeBacklogs;
   const check = (label, passed, message) => ({ label, passed: Boolean(passed), message });
   return [
     check("Academic profile", validProfile, "Complete a valid academic profile before applying"),

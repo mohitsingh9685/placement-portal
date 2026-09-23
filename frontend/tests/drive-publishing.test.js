@@ -117,6 +117,14 @@ test("new roles start independently with Applied and drive date is removed on sa
 test("India deadline input round-trips independently of the browser time zone", () => {
   assert.equal(fromIndiaInput("2026-12-01T23:59"), "2026-12-01T18:29:00.000Z");
   assert.equal(toIndiaInput("2026-12-01T18:29:00.000Z"), "2026-12-01T23:59");
+  for (const [input, utc, normalized] of [
+    ["2028-02-29T0:00", "2028-02-28T18:30:00.000Z", "2028-02-29T00:00"],
+    ["2027-01-01T2:00", "2026-12-31T20:30:00.000Z", "2027-01-01T02:00"],
+    ["2027-09-23T09:30", "2027-09-23T04:00:00.000Z", "2027-09-23T09:30"],
+  ]) {
+    assert.equal(fromIndiaInput(input), utc);
+    assert.equal(toIndiaInput(utc), normalized);
+  }
   assert.equal(fromIndiaInput(""), null); assert.equal(toIndiaInput(null), "");
 });
 test("draft payload preserves optional limits and strips database/document metadata", () => {

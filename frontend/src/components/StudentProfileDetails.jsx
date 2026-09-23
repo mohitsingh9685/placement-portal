@@ -1,3 +1,4 @@
+import { phonePattern } from "../utils/formValidation.js";
 import { CourseBranchFields } from "./AcademicFields.jsx";
 import useAcademicPrograms from "../hooks/useAcademicPrograms.js";
 import { branchLabel, selectableBranches } from "../utils/academics.js";
@@ -6,7 +7,7 @@ import { supportsDiplomaEntry } from "../utils/education.js";
 const panel = "min-w-0 rounded-2xl border border-white/10 bg-slate-900/80 p-4 sm:p-5";
 const input = "mt-1.5 block min-h-10 w-full min-w-0 rounded-xl border border-white/15 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:cursor-default";
 
-function Field({ label, value, onChange, disabled, displayOnly = false, ...props }) {
+export function ProfileField({ label, value, onChange, disabled, displayOnly = false, ...props }) {
   if (displayOnly) return <div className="min-w-0"><p className="text-xs text-slate-400">{label}</p><p className="mt-1.5 break-words text-sm font-medium leading-relaxed text-slate-100">{value !== "" && value != null ? props.type === "url" && /^https?:\/\//.test(value) ? <a href={value} target="_blank" rel="noopener noreferrer" className="text-cyan-200 hover:underline">{value.replace(/^https?:\/\/(www\.)?/, "")}</a> : value : "—"}</p></div>;
   return <label className="block min-w-0 text-sm font-medium text-slate-300">{label}<input className={input} value={value ?? ""} onChange={event => onChange(event.target.value)} disabled={disabled} {...props} /></label>;
 }
@@ -16,7 +17,7 @@ export default function StudentProfileDetails({ form, onChange, disabled, editin
   const diploma = form.entryQualification === "DIPLOMA";
   const diplomaBranches = programs.find(program => program.course === "B.Tech")?.branches || [];
   const selectedDiplomaBranch = selectableBranches([form.diplomaBranch], programs, "B.Tech")[0] || "";
-  const field = (key, label, props = {}) => <Field key={key} label={label} value={form[key]} disabled={disabled} displayOnly={!editing} onChange={value => onChange({ [key]: value })} {...props} />;
+  const field = (key, label, props = {}) => <ProfileField key={key} label={label} value={form[key]} disabled={disabled} displayOnly={!editing} onChange={value => onChange({ [key]: value })} {...props} />;
   const updateRow = (key, index, patch) => onChange({ [key]: form[key].map((row, position) => position === index ? { ...row, ...patch } : row) });
   const semesters = form.semesterCgpa || [];
 
@@ -24,14 +25,14 @@ export default function StudentProfileDetails({ form, onChange, disabled, editin
     <section className={panel} aria-labelledby="profile-academics-heading">
       <h2 id="profile-academics-heading" className="text-base font-semibold tracking-tight">Academic details</h2>
       <div className="mt-4 grid gap-x-5 gap-y-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        {field("enrollmentNo", "Enrollment number", { maxLength: 200 })}
-        {field("collegeName", "College", { maxLength: 200 })}
-        {editing ? <CourseBranchFields course={form.course} branch={form.branch} disabled={disabled} className={input} required onChange={onChange} /> : <>{field("course", "Course")}<Field label="Branch / specialization" value={branchLabel(form.branch)} displayOnly /></>}
-        {field("semester", "Current semester", { type: "number", min: 1, max: 12, step: 1 })}
-        {field("passingYear", "Graduating year", { type: "number", min: 2000, max: 2100, step: 1 })}
-        {field("cgpa", "CGPA", { type: "number", min: 0, max: 10, step: "0.01", required: true })}
-        {field("activeBacklogs", "Active backlogs", { type: "number", min: 0, step: 1, required: true })}
-        {field("totalBacklogs", "Total backlogs", { type: "number", min: 0, step: 1, required: true })}
+        {field("enrollmentNo", "Enrollment number", { maxLength: 200, required: true })}
+        {field("collegeName", "College", { maxLength: 200, required: true })}
+        {editing ? <CourseBranchFields course={form.course} branch={form.branch} disabled={disabled} className={input} required onChange={onChange} /> : <>{field("course", "Course")}<ProfileField label="Branch / specialization" value={branchLabel(form.branch)} displayOnly /></>}
+        {field("semester", "Current semester", { type: "number", min: 1, max: 12, step: 1, required: true })}
+        {field("passingYear", "Graduating year", { type: "number", min: 2000, max: 2100, step: 1, required: true })}
+        {field("cgpa", "CGPA", { type: "number", min: 0.01, max: 9.99, step: "0.01", required: true })}
+        {field("activeBacklogs", "Active backlogs", { type: "number", min: 0, max: 100, step: 1, required: true })}
+        {field("totalBacklogs", "Total backlogs", { type: "number", min: 0, max: 100, step: 1, required: true })}
         {field("counselorGroup", "Counselor group", { maxLength: 200 })}
       </div>
 
@@ -43,8 +44,8 @@ export default function StudentProfileDetails({ form, onChange, disabled, editin
         {!semesters.length && <p className="mt-3 text-sm text-slate-400">No semester results added.</p>}
         {editing ? <div className="mt-3 grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{semesters.map((row, index) => <div key={index} className="flex min-w-0 items-end gap-2 rounded-xl border border-white/10 p-3">
           <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-            <Field label="Semester" type="number" min="1" max="12" step="1" required value={row.sem} disabled={disabled} onChange={value => updateRow("semesterCgpa", index, { sem: value })} />
-            <Field label="Semester CGPA" type="number" min="0" max="10" step="0.01" required value={row.cgpa} disabled={disabled} onChange={value => updateRow("semesterCgpa", index, { cgpa: value })} />
+            <ProfileField label="Semester" type="number" min="1" max={form.semester || 12} step="1" required value={row.sem} disabled={disabled} onChange={value => updateRow("semesterCgpa", index, { sem: value })} />
+            <ProfileField label="Semester CGPA" type="number" min="0.01" max="9.99" step="0.01" required value={row.cgpa} disabled={disabled} onChange={value => updateRow("semesterCgpa", index, { cgpa: value })} />
           </div>
           <button type="button" disabled={disabled} className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-red-300 hover:bg-red-400/10 disabled:opacity-50" aria-label={`Remove semester ${row.sem || index + 1}`} onClick={() => onChange({ semesterCgpa: semesters.filter((_, position) => position !== index) })}>×</button>
         </div>)}</div> : semesters.length > 0 && <dl aria-label="Semester CGPA results" className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-2">
@@ -62,15 +63,15 @@ export default function StudentProfileDetails({ form, onChange, disabled, editin
           {editing ? <label className="block text-sm font-medium text-slate-300">Qualification before degree<select className={input} value={form.entryQualification || "TWELFTH"} disabled={disabled} onChange={event => onChange({ entryQualification: event.target.value })}>
             <option value="TWELFTH">12th / Higher secondary</option>
             <option value="DIPLOMA" disabled={!supportsDiplomaEntry(form.course)}>Diploma (lateral entry to B.Tech)</option>
-          </select></label> : <Field label="Qualification before degree" value={diploma ? "Diploma (lateral entry)" : "12th / Higher secondary"} displayOnly />}
+          </select></label> : <ProfileField label="Qualification before degree" value={diploma ? "Diploma (lateral entry)" : "12th / Higher secondary"} displayOnly />}
             {field("tenthPercentage", "10th marks (%)", { type: "number", min: 0, max: 100, step: "0.01" })}
             {diploma ? <>
               {field("diplomaPercentage", "Diploma marks (%)", { type: "number", min: 0, max: 100, step: "0.01", required: true })}
               {field("diplomaCollege", "Diploma institute", { maxLength: 200 })}
               {editing ? <label className="block text-sm font-medium text-slate-300">Diploma branch<select className={input} value={selectedDiplomaBranch} disabled={disabled || !programs.length} onChange={event => onChange({ diplomaBranch: event.target.value })}>
                 <option value="">Choose branch</option>{diplomaBranches.map(branch => <option key={branch} value={branch}>{branchLabel(branch)}</option>)}
-              </select></label> : <Field label="Diploma branch" value={branchLabel(form.diplomaBranch)} displayOnly />}
-              {field("diplomaPassingYear", "Diploma passing year", { type: "number", min: 1980, max: 2100, step: 1 })}
+              </select></label> : <ProfileField label="Diploma branch" value={branchLabel(form.diplomaBranch)} displayOnly />}
+              {field("diplomaPassingYear", "Diploma passing year", { type: "number", min: 1980, max: 2100, step: 1, required: true })}
             </> : <>
               {field("twelfthPercentage", "12th marks (%)", { type: "number", min: 0, max: 100, step: "0.01" })}
               {field("twelfthStream", "12th stream", { maxLength: 200 })}
@@ -89,13 +90,13 @@ export function ProfilePortfolio({ form, onChange, disabled, editing = false }) 
       {editing && <button type="button" className="text-xs font-semibold text-cyan-300 disabled:opacity-50" disabled={disabled || links.length >= 10} onClick={() => onChange({ portfolioLinks: [...links, { label: "", url: "" }] })}>+ Add link</button>}
     </div>
     <div className="mt-4 space-y-4">
-      <Field label="GitHub" type="url" value={form.githubUrl} disabled={disabled} displayOnly={!editing} onChange={value => onChange({ githubUrl: value })} />
-      <Field label="LinkedIn" type="url" value={form.linkedinUrl} disabled={disabled} displayOnly={!editing} onChange={value => onChange({ linkedinUrl: value })} />
+      <ProfileField label="GitHub" type="url" maxLength={2000} value={form.githubUrl} disabled={disabled} displayOnly={!editing} onChange={value => onChange({ githubUrl: value })} />
+      <ProfileField label="LinkedIn" type="url" maxLength={2000} value={form.linkedinUrl} disabled={disabled} displayOnly={!editing} onChange={value => onChange({ linkedinUrl: value })} />
       {links.map((link, index) => editing ? <div key={index} className="space-y-3 border-t border-white/10 pt-4">
-        <Field label="Link name" value={link.label} maxLength={60} required placeholder="e.g. Website, LeetCode" disabled={disabled} onChange={value => updateLink(index, { label: value })} />
-        <Field label="Link URL" type="url" value={link.url} maxLength={2000} required placeholder="https://" disabled={disabled} onChange={value => updateLink(index, { url: value })} />
+        <ProfileField label="Link name" value={link.label} maxLength={60} required placeholder="e.g. Website, LeetCode" disabled={disabled} onChange={value => updateLink(index, { label: value })} />
+        <ProfileField label="Link URL" type="url" maxLength={2000} value={link.url} required placeholder="https://" disabled={disabled} onChange={value => updateLink(index, { url: value })} />
         <button type="button" disabled={disabled} className="text-xs font-medium text-red-300 disabled:opacity-50" aria-label={`Remove link ${link.label || index + 1}`} onClick={() => onChange({ portfolioLinks: links.filter((_, position) => position !== index) })}>Remove link</button>
-      </div> : <Field key={index} label={link.label} type="url" value={link.url} displayOnly />)}
+      </div> : <ProfileField key={index} label={link.label} type="url" maxLength={2000} value={link.url} displayOnly />)}
     </div>
   </section>;
 }
@@ -112,8 +113,8 @@ export function ProfileProjects({ form, onChange, disabled, editing = false }) {
     <ul className={`mt-3 grid gap-3 ${editing ? "xl:grid-cols-2" : "grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))]"}`}>
       {projects.map((row, index) => <li key={index} className="min-w-0 space-y-3 rounded-xl border border-white/10 p-3">
         {editing ? <>
-          <Field label="Project title" value={row.title} maxLength={200} required disabled={disabled} onChange={value => updateProject(index, { title: value })} />
-          <Field label="Project URL" type="url" value={row.projectUrl} disabled={disabled} onChange={value => updateProject(index, { projectUrl: value })} />
+          <ProfileField label="Project title" value={row.title} maxLength={200} required disabled={disabled} onChange={value => updateProject(index, { title: value })} />
+          <ProfileField label="Project URL" type="url" maxLength={2000} value={row.projectUrl} disabled={disabled} onChange={value => updateProject(index, { projectUrl: value })} />
           <label className="block text-sm font-medium text-slate-300">Description<textarea rows={2} maxLength={3000} className={input} value={row.description || ""} disabled={disabled} onChange={event => updateProject(index, { description: event.target.value })} /></label>
           <button type="button" disabled={disabled} className="text-xs font-medium text-red-300 disabled:opacity-50" aria-label={`Remove project ${row.title || index + 1}`} onClick={() => onChange({ projects: projects.filter((_, position) => position !== index) })}>Remove project</button>
         </> : <>
@@ -126,4 +127,12 @@ export function ProfileProjects({ form, onChange, disabled, editing = false }) {
       </li>)}
     </ul>
   </section>;
+}
+
+export function ProfileIdentityFields({ form, onChange, disabled = false }) {
+  return <div className="space-y-3">
+    <ProfileField label="Full name" value={form.name} required maxLength={200} autoComplete="name" disabled={disabled} onChange={name => onChange({ name })} />
+    <ProfileField label="Contact number" value={form.contactNo} type="tel" inputMode="numeric" pattern={phonePattern} maxLength={10} minLength={10} title="Enter exactly 10 digits" required autoComplete="tel-national" disabled={disabled} onChange={contactNo => onChange({ contactNo })} />
+    <ProfileField label="WhatsApp number (optional)" value={form.whatsappNo} type="tel" inputMode="numeric" pattern={phonePattern} maxLength={10} minLength={10} title="Enter exactly 10 digits, or leave empty" disabled={disabled} onChange={whatsappNo => onChange({ whatsappNo })} />
+  </div>;
 }

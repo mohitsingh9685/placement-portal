@@ -1,4 +1,6 @@
+import { validNumber } from "./formValidation.js";
 import { selectedPrograms } from "./academics.js";
+import { deadlineInputIssue } from "./driveEditor.js";
 
 const issue = (tab, field, message, extra = {}) => ({ tab, field, message, ...extra });
 const blank = value => value == null || String(value).trim() === "";
@@ -8,9 +10,8 @@ function textIssue(value, label, max, required = false) {
 }
 function numberIssue(value, label, min, max, integer = false) {
   if (blank(value)) return null;
-  const number = Number(value);
-  return !Number.isFinite(number) || number < min || number > max || (integer && !Number.isInteger(number))
-    ? `${label} must be ${integer ? "a whole number " : ""}between ${min} and ${max}.` : null;
+  return !validNumber(value, min, max, integer)
+    ? `${label} must be ${integer ? "a whole number " : ""}between ${min} and ${max}${integer ? "" : ", with at most two decimal places"}.` : null;
 }
 // Validate role data even when its dialog or tab is not mounted.
 export function roleEditorIssue(role, catalog = []) {
@@ -23,8 +24,8 @@ export function roleEditorIssue(role, catalog = []) {
   const positions = numberIssue(role.positions, "Positions", 1, 100000, true);
   if (positions) return issue("details", "positions", positions);
   const criteria = role.eligibility;
-  for (const [field, label, max, integer] of [["minCgpa", "Minimum CGPA", 10], ["minTenthPercentage", "10th cutoff", 100], ["minTwelfthPercentage", "12th cutoff", 100], ["minDiplomaPercentage", "Diploma cutoff", 100], ["maxTotalBacklogs", "Total backlog limit", 100, true], ...(criteria.allowActiveBacklogs ? [["maxActiveBacklogs", "Active backlog limit", 100, true]] : [])]) {
-    const message = numberIssue(criteria[field], label, 0, max, integer);
+  for (const [field, label, max, integer] of [["minCgpa", "Minimum CGPA", 9.99], ["minTenthPercentage", "10th cutoff", 100], ["minTwelfthPercentage", "12th cutoff", 100], ["minDiplomaPercentage", "Diploma cutoff", 100], ["maxTotalBacklogs", "Total backlog limit", 100, true], ...(criteria.allowActiveBacklogs ? [["maxActiveBacklogs", "Active backlog limit", 100, true]] : [])]) {
+    const message = numberIssue(criteria[field], label, field === "minCgpa" ? 0.01 : 0, max, integer);
     if (message) return issue("eligibility", field, message);
   }
   if (!blank(criteria.maxTotalBacklogs) && Number(criteria.maxTotalBacklogs) < (criteria.allowActiveBacklogs ? Number(criteria.maxActiveBacklogs) : 0)) return issue("eligibility", "maxTotalBacklogs", "Total backlog limit cannot be below the active backlog limit.");
@@ -47,7 +48,8 @@ export function driveEditorIssue(form, catalog = []) {
     const message = textIssue(form[field], label, max, required);
     if (message) return { scope: "drive", field, message };
   }
-  if (form.registrationDeadline && !Number.isFinite(new Date(`${form.registrationDeadline}:00+05:30`).getTime())) return { scope: "drive", field: "registrationDeadline", message: "Enter a valid application deadline." };
+  const deadline = deadlineInputIssue(form.registrationDeadline);
+  if (deadline) return { scope: "drive", ...deadline };
   if (!form.roles.length) return { scope: "drive", field: "roles", message: "Add at least one role before saving the drive." };
   for (const [roleIndex, role] of form.roles.entries()) {
     const error = roleEditorIssue(role, catalog);

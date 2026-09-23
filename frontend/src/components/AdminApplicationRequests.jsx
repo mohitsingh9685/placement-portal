@@ -38,9 +38,11 @@ function Request({ application, request, canManage, canViewResumes, onUpdated })
     </div>}
   </div>;
 }
-export default function AdminApplicationRequests({ applications, canManage, canViewResumes, onUpdated }) {
+export default function AdminApplicationRequests({ applications, canManage, canViewResumes, onUpdated, embedded = false }) {
   const requests = applications.flatMap(application => (application.requests || []).map(request => ({ application, request }))).sort((a, b) => Number(b.request.status === "PENDING") - Number(a.request.status === "PENDING") || new Date(b.request.requestedAt) - new Date(a.request.requestedAt));
   if (!requests.length) return null;
   const pending = requests.filter(item => item.request.status === "PENDING").length;
-  return <details open={pending > 0} className="rounded-2xl border border-cyan-400/20 bg-slate-900/80 p-5"><summary className="cursor-pointer text-lg font-semibold text-slate-100">Student requests · {pending} awaiting review</summary><div className="mt-4 space-y-4">{requests.map(({ application, request }) => <Request key={request._id} application={application} request={request} canManage={canManage} canViewResumes={canViewResumes} onUpdated={onUpdated} />)}</div></details>;
+  const items = requests.map(({ application, request }) => <Request key={request._id} application={application} request={request} canManage={canManage} canViewResumes={canViewResumes} onUpdated={onUpdated} />);
+  if (embedded) return <div className="space-y-3">{items}</div>;
+  return <details open={pending > 0} className="rounded-2xl border border-cyan-400/20 bg-slate-900/80 p-5"><summary className="cursor-pointer text-lg font-semibold text-slate-100">Student requests · {pending} awaiting review</summary><div className="mt-4 space-y-4">{items}</div></details>;
 }

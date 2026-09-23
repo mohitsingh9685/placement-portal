@@ -1,10 +1,19 @@
+# Generated dependencies and builds
 node_modules/
-.env
-backend/.env
-frontend/.env
-frontend/.env.local
 dist/
+dist-ssr/
 build/
-uploads/
-mohit.md
+coverage/
+*.log
+
+# Credentials, private exports, backups and uploaded files
+.env
+.env.*
+!.env.example
 /private-data/
+uploads/
+
+# Local editor and OS files
+.kiro/
+.idea/
+.DS_Store

@@ -77,6 +77,24 @@ test("rollback refuses to overwrite activity after migration", async () => {
   await migrated(); await Student.updateOne({ _id: fixture.studentId }, { $set: { cgpa: 9 } });
   await assert.rejects(rollbackStage2(mongoose.connection), /data changed/); assert.equal((await Student.findById(fixture.studentId)).cgpa, 9);
 });
+test("rollback requires complete backups, preserves live data on refusal, and permits a zero-operation migration", async () => {
+  await migrated();
+  const run = await db.collection("migrationruns").findOne({ _id: "stage2-v1" });
+  assert.ok(run.summary.operations > 1);
+  const before = {};
+  for (const name of Object.keys(run.fingerprint)) before[name] = await db.collection(name).find().sort({ _id: 1 }).toArray();
+  for (const remove of ["deleteOne", "deleteMany"]) {
+    await db.collection("migrationbackups")[remove]({ migration: run.backupId });
+    await assert.rejects(rollbackStage2(mongoose.connection), /backup is missing or incomplete/);
+    for (const [name, docs] of Object.entries(before)) assert.deepEqual(await db.collection(name).find().sort({ _id: 1 }).toArray(), docs);
+    assert.deepEqual(await db.collection("migrationruns").findOne({ _id: run._id }), run);
+  }
+  await db.dropDatabase();
+  await migrated();
+  assert.equal((await db.collection("migrationruns").findOne({ _id: run._id })).summary.operations, 0);
+  assert.equal(await db.collection("migrationbackups").countDocuments(), 0);
+  assert.deepEqual(await rollbackStage2(mongoose.connection), { rolledBack: true });
+});
 test("an interrupted index build leaves startup blocked and reapplying completes it safely", async () => {
   const original = Admin.createIndexes;
   Admin.createIndexes = async () => { throw new Error("Synthetic index interruption"); };
@@ -161,6 +179,7 @@ test("roster revisions prevent stale edits and disabling revokes every student s
   await migrated(); const cookie = await cookieFor("admin"), studentCookie = await cookieFor(); await cookieFor();
   const entry = await ApprovedStudent.findOne({ email: fixture.student.email }), path = `/api/admin/roster/${entry._id}`;
   assert.equal((await request(path, { cookie, method: "PATCH", body: { revision: 0, role: "admin" } })).status, 400);
+  assert.equal((await request(path, { cookie, method: "PATCH", body: { revision: 0, branch: "CIVIL" } })).status, 400);
   assert.equal((await request(path, { cookie, method: "PATCH", body: { revision: 0, isActive: false, passingYear: 2028 } })).status, 200);
   assert.equal(await AuthSession.countDocuments({ user: fixture.studentId }), 0); assert.equal((await request("/api/auth/profile", { cookie: studentCookie })).status, 401);
   assert.equal((await request(path, { cookie, method: "PATCH", body: { revision: 0, isActive: true } })).status, 409);

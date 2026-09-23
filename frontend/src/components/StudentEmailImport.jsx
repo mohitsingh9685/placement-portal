@@ -75,7 +75,7 @@ export default function StudentEmailImport({ onImported }) {
       </div>
       <footer className="shrink-0 space-y-3 border-t border-white/10 px-4 pb-4">
         <Pagination data={previewData} page={page} onPage={setPage} loading={busy} label="preview rows" />
-        {blocked && <p className="text-xs text-red-300">Fix invalid emails and staff conflicts before importing.</p>}
+        {blocked && <p className="text-xs text-red-300">Fix invalid rows and staff conflicts before importing.</p>}
         <button type="button" className={action} disabled={busy || !preview.summary.READY || blocked} onClick={commit}>{busy ? "Approving…" : `Approve ${preview.summary.READY} new students`}</button>
       </footer>
     </>}

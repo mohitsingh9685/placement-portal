@@ -1,3 +1,4 @@
+import { profileCompletionSchema } from "../validators/authValidator.js";
 import { validProgram } from "../config/academicPrograms.js";
 import { educationProfileUpdate } from "../services/educationService.js";
 import { OAuth2Client } from "google-auth-library";
@@ -90,6 +91,10 @@ export async function refreshAccessToken(req, res, next) {
 
 export async function updateProfile(req, res, next) {
   try {
+    const profile = { ...req.user.toObject(), ...req.body };
+    if (!req.user.profileCompleted) profileCompletionSchema.parse(profile);
+    if (profile.semester && profile.semesterCgpa?.some(row => row.sem > profile.semester)) throw new ApiError(400, "Semester results cannot be ahead of your current semester");
+    if (profile.entryQualification === "DIPLOMA" && profile.diplomaPassingYear != null && profile.passingYear && profile.diplomaPassingYear > profile.passingYear) throw new ApiError(400, "Diploma passing year cannot be after your graduating year");
     const course = req.body.course ?? req.user.course;
     if (course && !validProgram(course, req.body.branch)) throw new ApiError(400, "Choose a valid course and branch combination");
     const update = { ...req.body, ...educationProfileUpdate(req.body, req.user), ...(req.body.semester ? { year: Math.ceil(req.body.semester / 2) } : {}), hasActiveBacklog: req.body.activeBacklogs > 0, profileCompleted: true };

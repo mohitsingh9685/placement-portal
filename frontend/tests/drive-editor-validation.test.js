@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { emptyDrive, newRole, drivePayload, editorFromGraph } from "../src/utils/driveEditor.js";
+import { emptyDrive, newRole, drivePayload, editorFromGraph, splitDeadlineInput, joinDeadlineInput } from "../src/utils/driveEditor.js";
 import { driveEditorIssue, roleEditorIssue } from "../src/utils/driveEditorValidation.js";
 import { academicPrograms } from "../../backend/config/academicPrograms.js";
 import { driveSchema } from "../../backend/validators/driveValidator.js";
@@ -37,6 +37,16 @@ test("course errors cannot silently broaden an unmounted role's eligibility", ()
 });
 test("invalid hidden numbers, years and offer order surface before save", () => {
   const role = newRole(); role.title = "Engineer";
+  for (const minCgpa of [0, 10, "8.255", "1e0"]) {
+    role.eligibility.minCgpa = minCgpa;
+    assert.equal(roleEditorIssue(role, academicPrograms).field, "minCgpa");
+    if (minCgpa !== 0 && minCgpa !== "1e0") assert.equal(driveSchema.safeParse(drivePayload({ ...validForm(), roles: [role] })).success, false);
+  }
+  for (const minCgpa of ["", 0.01, 9.99]) {
+    role.eligibility.minCgpa = minCgpa;
+    assert.equal(roleEditorIssue(role, academicPrograms), null);
+    assert.equal(driveSchema.safeParse(drivePayload({ ...validForm(), roles: [role] })).success, true);
+  }
   role.eligibility.years = "2027, tomorrow";
   assert.equal(roleEditorIssue(role, academicPrograms).field, "years");
   role.eligibility.years = "2027, 2028";
@@ -64,9 +74,40 @@ test("removing and restoring a saved role preserves its identifiers and round hi
 });
 test("company fields and an empty role list surface on the main page", () => {
   const form = validForm(); form.registrationDeadline = "invalid";
-  assert.equal(driveEditorIssue(form, academicPrograms).field, "registrationDeadline");
+  assert.equal(driveEditorIssue(form, academicPrograms).field, "registrationDeadlineDate");
   form.registrationDeadline = ""; form.companyName = " ";
   assert.equal(driveEditorIssue(form, academicPrograms).scope, "drive");
   form.companyName = "Example"; form.roles = [];
   assert.equal(driveEditorIssue(form, academicPrograms).field, "roles");
+});
+test("split deadline fields preserve typed text and identify the missing field", () => {
+  const form = validForm();
+  for (const [date, time, field] of [["2027-09-23", "", "registrationDeadlineTime"], ["", "9:30", "registrationDeadlineDate"], ["2027-09-23", "9:", "registrationDeadlineTime"]]) {
+    form.registrationDeadline = joinDeadlineInput(date, time);
+    assert.deepEqual(splitDeadlineInput(form.registrationDeadline), { date, time });
+    assert.equal(driveEditorIssue(form, academicPrograms).field, field);
+    assert.throws(() => drivePayload(form), RangeError);
+  }
+  form.registrationDeadline = joinDeadlineInput("2027-09-23", "9:30");
+  assert.equal(form.registrationDeadline, "2027-09-23T9:30");
+  assert.equal(driveEditorIssue(form, academicPrograms), null);
+  assert.equal(drivePayload(form).registrationDeadline, "2027-09-23T04:00:00.000Z");
+  form.registrationDeadline = joinDeadlineInput("", "");
+  assert.equal(form.registrationDeadline, "");
+  assert.deepEqual(splitDeadlineInput(form.registrationDeadline), { date: "", time: "" });
+  assert.equal(driveEditorIssue(form, academicPrograms), null);
+  assert.equal(drivePayload(form).registrationDeadline, null);
+});
+test("deadline validation rejects rolled-over dates and invalid typed times before saving", () => {
+  const form = validForm();
+  for (const date of ["2027-02-29", "2028-02-30", "2027-04-31", "2027-13-01", "2027-00-10", "2027-01-00", "0000-01-01", "2027-9-23"]) {
+    form.registrationDeadline = joinDeadlineInput(date, "09:30");
+    assert.equal(driveEditorIssue(form, academicPrograms).field, "registrationDeadlineDate", date);
+    assert.throws(() => drivePayload(form), RangeError);
+  }
+  for (const time of ["24:00", "23:60", "-1:30", "009:30", "9:3", "9.30", "9:30 PM", "09:30:00"]) {
+    form.registrationDeadline = joinDeadlineInput("2028-02-29", time);
+    assert.equal(driveEditorIssue(form, academicPrograms).field, "registrationDeadlineTime", time);
+    assert.throws(() => drivePayload(form), RangeError);
+  }
 });

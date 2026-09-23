@@ -342,7 +342,7 @@ test("legacy listings open in the new editor and can acquire multiple roles with
 test("an application racing a close or stricter role edit uses one consistent drive version", async () => {
   for (const operation of ["close", "eligibility"]) {
     const graph = await publish(await create());
-    const change = operation === "close" ? request(`/api/company/${graph._id}/drive/status`, { method: "POST", body: { revision: graph.drive.revision, status: "CLOSED" } }) : (() => { const body = editInput(graph); body.roles[0].eligibility.minCgpa = 10; return edit(graph, body); })();
+    const change = operation === "close" ? request(`/api/company/${graph._id}/drive/status`, { method: "POST", body: { revision: graph.drive.revision, status: "CLOSED" } }) : (() => { const body = editInput(graph); body.roles[0].eligibility.minCgpa = 9.99; return edit(graph, body); })();
     const [result, submitted] = await Promise.all([change, apply(graph.roles[0])]);
     assert.equal(result.status, 200); assert.ok([201, 400].includes(submitted.status));
     const count = await Application.countDocuments({ drive: graph.drive._id }); assert.equal(count, submitted.status === 201 ? 1 : 0);

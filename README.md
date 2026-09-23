@@ -1,170 +1,61 @@
-# MAIT Placement Portal
+# Placement Portal
 
-A full-stack placement management system for students and administrators. It centralizes company listings, eligibility checks, applications, status tracking, profile management, and document uploads.
+A college placement system for students, placement staff and Super Admins. It
+manages approved student access, company drives, role eligibility, applications,
+recruitment rounds, offers and placement reports.
 
-## Highlights
+## Start here
 
-- Google OAuth restricted to pre-approved students and administrators
-- HTTP-only JWT cookies, automatic session restoration, and independent device sessions
-- Role-based access for company, applicant, resume, and JD operations
-- CGPA, branch, backlog, and active-backlog eligibility checks
-- Session-only guest demo with realistic eligibility and private applications
-- Optional Redis caching with bounded fallback, request validation, and API rate limiting
-- Private AWS S3 storage with short-lived signed URLs
-- Cloudinary profile-photo uploads
-- Separate staff accounts, college email-roster imports and batch administration
-- Super Admins can add staff, grant/revoke ordinary admin permissions and disable/restore ordinary admin access; all Super Admin accounts are protected from management changes
-- Direct academic profile editing, application snapshots and retained resume versions
-- Drive/role data foundation with one application per student per drive
-- Placement reports with unique placed/unplaced totals, offer counts and company/branch/year summaries
-- Paginated dashboards and applicant lists with server-side search, filtering and counts
-- Docker Compose development environment
+New developers should follow [Getting started](docs/GETTING_STARTED.md). The
+synthetic preview runs against a disposable local database without Google, AWS,
+Cloudinary or production credentials.
 
-## Tech Stack
+| Guide | What it covers |
+| --- | --- |
+| [Getting started](docs/GETTING_STARTED.md) | Installation, environment files, local development and startup problems |
+| [Architecture](docs/ARCHITECTURE.md) | System boundaries, source layout and request flow |
+| [Data model](docs/DATA_MODEL.md) | Collections, relationships, snapshots, indexes and compatibility |
+| [API reference](docs/API.md) | Endpoints, permissions, request conventions and errors |
+| [Product workflows](docs/WORKFLOWS.md) | Student access, publishing, applications, results and placement rules |
+| [Security](docs/SECURITY.md) | Authentication, authorization, private files and security verification |
+| [Testing](docs/TESTING.md) | Unit/integration checks, synthetic preview and capacity measurements |
+| [Deployment](docs/DEPLOYMENT.md) | Environment configuration, database setup, release checks and recovery |
+| [Contributing](docs/CONTRIBUTING.md) | Change scope, review expectations and documentation maintenance |
 
-- **Frontend:** React 19, Vite, React Router, Axios, Tailwind CSS
-- **Backend:** Node.js, Express 5, Mongoose
-- **Data:** MongoDB Atlas, Upstash Redis
-- **Storage:** AWS S3, Cloudinary
-- **Deployment:** Vercel frontend, Render backend
+## Technology
 
-## Architecture
+| Layer | Stack |
+| --- | --- |
+| Web app | React 19, Vite, React Router, Tailwind CSS, Axios |
+| API | Node.js, Express 5, Mongoose, Zod |
+| Database | MongoDB replica set / Atlas |
+| Optional cache | Redis |
+| Files | Private AWS S3 documents; Cloudinary profile images |
+| Hosting | Vercel frontend; Render API |
+| Verification | Node test runner, ESLint, GitHub Actions |
+
+## Repository
 
 ```text
-Browser → React/Vite → Express API → MongoDB
-                              ├── Redis cache
-                              ├── AWS S3
-                              └── Cloudinary
+frontend/          Web application and frontend tests
+backend/           API, models, services, database setup and backend tests
+docs/              Developer and operations guides
+.github/workflows/ Continuous integration
+docker-compose.yaml Local development containers
 ```
 
-## Environment Setup
+Install dependencies in `frontend` and `backend`; the root package only coordinates
+commands. Both applications have committed lockfiles. Use `npm ci` for reproducible
+installs and `npm run check` for the standard verification run.
 
-Environment files are intentionally excluded from Git.
+## Local private files
 
-### Backend: `backend/.env`
+`private-data/` is an optional, Git-ignored local folder for database backups,
+student roster imports and verification records. **It is not required to run or
+deploy the application.** It may contain student information and recovery copies;
+do not publish it, use it as test fixtures, or delete the only backup. New
+developers do not need a copy. See [data handling and recovery](docs/DEPLOYMENT.md).
 
-```env
-PORT=9000
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
-MONGO_URI=
-REDIS_URL=
-GOOGLE_CLIENT_ID=
-ACCESS_TOKEN_SECRET=
-REFRESH_TOKEN_SECRET=
-AWS_BUCKET_NAME=
-AWS_BUCKET_REGION=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-```
-
-### Frontend: `frontend/.env.local`
-
-```env
-VITE_API_URL=http://localhost:9000/api
-VITE_GOOGLE_CLIENT_ID=
-```
-
-Never commit real credentials.
-
-Access and refresh secrets must be different random strings of at least 32 characters. Startup checks required settings before connecting. `CLIENT_URL` must be the frontend origin with no path; HTTPS is required in production. Specify the intended database in `MONGO_URI`. Redis may be omitted for local development.
-
-## Drive publishing
-
-Admins with company-management permission can create draft drives with multiple roles, eligibility rules, recruitment rounds, and shared or role-specific JD documents/images. Publishing exposes the drive to students; each student can apply to one eligible role. Closing preserves application history. See [Stage 3 workflow and testing](STAGE_3_TESTING.md). This stage requires no additional database migration beyond Stage 2.
-
-## Student applications and notifications
-
-Students can save drives, check role eligibility, review their submitted details/resume, confirm one application per drive and follow its timeline. The notification bell shows publication, application/result/request updates and saved-drive deadline reminders. Notifications refresh through the existing API while the portal is open; no sockets or extra service are needed. Withdrawal and correction requests are reviewed from the admin applicant page. See [Stage 4 usage and setup](STAGE_4_TESTING.md), including the additive collection/index setup to run before rollout.
-
-## Recruiter exports, results and offers
-
-Admins can export applicant columns to Excel/CSV, preview a recruiter shortlist from pasted emails or an uploaded file, and publish partial/final results for one role and round. Students receive timeline updates and in-app notifications. Controlled batch undo, offer acceptance/joining and configurable placement rules are included. Separate staff permissions govern exports, round results and offers. ExcelJS runs in the backend; no spreadsheet account or API key is needed. See [Stage 5 usage, setup and testing](STAGE_5_TESTING.md). Its additive database setup must be applied before importing results or recording offers.
-
-## Placement reports and pagination
-
-Open **Admin → Reports** for placed/unplaced students, offer counts and company, branch or graduating-year summaries. Super Admins have access automatically; other admins need **View placement reports**, which also requires student and application viewing permissions. Reports count registered accounts and current offer states; multiple offers do not inflate the unique placed-student total.
-
-Dashboards, applicant lists and student application history now fetch one page at a time. Search, filters, sorting and totals run on the server. See [Stage 6 usage, optional index setup and verification](STAGE_6_TESTING.md). The additional indexes improve database access without changing records or creating a new database; no new service or API key is needed.
-
-## Run with Docker
-
-Requirements: Docker Desktop and Docker Compose.
-
-This release requires the explicit stage 2 database migration before the regular backend starts. Follow [stage 2 verification and rollout](STAGE_2_TESTING.md); use its synthetic preview to inspect the screens without changing Atlas. Coordinate the migration with deployment rather than starting stage 1 and stage 2 against the same database.
-
-```bash
-docker compose up -d --build
-```
-
-- Frontend: [http://localhost:5173](http://localhost:5173)
-- API health: [http://localhost:9000/health](http://localhost:9000/health)
-
-Useful commands:
-
-```bash
-docker compose ps
-docker compose logs -f
-docker compose down
-```
-
-The included Dockerfiles and `docker-compose.yaml` are intended for local development with Vite and nodemon.
-
-## Run without Docker
-
-Install dependencies once:
-
-```bash
-npm --prefix backend ci
-npm --prefix frontend ci
-```
-
-Start the API:
-
-```bash
-npm run backend
-```
-
-Start the frontend in another terminal:
-
-```bash
-npm start
-```
-
-## Google Sign-In
-
-Add these Authorized JavaScript origins to the Google OAuth web client:
-
-- `http://localhost:5173`
-- `https://placement-portal-college.vercel.app`
-
-The same Google client ID must be configured in the frontend and backend. After trimming/lowercasing, a student's verified Google email must match an active `approvedstudents` entry. Personal Gmail accounts are supported. Staff emails must match an active `admins` account instead; administrators are not student records. Setting `isActive: false` blocks access, including existing sessions. Roles come from the server's account model; browser-supplied roles are ignored. Student roster imports cannot create staff access.
-
-Super Admins have full administrative access and manage staff through **Admins**. Ordinary admins require explicit permissions for student management, company changes, applicant results and resumes. See [Super Admin setup, permissions and testing](SUPER_ADMIN_TESTING.md) for the one-time owner bootstrap and access-management workflow.
-
-Browser POST/PUT/PATCH/DELETE requests must send an allowed `Origin`. CORS alone is not the CSRF defense. Non-browser clients may use bearer-only authorization without cookies; Google login and cookie refresh/logout require an allowed origin.
-
-## Focused Tests
-
-```bash
-npm test
-npm run check
-```
-
-These checks use synthetic persistence and Google verification without connecting to Atlas or cloud services. `npm run test:integration` additionally uses a disposable localhost MongoDB replica set supplied through `TEST_MONGO_URI`. See [stage 2 setup, preview and rollout](STAGE_2_TESTING.md), the [stage 1 baseline](STAGE_1_TESTING.md), and the [six-stage implementation plan](IMPLEMENTATION_PLAN.md). The migration creates `admins` within the existing database; there is no need to delete existing databases.
-
-## Deployment Notes
-
-See the [23 September security review](SECURITY_REVIEW.md) for endpoint coverage,
-high-risk fixes, dependency checks, and the disposable 1,000-user capacity check.
-See [live infrastructure verification](STAGING_VERIFICATION.md) for the actual
-hosting/storage results, verified index setup, and remaining login checks.
-
-- Configure frontend `VITE_*` variables in Vercel.
-- Configure all backend secrets in Render.
-- Keep the S3 bucket private and use signed URLs for access.
-- Use a `rediss://` Upstash connection URL.
-- Redeploy or restart a service after changing its environment variables.
+Environment files, installed dependencies, build output and editor settings are
+also excluded from Git. Start from the committed `.env.example` templates rather
+than sharing another developer's credentials.

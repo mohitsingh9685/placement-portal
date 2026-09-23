@@ -32,11 +32,11 @@ test("admin save/reload preserves separate diploma and 12th cutoffs", () => {
   const payload = drivePayload(form); assert.equal(payload.roles[0].eligibility.minDiplomaPercentage, 60); assert.equal(payload.roles[0].eligibility.minTwelfthPercentage, 70);
   const loaded = editorFromGraph({ ...payload, drive: payload }); assert.equal(loaded.roles[0].eligibility.educationRequirement, "TWELFTH_OR_DIPLOMA");
   delete payload.roles[0].eligibility.educationRequirement;
-  assert.equal(editorFromGraph({ ...payload, drive: payload }).roles[0].eligibility.educationRequirement, "TWELFTH_OR_DIPLOMA");
+  assert.equal(editorFromGraph({ ...payload, drive: payload }).roles[0].eligibility.educationRequirement, "UNSPECIFIED");
   for (const educationRequirement of ["TWELFTH_ONLY", "DIPLOMA_ONLY", "UNSPECIFIED"]) {
     payload.roles[0].eligibility.educationRequirement = educationRequirement;
     const edited = drivePayload(editorFromGraph({ ...payload, drive: payload }));
-    assert.equal(edited.roles[0].eligibility.educationRequirement, "TWELFTH_OR_DIPLOMA");
+    assert.equal(edited.roles[0].eligibility.educationRequirement, educationRequirement);
     assert.equal(edited.roles[0].eligibility.minTwelfthPercentage, 70);
     assert.equal(edited.roles[0].eligibility.minDiplomaPercentage, 60);
   }

@@ -1,3 +1,4 @@
+import { rosterRecordSchema } from "../validators/rosterValidator.js";
 import mongoose from "mongoose";
 import Admin from "../models/Admin.js";
 import Student from "../models/Student.js";
@@ -74,7 +75,7 @@ export async function commitRoster(req, res, next) {
       if (!preview || preview.expiresAt <= new Date()) throw new ApiError(404, "Preview expired. Preview the roster again.");
       if (preview.status === "COMMITTED") { result = { alreadyCommitted: true, inserted: preview.summary.READY }; return; }
       if (preview.summary.INVALID || preview.summary.ADMIN_CONFLICT) throw new ApiError(400, "Fix invalid rows and staff conflicts before importing");
-      const ready = preview.rows.filter(row => row.status === "READY").map(row => row.record);
+      const ready = preview.rows.filter(row => row.status === "READY").map(row => rosterRecordSchema.parse(row.record));
       if (!ready.length) throw new ApiError(400, "No new students to import");
       const emails = ready.map(row => row.email);
       if (await Admin.exists({ email: { $in: emails } }).session(session) || await ApprovedStudent.exists({ email: { $in: emails } }).session(session)) {

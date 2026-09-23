@@ -1,3 +1,4 @@
+import { emailSchema } from "../validators/fieldValidators.js";
 import ExcelJS from "exceljs";
 import { Worker } from "node:worker_threads";
 import ApiError from "../utils/ApiError.js";
@@ -67,7 +68,7 @@ export function emailRows(rows) {
   return rows.slice(start).map((cells, row) => {
     const email = String(cells[index] ?? "").trim().toLowerCase();
     let status = "READY", message = "";
-    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /^[=+\-]/.test(email)) { status = "INVALID"; message = "Invalid email address"; }
+    if (!emailSchema.safeParse(email).success || /^[=+\-]/.test(email)) { status = "INVALID"; message = "Invalid email address"; }
     else if (seen.has(email)) { status = "DUPLICATE"; message = "Repeated email; counted once"; }
     else seen.add(email);
     return { row: cells.rowNumber || row + start + 1, email: email.slice(0, 254), status, message };

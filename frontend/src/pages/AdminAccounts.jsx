@@ -1,3 +1,4 @@
+import { validEmail } from "../utils/formValidation.js";
 import { useEffect, useRef, useState } from "react";
 import API from "../api/axios.js";
 import Navbar from "../components/Navbar.jsx";
@@ -68,6 +69,8 @@ export default function AdminAccounts() {
   async function save(event) {
     event.preventDefault();
     if (busy) return;
+    if (!form.name.trim()) { setError("Full name is required."); nameRef.current?.focus(); return; }
+    if (!editing && !validEmail(form.email)) { setError("Enter a valid email address, for example name@example.com."); return; }
     if (editing && !canManageAdminAccount(user, editing)) { setError("Super Admin accounts are protected."); return; }
     setBusy(true); setError(""); setNotice("");
     try {

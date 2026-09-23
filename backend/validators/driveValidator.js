@@ -1,3 +1,4 @@
+import { cgpaCutoffSchema, percentageSchema } from "./fieldValidators.js";
 import { z } from "zod";
 import { objectId } from "./authValidator.js";
 import { programCriteriaSchema, branchSummary } from "./academicValidator.js";
@@ -25,9 +26,9 @@ const role = z.object({
     .transform(pay => pay.mode === "TEXT" ? { ...pay, amount: null, period: "UNSPECIFIED" } : { ...pay, description: "" }),
   eligibility: z.object({
     allCourses: z.boolean().default(false), programs: programCriteriaSchema.default([]),
-    minCgpa: z.number().min(0).max(10).default(0),
-    minTenthPercentage: z.number().min(0).max(100).nullable().optional(), minTwelfthPercentage: z.number().min(0).max(100).nullable().optional(),
-    minDiplomaPercentage: z.number().min(0).max(100).nullable().optional(),
+    minCgpa: cgpaCutoffSchema.default(0),
+    minTenthPercentage: percentageSchema.nullable().optional(), minTwelfthPercentage: percentageSchema.nullable().optional(),
+    minDiplomaPercentage: percentageSchema.nullable().optional(),
     educationRequirement: z.enum(["TWELFTH_OR_DIPLOMA", "TWELFTH_ONLY", "DIPLOMA_ONLY", "UNSPECIFIED"]).optional(),
     maxActiveBacklogs: z.number().int().min(0).max(100).default(0), maxTotalBacklogs: z.number().int().min(0).max(100).nullable().optional(),
     allowActiveBacklogs: z.boolean().nullable().default(false).transform(value => value ?? true),

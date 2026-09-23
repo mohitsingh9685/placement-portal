@@ -159,6 +159,10 @@ export async function rollbackStage2(connection) {
     if (run?.status !== "APPLIED") throw new Error("No applied stage 2 migration to roll back");
     if (encode(run.fingerprint) !== encode(await inventory(db, session))) throw new Error("Rollback refused: data changed after migration. Restore/reconcile from backup instead of overwriting newer activity.");
     const backups = await db.collection("migrationbackups").find({ migration: run.backupId }, { session }).toArray();
+    const expectedOperations = run.summary?.operations;
+    if (!Number.isSafeInteger(expectedOperations) || expectedOperations < 0 || backups.length !== expectedOperations) {
+      throw new Error("Rollback refused: migration backup is missing or incomplete. Restore/reconcile from a complete backup.");
+    }
     for (const op of backups.reverse()) {
       if (op.before === null) await db.collection(op.targetCollection).deleteOne({ _id: op.sourceId }, { session });
       else await db.collection(op.targetCollection).replaceOne({ _id: op.sourceId }, op.before, { upsert: true, session });

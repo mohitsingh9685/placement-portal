@@ -1,3 +1,4 @@
+import { rosterRecordSchema } from "../validators/rosterValidator.js";
 const columns = new Set(["email", "name", "enrollmentNo", "branch", "passingYear"]);
 const aliases = { enrollmentno: "enrollmentNo", rollno: "enrollmentNo", passingyear: "passingYear", graduationyear: "passingYear" };
 export function parseRoster(text) {
@@ -34,12 +35,13 @@ export function parseRoster(text) {
     const record = Object.fromEntries(headers.map((key, i) => [key, cells[i] || ""]));
     record.email = record.email.toLowerCase().trim(); if (record.branch !== undefined) record.branch = record.branch.toUpperCase();
     const result = { row: index + (header.includes("email") ? 2 : 1), record, status: "READY", message: "" };
-    const invalid = cells.length !== headers.length || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.email) || record.email.length > 254 || Object.values(record).some(value => value.length > 254 || value.includes('\n'));
-    if (invalid) { result.status = "INVALID"; result.message = "Invalid email, field length or number of columns"; }
-    else if (record.passingYear && (!/^\d{4}$/.test(record.passingYear) || +record.passingYear < 2000 || +record.passingYear > 2100)) { result.status = "INVALID"; result.message = "Passing year must be between 2000 and 2100"; }
+    if (record.passingYear === "") delete record.passingYear;
+    const parsed = rosterRecordSchema.safeParse(record);
+    if (cells.length !== headers.length) { result.status = "INVALID"; result.message = "Number of columns does not match the header"; }
+    else if (!parsed.success) { result.status = "INVALID"; result.message = parsed.error.issues.map(issue => `${issue.path.join(".")}: ${issue.message}`).join("; "); }
     else if (seen.has(record.email)) { result.status = "DUPLICATE"; result.message = "Duplicate email within this import"; }
     else { seen.add(record.email); }
-    if (record.passingYear) record.passingYear = Number(record.passingYear); else delete record.passingYear;
+    if (parsed.success) result.record = parsed.data;
     return result;
   });
 }
